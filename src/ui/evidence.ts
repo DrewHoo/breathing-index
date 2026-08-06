@@ -20,8 +20,8 @@ export function evidenceLine(prediction: Prediction, diary: DiaryEntry[]): strin
             month: 'short',
             day: 'numeric',
           })
-        : 'a previous'
-    return `${list(floorReason.variables)} together match your ${when} bad day.`
+        : 'a previous day'
+    return `${list(floorReason.variables)} together match ${when}, which you rated a ${floorReason.level}.`
   }
   const suspect = prediction.reasons.find((r) => r.kind === 'suspect')
   if (suspect) {

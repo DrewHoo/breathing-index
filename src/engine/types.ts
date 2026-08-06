@@ -13,6 +13,8 @@ export interface DiaryEntry {
   note?: string
   confounders?: string[]
   exposure: Exposure
+  /** official composite indices at log time — scoreboard receipts, never used by inference */
+  official?: { usAqi: number | null; eaqi: number | null }
 }
 
 /** The subset of DiaryEntry that inference reads. */

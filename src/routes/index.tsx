@@ -1,52 +1,20 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useMemo } from 'react'
 import { PRIORS } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { Prediction, Rating } from '../engine/types'
-import { fetchExposureSeries, type ExposureSeries } from '../sources/openMeteo'
+import type { ExposureSeries } from '../sources/openMeteo'
 import { loadDiary } from '../ui/diaryStorage'
 import { evidenceLine } from '../ui/evidence'
 import { BI_LABELS, VARIABLE_LABELS } from '../ui/labels'
+import { useExposureSeries } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/')({ component: Home })
-
-const DEFAULT_LOCATION = { lat: 41.396, lon: -72.897, label: 'Hamden, CT (default)' }
 
 const STRIP_VARIABLES = ['pm25', 'pm10', 'o3', 'no2', 'heat_stress', 'cold_dry_stress', 'humidity']
 
 function Home() {
-  const [location, setLocation] = useState(DEFAULT_LOCATION)
-  const [data, setData] = useState<ExposureSeries | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    navigator.geolocation?.getCurrentPosition(
-      (pos) =>
-        setLocation({
-          lat: Math.round(pos.coords.latitude * 1000) / 1000,
-          lon: Math.round(pos.coords.longitude * 1000) / 1000,
-          label: 'Your location',
-        }),
-      () => undefined,
-      { timeout: 5000, maximumAge: 600_000 },
-    )
-  }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    setError(null)
-    fetchExposureSeries(location.lat, location.lon)
-      .then((series) => {
-        if (!cancelled) setData(series)
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [location])
-
+  const { location, series: data, error } = useExposureSeries()
   const diary = useMemo(loadDiary, [])
   const model = useMemo(() => buildModel(diary), [diary])
 
@@ -68,6 +36,9 @@ function Home() {
         raw={current.raw}
       />
       <TodayCurve data={data} model={model} />
+      <Link to="/diary" className="log-cta">
+        How's breathing? Log it →
+      </Link>
       <p className="meta-line">
         {location.label} · Open-Meteo (model) · as of{' '}
         {current.time.slice(11)} local

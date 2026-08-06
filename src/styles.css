@@ -232,3 +232,282 @@ main {
   color: var(--fg-muted);
   max-width: 44ch;
 }
+
+/* --- diary --- */
+
+.log-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0 24px;
+}
+
+.rating-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.rating-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.rating-button.selected.bi-border-1 { border-color: var(--bi-1); }
+.rating-button.selected.bi-border-2 { border-color: var(--bi-2); }
+.rating-button.selected.bi-border-3 { border-color: var(--bi-3); }
+.rating-button.selected.bi-border-4 { border-color: var(--bi-4); }
+
+.rating-digit {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.rating-label {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.log-details {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.chip-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.hint {
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+.note-input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.save-button {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.conflict-card {
+  background: #fff8f0;
+  border: 1px solid #f0ddc0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.entry-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.entry-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.bi-bg-1 { background: var(--bi-1); }
+.bi-bg-2 { background: var(--bi-2); }
+.bi-bg-3 { background: var(--bi-3); }
+.bi-bg-4 { background: var(--bi-4); }
+
+.entry-body {
+  flex: 1;
+}
+
+.entry-when {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.entry-tag {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 8px;
+}
+
+.entry-exposures,
+.entry-note {
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.entry-delete {
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  border: none;
+  background: none;
+  color: var(--fg-muted);
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.log-cta {
+  display: block;
+  margin-top: 20px;
+  text-align: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* --- detail sparklines --- */
+
+.spark-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.spark-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.spark-label {
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 64px;
+}
+
+.spark-value {
+  font-size: 14px;
+}
+
+.spark-range {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.spark {
+  width: 100%;
+  height: 44px;
+  display: block;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+.spark-days {
+  position: relative;
+  height: 18px;
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+.spark-days span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+/* --- scoreboard --- */
+
+.scoreboard-verdict {
+  font-weight: 600;
+}
+
+.scoreboard {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.scoreboard th,
+.scoreboard td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.scoreboard th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+}

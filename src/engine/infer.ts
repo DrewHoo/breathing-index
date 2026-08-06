@@ -142,7 +142,11 @@ export function predict(model: TriggerModel, exposure: Exposure, priors: Priors 
     const priorHits = Object.entries(priors)
       .filter(([variable, byLevel]) => {
         const bound = byLevel[level]
-        return bound !== undefined && value(exposure, variable) >= bound
+        if (bound === undefined || value(exposure, variable) < bound) return false
+        // Personal tolerance overrides priors: if this exposure of this variable
+        // has been personally tolerated below this level, the prior is refuted.
+        const tolerated = model.tolerance[variable]?.[level]
+        return tolerated === undefined || value(exposure, variable) > tolerated
       })
       .map(([variable]) => variable)
     if (suspects.length > 0 || priorHits.length > 0) {

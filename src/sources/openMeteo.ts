@@ -5,6 +5,8 @@ export interface Hour {
   exposure: Exposure
   /** raw instantaneous values for display, keyed like exposure variables */
   raw: Record<string, number>
+  /** official composite indices, for scoreboard receipts only */
+  official: { usAqi: number | null; eaqi: number | null }
 }
 
 export interface ExposureSeries {
@@ -14,7 +16,8 @@ export interface ExposureSeries {
   utcOffsetSeconds: number
 }
 
-const AIR_VARS = 'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide'
+const AIR_VARS =
+  'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
 const WEATHER_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m'
 
 interface HourlyBlock {
@@ -73,6 +76,8 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
   const no2 = series(air.hourly, 'nitrogen_dioxide')
   const so2 = series(air.hourly, 'sulphur_dioxide')
   const co = series(air.hourly, 'carbon_monoxide')
+  const usAqi = series(air.hourly, 'us_aqi')
+  const eaqi = series(air.hourly, 'european_aqi')
   const temp = series(weather.hourly, 'temperature_2m')
   const rh = series(weather.hourly, 'relative_humidity_2m')
   const dew = series(weather.hourly, 'dew_point_2m')
@@ -106,7 +111,9 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
         heat_stress: heatStress,
         cold_dry_stress: coldDryStress,
         humidity: rh[wi] ?? 0,
+        temp: t ?? 0,
       },
+      official: { usAqi: usAqi[i] ?? null, eaqi: eaqi[i] ?? null },
     }
   })
 

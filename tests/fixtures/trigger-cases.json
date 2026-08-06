@@ -122,6 +122,18 @@
       ]
     },
     {
+      "name": "personal tolerance overrides priors",
+      "$comment": "User rated 2 at o3 168, personally refuting the population prior 'potentially 3 at 160'. The level-2 prior still applies where no tolerance evidence exists.",
+      "priors": { "o3": { "2": 100, "3": 160 } },
+      "diary": [
+        { "rating": 2, "exposure": { "o3": 168 } }
+      ],
+      "predict": [
+        { "exposure": { "o3": 165 }, "expect": [1, 2] },
+        { "exposure": { "o3": 180 }, "expect": [2, 3] }
+      ]
+    },
+    {
       "name": "correlated variables (heat+ozone) stay ambiguous but the combo predicts",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }

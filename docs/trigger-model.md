@@ -145,7 +145,9 @@ where candidate sets would collapse.)
 **Cold start:** with an empty diary, predictions come entirely from prior thresholds (EPA
 sensitive-group breakpoints, seeded with the v0 "Drew profile" sensitivities), all marked
 `prior`, contributing to ceiling only, never to floor. Every diary entry replaces prior with
-person.
+person — concretely, a prior for (p, L) is **suppressed** at exposures the user has personally
+tolerated below level L: rating a 2 while ozone sat at 168 refutes the population claim
+"potentially a 3 at 160" for any exposure up to 168.
 
 **No max(), no composite score.** The 1–4 rating is the max of *predicted levels*, but levels are
 grounded in per-pollutant/per-combination evidence — co-elevation is represented as a first-class
@@ -217,3 +219,4 @@ must pass them. Prose versions:
 | 10 | Rating 3 @ (pm25 4, o3 5, cold_dry 8) | U-shape via encoding: cold_dry_stress is the singleton candidate → confirmed. A hot day (heat_stress 6, cold_dry 0) predicts [1,1]; another cold-dry day predicts [3,3]. |
 | 11 | Rating 1 @ (pm25 20, o3 100), then rating 3 @ (pm25 15, o3 80) | Empty candidate set → conflict flagged as probable **unmodeled trigger** (pollen? indoor?); no constraints forced onto modeled variables. |
 | 12 | Rating 3 @ (o3 150, heat_stress 6) | Correlated pair stays ambiguous: o3-only → [1,3], heat-only → [1,3], but the repeat combo → [3,3]. Attribution waits for a hot-clean-air day; prediction doesn't. |
+| 13 | Prior "o3 potentially 3 at 160"; rating 2 @ (o3 168) | Personal tolerance suppresses the prior: o3 165 → [1,2], not [1,3]. Above the tolerated exposure (o3 180) the prior reactivates → [2,3]. |
