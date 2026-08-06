@@ -28,6 +28,13 @@ interface HourlyBlock {
 const series = (block: HourlyBlock, key: string): (number | null)[] =>
   (block[key] as (number | null)[] | undefined) ?? []
 
+/** API times are local to the location; find the hour containing "now". */
+export function findCurrentIndex(times: string[], utcOffsetSeconds: number): number {
+  const nowKey = `${new Date(Date.now() + utcOffsetSeconds * 1000).toISOString().slice(0, 14)}00`
+  const index = times.findIndex((t) => t >= nowKey)
+  return index === -1 ? times.length - 1 : index
+}
+
 function windowMax(values: (number | null)[], i: number, span: number): number {
   let max = 0
   for (let j = Math.max(0, i - span + 1); j <= i; j++) {
@@ -117,13 +124,7 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     }
   })
 
-  // API times are local to the location; find the hour containing "now".
-  const localNow = new Date(Date.now() + air.utc_offset_seconds * 1000)
-    .toISOString()
-    .slice(0, 14)
-  const nowKey = `${localNow}00`
-  let currentIndex = times.findIndex((t) => t >= nowKey)
-  if (currentIndex === -1) currentIndex = times.length - 1
+  const currentIndex = findCurrentIndex(times, air.utc_offset_seconds)
 
   return {
     hours,

@@ -14,7 +14,7 @@ export const Route = createFileRoute('/')({ component: Home })
 const STRIP_VARIABLES = ['pm25', 'pm10', 'o3', 'no2', 'heat_stress', 'cold_dry_stress', 'humidity']
 
 function Home() {
-  const { location, series: data, error } = useExposureSeries()
+  const { location, series: data, error, stale } = useExposureSeries()
   const diary = useMemo(loadDiary, [])
   const model = useMemo(() => buildModel(diary), [diary])
 
@@ -28,6 +28,16 @@ function Home() {
 
   return (
     <>
+      {stale && (
+        <p className="stale-banner">
+          Offline — showing air data fetched{' '}
+          {new Date(data.fetchedAt).toLocaleTimeString(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+          })}
+          .
+        </p>
+      )}
       <BigRating prediction={prediction} />
       <p className="evidence-line">{evidenceLine(prediction, diary)}</p>
       <ConstituentStrip

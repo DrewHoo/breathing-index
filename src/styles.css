@@ -511,3 +511,12 @@ main {
   letter-spacing: 0.04em;
   color: var(--fg-muted);
 }
+
+.stale-banner {
+  margin: 16px 0 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #fff8f0;
+  border: 1px solid #f0ddc0;
+  font-size: 13px;
+}

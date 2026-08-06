@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchExposureSeries, type ExposureSeries } from '../sources/openMeteo'
+import { fetchExposureSeries, findCurrentIndex, type ExposureSeries } from '../sources/openMeteo'
 
 export interface Location {
   lat: number
@@ -10,6 +10,7 @@ export interface Location {
 export const DEFAULT_LOCATION: Location = { lat: 41.396, lon: -72.897, label: 'Hamden, CT (default)' }
 
 const TTL_MS = 10 * 60_000
+const LAST_GOOD_KEY = 'breathing-index.lastSeries.v1'
 let cache: { key: string; promise: Promise<ExposureSeries>; at: number } | null = null
 
 function getSeries(location: Location): Promise<ExposureSeries> {
@@ -17,20 +18,48 @@ function getSeries(location: Location): Promise<ExposureSeries> {
   if (cache && cache.key === key && Date.now() - cache.at < TTL_MS) return cache.promise
   const promise = fetchExposureSeries(location.lat, location.lon)
   cache = { key, promise, at: Date.now() }
-  promise.catch(() => {
-    if (cache?.promise === promise) cache = null
-  })
+  promise
+    .then((s) => {
+      try {
+        localStorage.setItem(LAST_GOOD_KEY, JSON.stringify({ key, series: s }))
+      } catch {
+        /* storage full — offline fallback just won't refresh */
+      }
+    })
+    .catch(() => {
+      if (cache?.promise === promise) cache = null
+    })
   return promise
+}
+
+function loadLastGood(key: string): ExposureSeries | null {
+  try {
+    const raw = localStorage.getItem(LAST_GOOD_KEY)
+    if (!raw) return null
+    const saved = JSON.parse(raw) as { key: string; series: ExposureSeries }
+    if (saved.key !== key) return null
+    // Re-derive "now" — the saved index points at the hour it was fetched.
+    saved.series.currentIndex = findCurrentIndex(
+      saved.series.hours.map((h) => h.time),
+      saved.series.utcOffsetSeconds,
+    )
+    return saved.series
+  } catch {
+    return null
+  }
 }
 
 export function useExposureSeries(): {
   location: Location
   series: ExposureSeries | null
   error: string | null
+  /** true when showing last-known data because the live fetch failed */
+  stale: boolean
 } {
   const [location, setLocation] = useState<Location>(DEFAULT_LOCATION)
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stale, setStale] = useState(false)
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
@@ -50,15 +79,24 @@ export function useExposureSeries(): {
     setError(null)
     getSeries(location)
       .then((s) => {
-        if (!cancelled) setSeries(s)
+        if (cancelled) return
+        setSeries(s)
+        setStale(false)
       })
       .catch((e: unknown) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e))
+        if (cancelled) return
+        const lastGood = loadLastGood(`${location.lat},${location.lon}`)
+        if (lastGood) {
+          setSeries(lastGood)
+          setStale(true)
+        } else {
+          setError(e instanceof Error ? e.message : String(e))
+        }
       })
     return () => {
       cancelled = true
     }
   }, [location])
 
-  return { location, series, error }
+  return { location, series, error, stale }
 }
