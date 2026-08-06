@@ -32,7 +32,7 @@ function Home() {
     <>
       {stale && (
         <p className="stale-banner">
-          Offline — this air is from{' '}
+          Offline. Showing air data fetched{' '}
           {new Date(data.fetchedAt).toLocaleTimeString(undefined, {
             hour: 'numeric',
             minute: '2-digit',
@@ -150,9 +150,8 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
         ))}
       </div>
       <p className="hint">
-        Station measurements from AirNow, one US AQI number per pollutant. When these disagree
-        with the model above, something hyper-local is going on — usually smoke. Your nose knew
-        first.
+        Station measurements from AirNow, reported as a US AQI value per pollutant. Disagreement
+        with the model above usually means a local source, such as smoke, that the model missed.
       </p>
     </section>
   )

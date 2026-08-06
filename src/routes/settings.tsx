@@ -155,8 +155,8 @@ function SettingsScreen() {
         </div>
         {message && <p className="hint">{message}</p>}
         <p className="hint">
-          Your diary lives only in this browser. Export a copy now and then — browsers forget
-          things. Import merges by entry id, so re-importing is safe.
+          Your diary is stored only in this browser. Export a backup periodically. Import merges
+          by entry id, so re-importing the same file is safe.
         </p>
       </section>
     </>

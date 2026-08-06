@@ -15,10 +15,10 @@ function Scoreboard() {
 
   return (
     <>
-      <h1 className="section-title">Officials vs. your lungs</h1>
+      <h1 className="section-title">Official indices vs. your ratings</h1>
       <p className="hint">
-        Every day you logged, beside what the official composite indices called it. They appear on
-        this page and nowhere else in the app, where we can keep an eye on them.
+        Each logged day beside what the official composite indices (US AQI, EU EAQI, NL LKI)
+        reported for it. This is the only screen in the app where those indices appear.
       </p>
       {rows.length === 0 ? (
         <p className="hint">
