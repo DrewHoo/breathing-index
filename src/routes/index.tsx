@@ -32,7 +32,7 @@ function Home() {
     <>
       {stale && (
         <p className="stale-banner">
-          Offline — showing air data fetched{' '}
+          Offline — this air is from{' '}
           {new Date(data.fetchedAt).toLocaleTimeString(undefined, {
             hour: 'numeric',
             minute: '2-digit',
@@ -50,7 +50,7 @@ function Home() {
       <TodayCurve data={data} model={model} />
       <MeasuredStrip lat={location.lat} lon={location.lon} />
       <Link to="/diary" className="log-cta">
-        How's breathing? Log it →
+        How's breathing? →
       </Link>
       <p className="meta-line">
         {location.label} · Open-Meteo (model) · as of{' '}
@@ -150,8 +150,9 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
         ))}
       </div>
       <p className="hint">
-        Station measurements (AirNow, per-pollutant US AQI). When these disagree with the model
-        above, trust your nose — it's often hyper-local smoke.
+        Station measurements from AirNow, one US AQI number per pollutant. When these disagree
+        with the model above, something hyper-local is going on — usually smoke. Your nose knew
+        first.
       </p>
     </section>
   )

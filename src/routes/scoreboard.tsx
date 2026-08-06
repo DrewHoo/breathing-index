@@ -15,10 +15,10 @@ function Scoreboard() {
 
   return (
     <>
-      <h1 className="section-title">The receipts</h1>
+      <h1 className="section-title">Officials vs. your lungs</h1>
       <p className="hint">
-        What the official composite indices said vs what your lungs said. The only place those
-        indices appear in this app.
+        Every day you logged, beside what the official composite indices called it. They appear on
+        this page and nowhere else in the app, where we can keep an eye on them.
       </p>
       {rows.length === 0 ? (
         <p className="hint">

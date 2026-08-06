@@ -132,7 +132,8 @@ function Diary() {
         <h2 className="section-title">Entries ({diary.length})</h2>
         {diary.length === 0 && (
           <p className="hint">
-            No entries yet. Good days are data too — a "1" teaches the model what you tolerate.
+            No entries yet. Good days are the best data — a 1 proves you tolerated everything in
+            today's air.
           </p>
         )}
         {[...diary].reverse().map((entry) => (

@@ -14,7 +14,7 @@ export default defineConfig({
         name: 'Breathing Index',
         short_name: 'Breathing',
         description:
-          "What's in the air, what the evidence says about how it affects you, and your 1–4 Breathing Index — ahead of time.",
+          'A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Clear) to 4 (Indoors).',
         theme_color: '#1f4e8c',
         background_color: '#fafafa',
         display: 'standalone',
