@@ -308,6 +308,23 @@ main {
   color: #fff;
 }
 
+.chip-observation {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chip-observation.chip-on {
+  border-style: solid;
+  color: #fff;
+}
+
+.entry-tag-observation {
+  border-style: dashed;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .hint {
   color: var(--fg-muted);
   font-size: 13px;

@@ -6,7 +6,7 @@ import type { Exposure, InferenceEntry, Level, Priors, Rating } from './types'
 interface FixtureCase {
   name: string
   priors?: Record<string, Record<string, number>>
-  diary: { rating: number; exposure: Exposure; confounders?: string[] }[]
+  diary: { rating: number; exposure: Exposure; confounders?: string[]; observations?: string[] }[]
   expectCandidates?: Record<string, string[][]>
   expectConfirmed?: Record<string, Record<string, number>>
   expectConflicts?: number
@@ -30,6 +30,7 @@ for (const fixture of fixtures.cases as FixtureCase[]) {
       rating: d.rating as Rating,
       exposure: d.exposure,
       confounders: d.confounders,
+      observations: d.observations,
     }))
     const model = buildModel(diary)
     const priors = toPriors(fixture.priors)

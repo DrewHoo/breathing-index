@@ -106,7 +106,8 @@ Deliberately absent from the home screen: official composite indices (US AQI / E
 Goals; they live in a retrospective scoreboard view) and any "driven by" claim.
 
 **Diary (the input that powers everything):** one-tap "how's breathing?" → 1–4 + optional
-confounder tags; exposure vector captured automatically. The app prompts on high-information days
+confounder tags (exclude the entry) and observation tags like "worse when outdoors" (sharpen
+attribution — see docs/trigger-model.md); exposure vector captured automatically. The app prompts on high-information days
 ("today is ozone-only — logging tonight would teach me a lot").
 
 **Detail screen:** 48h hourly sparkline per exposure variable (past + forecast), so "should I walk now or at 7pm?" is answerable.

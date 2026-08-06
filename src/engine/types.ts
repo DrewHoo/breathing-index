@@ -11,14 +11,20 @@ export interface DiaryEntry {
   time: string
   rating: Rating
   note?: string
+  /** reasons to distrust the entry — inference excludes it (e.g. "sick") */
   confounders?: string[]
+  /** things the user noticed that sharpen attribution (e.g. "worse-outdoors") */
+  observations?: string[]
   exposure: Exposure
   /** official composite indices at log time — scoreboard receipts, never used by inference */
   official?: { usAqi: number | null; eaqi: number | null }
 }
 
 /** The subset of DiaryEntry that inference reads. */
-export type InferenceEntry = Pick<DiaryEntry, 'rating' | 'exposure' | 'confounders'>
+export type InferenceEntry = Pick<
+  DiaryEntry,
+  'rating' | 'exposure' | 'confounders' | 'observations'
+>
 
 /** variable -> level -> exposure at which that level is *potentially* reached (ceiling-only) */
 export type Priors = Record<string, Partial<Record<Level, number>>>

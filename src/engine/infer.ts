@@ -14,7 +14,14 @@ import {
   type TriggerModel,
   type VariableStatus,
 } from './types'
-import { negligibleFor } from './config'
+import { INDOOR_PROXY_VARIABLES, negligibleFor } from './config'
+
+const NO_EXCLUSIONS: ReadonlySet<string> = new Set()
+
+/** Variables an entry's observations rule out as candidates. */
+function excludedCandidates(entry: InferenceEntry): ReadonlySet<string> {
+  return entry.observations?.includes('worse-outdoors') ? INDOOR_PROXY_VARIABLES : NO_EXCLUSIONS
+}
 
 function setBound(
   bounds: Bounds,
@@ -43,9 +50,18 @@ function toleranceFrom(entries: { entry: InferenceEntry }[]): Bounds {
   return tolerance
 }
 
-function candidatesFor(exposure: Exposure, level: Level, tolerance: Bounds): string[] {
+function candidatesFor(
+  exposure: Exposure,
+  level: Level,
+  tolerance: Bounds,
+  excluded: ReadonlySet<string> = NO_EXCLUSIONS,
+): string[] {
   return Object.entries(exposure)
-    .filter(([variable, x]) => x > Math.max(tolerance[variable]?.[level] ?? 0, negligibleFor(variable)))
+    .filter(
+      ([variable, x]) =>
+        !excluded.has(variable) &&
+        x > Math.max(tolerance[variable]?.[level] ?? 0, negligibleFor(variable)),
+    )
     .map(([variable]) => variable)
 }
 
@@ -66,14 +82,15 @@ export function buildModel(diary: InferenceEntry[]): TriggerModel {
   for (const { entry, index } of usable) {
     if (entry.rating < 2) continue
     let conflict: Conflict | null = null
+    const excluded = excludedCandidates(entry)
     for (const level of LEVELS) {
       if (level > entry.rating) break
-      const candidates = candidatesFor(entry.exposure, level, tolerance)
+      const candidates = candidatesFor(entry.exposure, level, tolerance, excluded)
       if (candidates.length === 0) {
         if (!conflict) {
           // Would tolerance evidence available *before* this entry have explained it?
           const priorTolerance = toleranceFrom(usable.filter((u) => u.index < index))
-          const priorCandidates = candidatesFor(entry.exposure, level, priorTolerance)
+          const priorCandidates = candidatesFor(entry.exposure, level, priorTolerance, excluded)
           conflict = {
             entryIndex: index,
             kind: priorCandidates.length > 0 ? 'superseded' : 'unmodeled-trigger',

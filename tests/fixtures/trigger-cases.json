@@ -134,6 +134,48 @@
       ]
     },
     {
+      "name": "pm25+humidity without observations stays ambiguous",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "humidity": 75 } }
+      ],
+      "expectCandidates": { "3": [["pm25", "humidity"]] },
+      "predict": [
+        { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 3] }
+      ]
+    },
+    {
+      "name": "worse-outdoors observation excludes indoor proxies from candidates",
+      "$comment": "Same day, but the user noticed symptoms were tied to being outside — humidity (the indoor-mold proxy) is ruled out, collapsing the candidate set to pm25 alone.",
+      "diary": [
+        {
+          "rating": 3,
+          "exposure": { "pm25": 20, "humidity": 75 },
+          "observations": ["worse-outdoors"]
+        }
+      ],
+      "expectConfirmed": { "pm25": { "3": 20 } },
+      "predict": [
+        { "exposure": { "pm25": 20, "humidity": 40 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "worse-outdoors with only indoor proxies elevated flags an unmodeled outdoor trigger",
+      "$comment": "Symptoms tied to outside, but no modeled outdoor variable is elevated — likely an unmodeled outdoor trigger such as pollen.",
+      "diary": [
+        {
+          "rating": 3,
+          "exposure": { "pm25": 3, "o3": 10, "humidity": 80 },
+          "observations": ["worse-outdoors"]
+        }
+      ],
+      "expectConflicts": 1,
+      "expectConflictKind": "unmodeled-trigger",
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "humidity": 80 }, "expect": [1, 1] }
+      ]
+    },
+    {
       "name": "correlated variables (heat+ozone) stay ambiguous but the combo predicts",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }

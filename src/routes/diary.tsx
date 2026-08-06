@@ -10,12 +10,14 @@ export const Route = createFileRoute('/diary')({ component: Diary })
 
 const RATINGS: Rating[] = [1, 2, 3, 4]
 const CONFOUNDERS = ['sick', 'allergies', 'exercised hard', 'mostly indoors', 'traveling']
+const OBSERVATIONS = [{ value: 'worse-outdoors', label: 'worse when outdoors' }]
 
 function Diary() {
   const { location, series, error } = useExposureSeries()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const [pending, setPending] = useState<Rating | null>(null)
   const [confounders, setConfounders] = useState<string[]>([])
+  const [observations, setObservations] = useState<string[]>([])
   const [note, setNote] = useState('')
 
   const model = useMemo(() => buildModel(diary), [diary])
@@ -35,12 +37,14 @@ function Diary() {
       rating: pending,
       ...(note.trim() ? { note: note.trim() } : {}),
       ...(confounders.length ? { confounders } : {}),
+      ...(observations.length && pending >= 2 ? { observations } : {}),
       exposure: hour.exposure,
       official: hour.official,
     }
     update([...diary, entry])
     setPending(null)
     setConfounders([])
+    setObservations([])
     setNote('')
   }
 
@@ -76,6 +80,26 @@ function Diary() {
         {pending !== null && (
           <div className="log-details">
             <p className="bi-meaning">{BI_LABELS[pending].meaning}</p>
+            {pending >= 2 && (
+              <div className="chips">
+                {OBSERVATIONS.map((obs) => (
+                  <button
+                    key={obs.value}
+                    type="button"
+                    className={`chip chip-observation${observations.includes(obs.value) ? ' chip-on' : ''}`}
+                    onClick={() =>
+                      setObservations((cur) =>
+                        cur.includes(obs.value)
+                          ? cur.filter((v) => v !== obs.value)
+                          : [...cur, obs.value],
+                      )
+                    }
+                  >
+                    {obs.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="chips">
               {CONFOUNDERS.map((tag) => (
                 <button
@@ -208,6 +232,11 @@ function EntryRow({
       <div className="entry-body">
         <div className="entry-when">
           {when}
+          {entry.observations?.map((tag) => (
+            <span key={tag} className="entry-tag entry-tag-observation">
+              {OBSERVATIONS.find((o) => o.value === tag)?.label ?? tag}
+            </span>
+          ))}
           {entry.confounders?.map((tag) => (
             <span key={tag} className="entry-tag">
               {tag}

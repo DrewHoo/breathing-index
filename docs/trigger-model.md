@@ -188,6 +188,31 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   plugin. A calendar prior can make a season *suspected*; only measured data or diary
   disambiguation can confirm.
 
+## Observation tags: the opposite of confounders
+
+Confounders are reasons to *distrust* an entry, so inference excludes it. Observation tags record
+something the user noticed that *sharpens* the entry — a within-day dose-response signal.
+
+**`worse-outdoors`** (v1's only observation): symptoms tracked with being outside. Every entry
+already implicitly blames outdoor air (the exposure vector is outdoor data); this tag makes the
+implication explicit, so variables that proxy *indoor* exposure (`humidity`, the mold/dust-mite
+proxy — see `INDOOR_PROXY_VARIABLES` in engine config) are removed from the entry's candidate
+sets. On a muggy smoke day that can collapse {pm25, humidity} to a singleton confirmation.
+
+Two consequences worth naming:
+
+- **A worse-outdoors entry with only indoor proxies elevated yields an empty candidate set** —
+  correctly flagged as an unmodeled *outdoor* trigger (pollen is the usual suspect). The
+  missing-variable detector gets sharper, not noisier.
+- **The sibling tag, `worse-indoors`, is deliberately withheld** until indoor air is measured
+  better than by proxy: an observation tag that implicates a badly-measured variable invites
+  false confidence. When it arrives, it should also replace the blunt "mostly indoors"
+  confounder (which currently discards the entry) by re-aiming the entry at indoor-relevant
+  variables instead.
+
+Observation tags never affect tolerance extraction — a low rating proves every variable
+tolerable at its exposure regardless of where the user spent the day.
+
 ## Conflicts and confounders
 
 - **Confounded entries** (`confounders` non-empty) stay in the diary but are excluded from
@@ -220,3 +245,6 @@ must pass them. Prose versions:
 | 11 | Rating 1 @ (pm25 20, o3 100), then rating 3 @ (pm25 15, o3 80) | Empty candidate set → conflict flagged as probable **unmodeled trigger** (pollen? indoor?); no constraints forced onto modeled variables. |
 | 12 | Rating 3 @ (o3 150, heat_stress 6) | Correlated pair stays ambiguous: o3-only → [1,3], heat-only → [1,3], but the repeat combo → [3,3]. Attribution waits for a hot-clean-air day; prediction doesn't. |
 | 13 | Prior "o3 potentially 3 at 160"; rating 2 @ (o3 168) | Personal tolerance suppresses the prior: o3 165 → [1,2], not [1,3]. Above the tolerated exposure (o3 180) the prior reactivates → [2,3]. |
+| 14 | Rating 3 @ (pm25 20, humidity 75) | Without observations: ambiguous, C = {pm25, humidity}. |
+| 15 | Same entry + `worse-outdoors` | Humidity excluded → confirmed θ_pm25,3 ≤ 20. Humidity-only day predicts [1,1]. |
+| 16 | Rating 3 @ (pm25 3, o3 10, humidity 80) + `worse-outdoors` | Empty candidate set → unmodeled *outdoor* trigger flagged (pollen?). |

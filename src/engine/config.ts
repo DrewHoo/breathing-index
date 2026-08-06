@@ -25,6 +25,13 @@ export function negligibleFor(variable: string): number {
 }
 
 /**
+ * Variables that proxy indoor exposure. The "worse-outdoors" observation
+ * removes these from an entry's candidate sets: symptoms tied to being
+ * outside can't be blamed on the indoor-air proxy.
+ */
+export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
+
+/**
  * Population priors, ceiling-only: "at this exposure, a sensitive person is
  * *potentially* at this level." Personal diary evidence replaces these.
  *
