@@ -4,13 +4,15 @@ A personal air quality PWA. Live at [drewhoover.com/breathing-index](https://dre
 
 ## Why
 
-In Amsterdam the Dutch air index read 7–8, "insufficient," and my asthmatic lungs were fine; back home in Hamden the US AQI read 70, "Moderate," and I could barely breathe outside. The composite AQI is a `max()` over pollutant sub-indices with population-calibrated labels, so it can't tell you which pollutant is elevated or what that level means for you specifically.
+I’ve always struggled to correlate the published air quality index with my personal ability to breathe. It’s no fun being gaslit by a “moderate” AQI of 70 that some days is fine to breathe and somedays is cripplingly bad. The AQI is doesn't take into account how the combination of pollutants affects breathing, but your lungs sure do! So this app helps you create your own BQI (Breathing Quality Index) by recording how you feel about your breathing alongside a vector of all available measures, helping you map how your lungs are affected by different pollutants like ozone, smoke, pollen, dust, mold, etc, many of which are lumped into broad-based categories by AQI that, again, your lungs don't consider whilst breathing.
 
-## How it works
+Instead of a uselessly granular 1-500 AQI index, your BQI has four ratings:  
+1. Excellent -- choose this when you can take a carefree breath of fresh air and are enjoying life without thinking about your asthma  
+2. Noticeable -- choose when you can notice something's off but can otherwise carry on with your plans, e.g. your mid-afternoon walk  
+3. Limiting -- when you have to cut your walk short or use the peloton instead.  
+4. Dangerous -- when you're worried about your ability to keep breathing.  
 
-The app shows every exposure variable separately (pollutants, heat, humidity), marks each by what your own symptom diary establishes about it (confirmed trigger / suspected / tolerated), and predicts your day on a four-level behavioral scale: 1 Excellent, 2 Noticeable, 3 Limiting, 4 Dangerous.
-
-Each diary entry is a 1–4 rating plus the full exposure vector at log time. A good day is tolerance evidence for everything in that day's air; a bad day with several elevated variables produces an ambiguous candidate set, which the model keeps as-is until later entries confirm one candidate or exonerate another. It never invents an attribution it hasn't earned. The full model, with worked examples, is in [docs/trigger-model.md](docs/trigger-model.md); product spec and milestones are in [SPEC.md](SPEC.md).
+Each diary entry is a 1–4 rating plus the full exposure vector at log time. A good entry is tolerance evidence for everything in that entry's measured air; a bad entry with several elevated variables produces an ambiguous candidate set, which the model keeps as-is until later entries confirm one candidate or exonerate another. The full model, with worked examples, is in [docs/trigger-model.md](docs/trigger-model.md); product spec and milestones are in [SPEC.md](SPEC.md).
 
 There's also a scoreboard view comparing the official composite indices (US AQI, EU EAQI, NL LKI) against your logged ratings. It's the only place they appear in the app.
 
