@@ -60,8 +60,11 @@ fakes an attribution. Instead the model represents ambiguity explicitly. Full de
 examples: **[docs/trigger-model.md](docs/trigger-model.md)**; test fixtures the M3 engine must
 pass: `tests/fixtures/trigger-cases.json`. The short version:
 
-- A **diary entry** = a 1–4 rating + the full per-pollutant exposure vector captured at log time.
-- Per pollutant and level, the user has unknown thresholds; the model learns **bounds** on them.
+- A **diary entry** = a 1–4 rating + the full exposure vector captured at log time. The vector is
+  **not just pollutants**: heat stress, cold-dry stress, humidity (multi-day window, as an indoor
+  mold/dust-mite proxy), and pollen enter as additional dimensions under the same semantics —
+  non-monotone variables like temperature are split into one-sided stress features first.
+- Per variable and level, the user has unknown thresholds; the model learns **bounds** on them.
 - A *fine* day is unambiguous tolerance evidence for **every** pollutant (nothing triggered you).
   A *bad* day is an ambiguous constraint over its elevated pollutants — resolved only when later
   entries confirm one candidate (bad single-pollutant day) or exonerate one (fine day with that
@@ -79,6 +82,8 @@ pass: `tests/fixtures/trigger-cases.json`. The short version:
 | **Open-Meteo Air Quality API** | CAMS *model* data | none | ✅ yes | Default source. Free, no key, returns per-pollutant µg/m³ + US AQI + EU AQI, hourly, worldwide. Being model output, it can miss hyper-local smoke. |
 | **AirNow API** (EPA) | Station measurements | free API key | key exposed client-side (acceptable: free tier, user-owned key) | Ground truth for US. User pastes their own key in settings → localStorage. |
 | **PurpleAir** | Crowdsourced sensors | API key | ✅ with key header | Densest hyper-local coverage; famously reads high without correction (apply EPA conversion). Optional, user-keyed. |
+| **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Temperature, humidity, dew point — feeds the heat/cold-dry/humidity exposure variables. Free, global. |
+| **Pollen** | CAMS model (EU) / calendar prior (US) | none | ✅ yes | Open-Meteo serves per-species pollen for **Europe only** (verified `null` for US). US fallback: calendar-region priors (e.g. CT ragweed ≈ Aug–Oct); upgrade path: Google Pollen API or Ambee as user-keyed plugins. |
 
 Architecture treats sources as plugins behind one interface: `fetch(lat, lon) → { pollutant: {value, unit, time} }`. The UI can display sources side-by-side ("model says 18 µg/m³, nearest sensor says 34") — disagreement is itself signal that smoke is hyper-local.
 
@@ -124,7 +129,9 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Open questions
 
-- **Exposure windows per pollutant:** ozone acts over hours, PM2.5 accumulates over a day. What trailing window feeds `x_p`? (v1: `max(now, max8h)`; tune against diary data.)
+- **Exposure windows per variable:** ozone acts over hours, PM2.5 over a day, humidity→mold over days. v1 window table lives in [docs/trigger-model.md](docs/trigger-model.md); tune against diary data.
+- **How many variables is too many?** Each added dimension slows attribution (bigger candidate sets, and correlated pairs like heat+ozone rarely decorrelate naturally). Keep the vector mechanistically plausible for the user; let empty-candidate-set conflicts drive additions.
+- **Indoor air:** outdoor humidity is a rough proxy for indoor mold/dust-mite load. Indoor sensor as a v2 source plugin?
 - **Synergy extrapolation:** a novel combination with both pollutants slightly *below* their individually suspected exposures — bump the prediction or not? v1 doesn't extrapolate; revisit once real co-elevation diary data exists.
 - **Threshold drift:** sensitivity changes with season, illness, fitness. Recency-wins conflict handling is the v1 answer; time-decayed inference is the v2 answer.
 - Smoke detection: can we label "PM2.5 is elevated *and* PM2.5/PM10 ratio is high ⇒ likely smoke" reliably? (M1: the fine-fraction fingerprint looked strong — 0.93 on a smoke day.)

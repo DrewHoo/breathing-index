@@ -18,19 +18,31 @@ explicitly, instead of pretending a weighted score resolves it.
   "exposure": {                         // captured automatically when the entry is saved
     "source": "airnow",
     "location": { "lat": 41.396, "lon": -72.897 },
-    "features": {                       // µg/m³; per-pollutant trailing-window features
-      "pm25": { "now": 14.3, "max8h": 14.3 },
-      "o3":   { "now": 150.0, "max8h": 168.0 },
-      "pm10": { "now": 15.5, "max8h": 15.7 },
-      "no2":  { "now": 12.0, "max8h": 14.0 }
+    "features": {                       // per-variable trailing-window features
+      "pm25": { "now": 14.3, "max8h": 14.3 },          // µg/m³
+      "o3":   { "now": 150.0, "max8h": 168.0 },        // µg/m³
+      "pm10": { "now": 15.5, "max8h": 15.7 },          // µg/m³
+      "no2":  { "now": 12.0, "max8h": 14.0 },          // µg/m³
+      "heat_stress":     { "now": 1.2 },               // °C above 25
+      "cold_dry_stress": { "now": 0.0 },               // °C below 10, gated on low humidity
+      "humidity":        { "mean72h": 68.0 }           // %RH, multi-day (mold/dust-mite lag)
     }
   }
 }
 ```
 
-For inference, each pollutant `p` is reduced to one scalar `x_p` per entry — v1: `max(now, max8h)`.
-(The right window per pollutant — ozone acts on ~hours, PM2.5 accumulates over ~a day — is an open
-tuning question; the feature extraction is the only place it lives.)
+For inference, each variable `p` is reduced to one scalar `x_p` per entry, via a per-variable
+window chosen to match its mechanism of action:
+
+| Variable | v1 feature | Why |
+|---|---|---|
+| o3, no2 | `max(now, max8h)` | acute, acts over hours |
+| pm25, pm10 | `max(now, max8h)` | v1 simplification; consider `mean24h` later |
+| heat_stress, cold_dry_stress | `now` | felt immediately |
+| humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
+| pollen (per species) | `max24h` when measured; calendar prior otherwise | daily cycle, seasonal |
+
+Window choices are an open tuning question; feature extraction is the only place they live.
 
 **Everything else is derived.** The trigger model is a pure function of the diary: recomputed from
 scratch on every change, never incrementally mutated. This makes inference order-independent — a
@@ -126,14 +138,48 @@ constraint rather than collapsed into one pollutant's sub-index. Whether a *nove
 (both pollutants slightly below their individually suspected exposures) deserves a synergy bump is
 an open question; v1 does not extrapolate, it only matches evidence and priors.
 
+## Beyond pollutants: weather and pollen are just more dimensions
+
+The model is deliberately **variable-agnostic**: nothing above is specific to pollutants. Humidity,
+heat, cold-dry air, and pollen species enter the exposure vector as additional dimensions, and
+tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs and consequences:
+
+- **Monotone encoding is mandatory.** The model assumes "more = worse," but temperature is
+  U-shaped for asthma (heat stress *and* cold-dry bronchospasm). Non-monotone variables are split
+  into one-sided stress features before inference: `heat_stress = max(0, T − 25°C)`,
+  `cold_dry_stress = max(0, 10°C − T)` gated on low absolute humidity. The inference engine only
+  ever sees monotone features; U-shapes are a feature-extraction concern.
+- **The real cost is identifiability, not code.** Each added variable enlarges candidate sets on
+  bad days, and disambiguation needs days where variables *decorrelate* — which nature may rarely
+  supply (ozone forms photochemically on hot days, so heat and ozone travel together; humidity and
+  mold season likewise). Attribution slows; prediction safety does not: a known-bad combination
+  still matches via the ambiguous-constraint clause without attribution. You lose explanation
+  speed, not conservatism. Keep the vector small and mechanistically plausible for the user rather
+  than throwing every available signal in.
+- **An empty candidate set is a missing-variable detector.** A bad day where every *modeled*
+  variable is already proven tolerable can't be explained by the model — which is exactly the
+  signature of an unmodeled trigger (pollen before pollen was added, an indoor exposure, illness).
+  Surface it as: "None of the things I track explains today. Was it something else — pollen,
+  being sick, indoor air?" Conflicts of this shape are the app's feature-discovery mechanism.
+- **Indoor proxies are proxies.** Outdoor humidity drives indoor mold/dust-mite load only roughly
+  (dehumidifiers, AC). v1 accepts outdoor RH with a long window; an indoor sensor source is the
+  honest v2 upgrade.
+- **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
+  only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
+  prior per species (e.g. CT ragweed ≈ Aug–Oct) acting like other priors — ceiling-only, never
+  floor — with an upgrade path to a measured source (Google Pollen API, Ambee) as a user-keyed
+  plugin. A calendar prior can make a season *suspected*; only measured data or diary
+  disambiguation can confirm.
+
 ## Conflicts and confounders
 
 - **Confounded entries** (`confounders` non-empty) stay in the diary but are excluded from
   constraint extraction. When the recompute detects a conflict, the first remedy is to ask the
   user whether a confounder applies to one of the clashing entries.
 - **Conflict** = an entry whose candidate set is empty, or a low-rating entry above a confirmed
-  threshold. Sensitivity genuinely drifts (season, illness, fitness), so conflicts are expected
-  occasionally. v1 policy: surface the two clashing entries in the UI and prefer **recency** —
+  threshold. An empty candidate set should be read as a probable *unmodeled trigger* first (see
+  the missing-variable detector above) and a contradiction second. Sensitivity also genuinely
+  drifts (season, illness, fitness), so conflicts are expected occasionally. v1 policy: surface the two clashing entries in the UI and prefer **recency** —
   the older constraint is dropped from inference (never from the diary). Windowed/decayed
   inference is the v2 version of this.
 
@@ -153,3 +199,6 @@ must pass them. Prose versions:
 | 7 | Confirmed θ_pm25,2 ≤ 12, then rating 1 @ (pm25 18) | Conflict flagged; recency wins: tolerance 18 stands, confirmation dropped from inference. |
 | 8 | Rating 3 @ (pm25 25, o3 10), confounders ["sick"] | No constraints extracted; diary keeps the entry. |
 | 9 | Rating 4 @ (pm25 40, o3 20) | Evidence cascades: constraints extracted for levels 2, 3, **and** 4 (a level-4 day also proves levels 2–3 were reached). |
+| 10 | Rating 3 @ (pm25 4, o3 5, cold_dry 8) | U-shape via encoding: cold_dry_stress is the singleton candidate → confirmed. A hot day (heat_stress 6, cold_dry 0) predicts [1,1]; another cold-dry day predicts [3,3]. |
+| 11 | Rating 1 @ (pm25 20, o3 100), then rating 3 @ (pm25 15, o3 80) | Empty candidate set → conflict flagged as probable **unmodeled trigger** (pollen? indoor?); no constraints forced onto modeled variables. |
+| 12 | Rating 3 @ (o3 150, heat_stress 6) | Correlated pair stays ambiguous: o3-only → [1,3], heat-only → [1,3], but the repeat combo → [3,3]. Attribution waits for a hot-clean-air day; prediction doesn't. |
