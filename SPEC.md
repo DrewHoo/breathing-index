@@ -19,7 +19,7 @@ The fix: show the raw constituent concentrations, name the driver, and compute a
 ## Goals
 
 1. **Answer "what's driving it?" in one glance.** Open the app → see per-pollutant concentrations (PM2.5, PM10, O₃, NO₂, SO₂, CO) for your current location, with the dominant pollutant called out explicitly ("PM2.5 is driving this — likely smoke").
-2. **Personalized breathing index.** Compute a 0–100 personal score from per-pollutant sub-scores with user-tunable sensitivity weights. V1 ships with a hard-coded "Drew profile": PM2.5 weighted heavily (asthma + demonstrated smoke sensitivity), ozone moderate, others baseline.
+2. **Personalized Breathing Index (1–4).** Predict, ahead of time, a four-level behavioral rating learned from the user's own symptom diary (see below). No 0–500, no 0–100: numeric scales are exactly the lie that motivated this project ("70 out of 500 can't be that bad").
 3. **Tunable sources.** Let the user choose/compare data sources, because model data and station data disagree in interesting ways (see Data sources).
 4. **Scale translation.** Show the same air in US AQI, EU EAQI, and Dutch LKI side by side, to demystify "7/11 insufficient" vs "70/500 moderate."
 5. **PWA ergonomics.** Installable on a phone home screen, loads fast, works from geolocation, degrades gracefully offline (show last fetch + timestamp).
@@ -31,31 +31,44 @@ The fix: show the raw constituent concentrations, name the driver, and compute a
 - No historical archive beyond what the APIs return (typically ~few days hourly).
 - No medical advice. The personal index is a lens on data, not a clinical instrument.
 
-## The personal index
+## The Breathing Index (1–4)
 
-Design principles:
+The personal scale is ordinal, four levels, each defined by **behavioral consequence** — what the
+air makes you *do*, not where a needle points:
 
-- **Keep `max()` semantics, not a weighted sum.** The composite stays interpretable: the score *is* the worst adjusted pollutant, so "what's driving it" always has a crisp answer. A weighted sum would smear an acute PM2.5 spike across five calm pollutants.
-- **Personalization = per-pollutant sensitivity multipliers** applied to concentration before the sub-index lookup. E.g. `pm25_sensitivity = 2.0` means 20 µg/m³ *feels like* 40 µg/m³ to this user, and the sub-index is computed from the effective concentration using standard EPA piecewise-linear breakpoints.
-- **Sub-scores normalized 0–100** (mapping the EPA 0–500 curve onto a saner range for personal use), with plain-language bands calibrated to lived experience: "clear", "noticeable", "hard going", "stay inside". Part of the point of this project is iterating those band edges against how Drew actually feels on a given day.
-
-```
-personal_score = max_over_pollutants( subindex( concentration_p × sensitivity_p ) )
-driver         = argmax of the same
-```
-
-V1 hard-coded profile (Drew, asthmatic, smoke-sensitive) — tune from real days:
-
-| Pollutant | Sensitivity | Rationale |
+| BI | Label | Meaning |
 |---|---|---|
-| PM2.5 | 2.0 | asthma + observed symptoms at "Moderate" |
-| PM10 | 1.25 | coarse particulate, less deep-lung penetration |
-| O₃ | 1.5 | known asthma trigger, but tolerable in AMS |
-| NO₂ | 1.0 | baseline |
-| SO₂ | 1.0 | baseline |
-| CO | 1.0 | baseline |
+| 1 | **Clear** | The air isn't a factor. Do anything. |
+| 2 | **Noticeable** | You'll feel it, but you can carry on as planned. |
+| 3 | **Limiting** | Change the plan: shorter, slower, later, or elsewhere. |
+| 4 | **Indoors** | Outside is unsafe for you. Stay in filtered air. |
 
-A settings screen exposes the multipliers as sliders so the profile stops being hard-coded the moment v1.1 exists.
+Why behavioral definitions: they make diary entries self-validating (you report what you actually
+had to do, not a vibe), they make forecasts actionable ("tomorrow is a 3 — move your run to
+morning"), and four levels with no midpoint force a lean. The scale is *per-user by construction*:
+one person's PM2.5=20 day is a 1, another's is a 3, and the app's job is to learn which.
+
+**The headline goal: tell the user their 1–4 ahead of time.** Prediction is shown as a range
+("2–3") while the user's triggers are still ambiguous — a single number is earned by data, not
+assumed.
+
+## Learning triggers from the diary (no `max()`, no weights)
+
+M1 killed the v0 design (sensitivity multipliers + `max()` over sub-indices): on a co-elevation
+day — smoke-like PM2.5 *and* USG ozone at once — a composite of any kind either hides a trigger or
+fakes an attribution. Instead the model represents ambiguity explicitly. Full design + worked
+examples: **[docs/trigger-model.md](docs/trigger-model.md)**; test fixtures the M3 engine must
+pass: `tests/fixtures/trigger-cases.json`. The short version:
+
+- A **diary entry** = a 1–4 rating + the full per-pollutant exposure vector captured at log time.
+- Per pollutant and level, the user has unknown thresholds; the model learns **bounds** on them.
+- A *fine* day is unambiguous tolerance evidence for **every** pollutant (nothing triggered you).
+  A *bad* day is an ambiguous constraint over its elevated pollutants — resolved only when later
+  entries confirm one candidate (bad single-pollutant day) or exonerate one (fine day with that
+  pollutant just as high). Until then, **every candidate is treated as potentially triggering**.
+- A repeat of a known-bad *combination* is predictable even without attribution.
+- Cold start: EPA sensitive-group breakpoints (seeded with an asthma-tilted profile) act as priors
+  that only ever raise the prediction ceiling; personal data replaces them entry by entry.
 
 **Verification note:** implementers must pull the current official breakpoint tables (EPA 2024 PM2.5 revision; EEA EAQI bands; RIVM LKI bands) from primary sources at build time — do not trust from-memory constants for the health-relevant math.
 
@@ -72,15 +85,23 @@ Architecture treats sources as plugins behind one interface: `fetch(lat, lon) �
 ## UX sketch
 
 **Home screen (the one that matters):**
-- Big personal score + plain-language band + trend arrow vs 3h ago.
-- "Driven by: PM2.5 (34 µg/m³)" — the driver line, always present.
-- Constituent strip: six small bars/dials, one per pollutant, colored by *personal* sub-score.
+- Big predicted Breathing Index for right now — a single digit, or a range ("2–3") with a
+  one-line reason ("still learning whether ozone alone affects you").
+- "Driven by: PM2.5 (34 µg/m³)" — the driver line, always present, and **time-aware** (M1 showed
+  the driver flipping from PM2.5 at midday to ozone in the evening).
+- Constituent strip: six small bars, one per pollutant, colored by that pollutant's personal
+  threat level (suspected/confirmed/tolerated at current exposure).
+- Today's curve: predicted BI by hour ("walk before 10am").
 - Scale translation row: `US AQI 70 · EU EAQI 3 (Moderate) · NL LKI 6 (Matig)`.
 - Location (geolocation w/ manual override) + data source + fetch timestamp.
 
+**Diary (the input that powers everything):** one-tap "how's breathing?" → 1–4 + optional
+confounder tags; exposure vector captured automatically. The app prompts on high-information days
+("today is ozone-only — logging tonight would teach me a lot").
+
 **Detail screen:** 48h hourly sparkline per pollutant (past + CAMS forecast), so "should I walk now or at 7pm?" is answerable.
 
-**Settings:** sensitivity sliders, source selection + API keys, saved locations.
+**Settings:** source selection + API keys, saved locations, diary/conflict review.
 
 Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debug view.
 
@@ -94,15 +115,17 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Milestones
 
-1. **M1 — Data spike:** fetch Open-Meteo for Hamden, log per-pollutant readings, confirm/refute the PM2.5-smoke hypothesis with real numbers.
-2. **M2 — Home screen:** personal score, driver line, constituent strip, scale translation. Hard-coded Drew profile. Deployable locally.
-3. **M3 — PWA:** installable, offline last-known, geolocation.
-4. **M4 — Tunability:** settings screen (sliders, sources, AirNow/PurpleAir keys).
-5. **M5 — Public:** flip repo public, Pages deploy, OG/meta/favicon polish, register on drewhoover.com index.
+1. **M1 — Data spike:** ✅ done ([findings](docs/m1-findings.md)) — confirmed smoke-like PM2.5 *plus* an ozone ramp the composite AQI hid; this killed the multiplier/`max()` design.
+2. **M2 — Home screen:** predicted BI (from priors), time-aware driver line, constituent strip, hourly curve, scale translation. Deployable locally.
+3. **M3 — Diary + trigger inference:** diary UI, constraint engine passing `tests/fixtures/trigger-cases.json`, prediction ranges, conflict surfacing.
+4. **M4 — PWA:** installable, offline last-known, geolocation.
+5. **M5 — Tunability:** settings screen (sources, AirNow/PurpleAir keys, diary review).
+6. **M6 — Public:** flip repo public, Pages deploy, OG/meta/favicon polish, register on drewhoover.com index.
 
 ## Open questions
 
-- Should sensitivity multipliers scale concentration (current design) or scale the sub-index directly? Concentration-scaling interacts with the piecewise breakpoints in a defensible way (it answers "what would this feel like to a typical person"), but test both against felt experience.
-- Is there a symptom-journal loop worth adding ("log how breathing feels right now") to calibrate the multipliers empirically? Probably the most interesting v2 feature.
-- Smoke detection: can we label "PM2.5 is elevated *and* PM2.5/PM10 ratio is high ⇒ likely smoke" reliably? (Fine-to-coarse ratio is a common smoke fingerprint.)
+- **Exposure windows per pollutant:** ozone acts over hours, PM2.5 accumulates over a day. What trailing window feeds `x_p`? (v1: `max(now, max8h)`; tune against diary data.)
+- **Synergy extrapolation:** a novel combination with both pollutants slightly *below* their individually suspected exposures — bump the prediction or not? v1 doesn't extrapolate; revisit once real co-elevation diary data exists.
+- **Threshold drift:** sensitivity changes with season, illness, fitness. Recency-wins conflict handling is the v1 answer; time-decayed inference is the v2 answer.
+- Smoke detection: can we label "PM2.5 is elevated *and* PM2.5/PM10 ratio is high ⇒ likely smoke" reliably? (M1: the fine-fraction fingerprint looked strong — 0.93 on a smoke day.)
 - Do we want NowCast-style recency weighting on our own display, or always show the latest hourly value? (Latest-hour is more honest for "can I walk right now.")

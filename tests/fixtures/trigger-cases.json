@@ -1,0 +1,98 @@
+{
+  "$comment": "Fixtures for the diary→trigger inference engine (docs/trigger-model.md). Exposures are the per-pollutant scalar feature x_p in µg/m³. Predictions are [floor, ceiling] on the 1–4 Breathing Index. Priors are disabled in all cases except cold-start so expectations isolate diary-driven inference.",
+  "cases": [
+    {
+      "name": "cold-start: priors only, ceiling never floor",
+      "priors": { "pm25": { "2": 9.1 }, "o3": { "2": 100 } },
+      "diary": [],
+      "predict": [
+        { "exposure": { "pm25": 15, "o3": 20 }, "expect": [1, 2], "expectSource": "prior" },
+        { "exposure": { "pm25": 5, "o3": 20 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "co-elevation is ambiguous: both candidates suspected",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } }
+      ],
+      "expectCandidates": { "3": [["pm25", "o3"]] },
+      "predict": [
+        { "exposure": { "pm25": 20, "o3": 5 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "o3": 5 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "full combo repeat is guaranteed without attribution",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } }
+      ],
+      "predict": [
+        { "exposure": { "pm25": 21, "o3": 155 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "exoneration path: clean high-ozone day attributes old entry to pm25",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } },
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 155 } }
+      ],
+      "expectConfirmed": { "pm25": { "3": 20 } },
+      "predict": [
+        { "exposure": { "pm25": 20, "o3": 5 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "confirmation does not exonerate the other candidate",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } },
+        { "rating": 3, "exposure": { "pm25": 22, "o3": 6 } }
+      ],
+      "expectConfirmed": { "pm25": { "3": 22 } },
+      "predict": [
+        { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 3] }
+      ]
+    },
+    {
+      "name": "tolerance cascades upward: a level-2 day bounds levels 3 and 4",
+      "diary": [
+        { "rating": 2, "exposure": { "pm25": 30, "o3": 40 } }
+      ],
+      "predict": [
+        { "exposure": { "pm25": 28, "o3": 30 }, "expect": [1, 2] }
+      ]
+    },
+    {
+      "name": "conflict: later tolerance beats earlier confirmation (recency wins)",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 12, "o3": 2 } },
+        { "rating": 1, "exposure": { "pm25": 18, "o3": 2 } }
+      ],
+      "expectConflicts": 1,
+      "predict": [
+        { "exposure": { "pm25": 15, "o3": 2 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "confounded entries yield no constraints",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 25, "o3": 10 }, "confounders": ["sick"] }
+      ],
+      "predict": [
+        { "exposure": { "pm25": 25, "o3": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "severity cascades downward: a level-4 day is evidence at levels 2 and 3",
+      "diary": [
+        { "rating": 4, "exposure": { "pm25": 40, "o3": 20 } },
+        { "rating": 1, "exposure": { "pm25": 8, "o3": 25 } }
+      ],
+      "expectConfirmed": { "pm25": { "2": 40, "3": 40, "4": 40 } },
+      "predict": [
+        { "exposure": { "pm25": 40, "o3": 5 }, "expect": [4, 4] }
+      ]
+    }
+  ]
+}
