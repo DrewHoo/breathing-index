@@ -8,7 +8,7 @@ In Amsterdam the Dutch air index read 7–8, "insufficient," and my asthmatic lu
 
 ## How it works
 
-The app shows every exposure variable separately (pollutants, heat, humidity), marks each by what your own symptom diary establishes about it (confirmed trigger / suspected / tolerated), and predicts your day on a four-level behavioral scale: 1 Clear, 2 Noticeable, 3 Limiting, 4 Indoors.
+The app shows every exposure variable separately (pollutants, heat, humidity), marks each by what your own symptom diary establishes about it (confirmed trigger / suspected / tolerated), and predicts your day on a four-level behavioral scale: 1 Clear, 2 Noticeable, 3 Limiting, 4 Dangerous.
 
 Each diary entry is a 1–4 rating plus the full exposure vector at log time. A good day is tolerance evidence for everything in that day's air; a bad day with several elevated variables produces an ambiguous candidate set, which the model keeps as-is until later entries confirm one candidate or exonerate another. It never invents an attribution it hasn't earned. The full model, with worked examples, is in [docs/trigger-model.md](docs/trigger-model.md); product spec and milestones are in [SPEC.md](SPEC.md).
 

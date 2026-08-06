@@ -4,7 +4,7 @@ export const BI_LABELS: Record<Rating, { label: string; meaning: string }> = {
   1: { label: 'Clear', meaning: "The air isn't a factor. Do anything." },
   2: { label: 'Noticeable', meaning: "You'll feel it, but you can carry on as planned." },
   3: { label: 'Limiting', meaning: 'Change the plan: shorter, slower, later, or elsewhere.' },
-  4: { label: 'Indoors', meaning: 'Outside is unsafe for you. Stay in filtered air.' },
+  4: { label: 'Dangerous', meaning: 'Outside is unsafe for you. Stay in filtered air.' },
 }
 
 export const VARIABLE_LABELS: Record<string, { name: string; unit: string }> = {

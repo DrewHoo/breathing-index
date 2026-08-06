@@ -41,7 +41,7 @@ air makes you *do*, not where a needle points:
 | 1 | **Clear** | The air isn't a factor. Do anything. |
 | 2 | **Noticeable** | You'll feel it, but you can carry on as planned. |
 | 3 | **Limiting** | Change the plan: shorter, slower, later, or elsewhere. |
-| 4 | **Indoors** | Outside is unsafe for you. Stay in filtered air. |
+| 4 | **Dangerous** | Outside is unsafe for you. Stay in filtered air. |
 
 Why behavioral definitions: they make diary entries self-validating (you report what you actually
 had to do, not a vibe), they make forecasts actionable ("tomorrow is a 3 — move your run to
