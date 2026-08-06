@@ -12,11 +12,13 @@
   },
   "dependencies": {
     "@tanstack/react-router": "^1.170.21",
+    "mixpanel-browser": "^2.81.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tanstack/router-plugin": "^1.168.26",
+    "@types/mixpanel-browser": "^2.60.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.0.5",

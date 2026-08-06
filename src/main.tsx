@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routeTree.gen'
 import './styles.css'
+import './ui/analytics'
 
 const router = createRouter({ routeTree, basepath: import.meta.env.BASE_URL })
 

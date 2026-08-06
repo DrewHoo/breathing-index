@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
+import { track } from '../ui/analytics'
 import { PRIORS } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { Prediction, Rating } from '../engine/types'
@@ -19,6 +20,21 @@ function Home() {
   const { location, series: data, error, stale } = useExposureSeries()
   const diary = useMemo(loadDiary, [])
   const model = useMemo(() => buildModel(diary), [diary])
+
+  useEffect(() => {
+    if (!data) return
+    const hour = data.hours[data.currentIndex]
+    if (!hour) return
+    const p = predict(model, hour.exposure, PRIORS)
+    track('Prediction viewed', {
+      floor: p.floor,
+      ceiling: p.ceiling,
+      reasonKinds: [...new Set(p.reasons.map((r) => r.kind))],
+      diaryEntries: diary.length,
+      stale,
+      location: location.label,
+    })
+  }, [data, model, diary, stale, location])
 
   if (error) return <p className="status-line error">Couldn't reach Open-Meteo: {error}</p>
   if (!data) return <p className="status-line">Reading the air…</p>

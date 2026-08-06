@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
+import { track } from '../ui/analytics'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, Rating } from '../engine/types'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
@@ -42,6 +43,13 @@ function Diary() {
       official: hour.official,
     }
     update([...diary, entry])
+    track('Diary entry saved', {
+      rating: entry.rating,
+      confounders: entry.confounders ?? [],
+      observations: entry.observations ?? [],
+      hasNote: Boolean(entry.note),
+      totalEntries: diary.length + 1,
+    })
     setPending(null)
     setConfounders([])
     setObservations([])
