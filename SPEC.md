@@ -18,10 +18,10 @@ The fix: show the raw constituent concentrations, name the driver, and compute a
 
 ## Goals
 
-1. **Answer "what's driving it?" in one glance.** Open the app → see per-pollutant concentrations (PM2.5, PM10, O₃, NO₂, SO₂, CO) for your current location, with the dominant pollutant called out explicitly ("PM2.5 is driving this — likely smoke").
+1. **Show what's in the air, in one glance — without inventing a cause.** Open the app → see every exposure variable (pollutants, heat, humidity, pollen) for your current location, each marked by what the *diary evidence* says about it: confirmed trigger, suspected, tolerated, unknown. No "driven by" line — breathability depends on interactions between variables, and naming a single driver overstates what we know. Explanations cite evidence ("matches your Aug 6 bad day"), never mechanism.
 2. **Personalized Breathing Index (1–4).** Predict, ahead of time, a four-level behavioral rating learned from the user's own symptom diary (see below). No 0–500, no 0–100: numeric scales are exactly the lie that motivated this project ("70 out of 500 can't be that bad").
 3. **Tunable sources.** Let the user choose/compare data sources, because model data and station data disagree in interesting ways (see Data sources).
-4. **Scale translation.** Show the same air in US AQI, EU EAQI, and Dutch LKI side by side, to demystify "7/11 insufficient" vs "70/500 moderate."
+4. **Keep receipts on the official scales — off the home screen.** The composite indices (US AQI, EU EAQI, NL LKI) exist in the app only as a retrospective scoreboard: "officials said Moderate; you logged a 3." Their job is to demonstrate, against the user's own diary, how badly they predict the user's actual breathing — not to share top billing with the number that does.
 5. **PWA ergonomics.** Installable on a phone home screen, loads fast, works from geolocation, degrades gracefully offline (show last fetch + timestamp).
 
 ## Non-goals (v1)
@@ -92,19 +92,26 @@ Architecture treats sources as plugins behind one interface: `fetch(lat, lon) �
 **Home screen (the one that matters):**
 - Big predicted Breathing Index for right now — a single digit, or a range ("2–3") with a
   one-line reason ("still learning whether ozone alone affects you").
-- "Driven by: PM2.5 (34 µg/m³)" — the driver line, always present, and **time-aware** (M1 showed
-  the driver flipping from PM2.5 at midday to ozone in the evening).
-- Constituent strip: six small bars, one per pollutant, colored by that pollutant's personal
-  threat level (suspected/confirmed/tolerated at current exposure).
+- **Evidence line**, replacing any notion of a "driver": the prediction explained by the evidence
+  it matched, phrased as observation, not cause. "Ozone is above a level that alone has been
+  enough for a 3" / "PM2.5 + ozone together match your Aug 6 bad day" / "nothing you've reacted
+  to before is elevated." The app never says *because* about anything it hasn't isolated.
+- Constituent strip: one small bar per exposure variable, colored by that variable's personal
+  evidence status (confirmed / suspected / tolerated / unknown at current exposure). This is
+  where "what's elevated" lives — as facts, not attribution.
 - Today's curve: predicted BI by hour ("walk before 10am").
-- Scale translation row: `US AQI 70 · EU EAQI 3 (Moderate) · NL LKI 6 (Matig)`.
 - Location (geolocation w/ manual override) + data source + fetch timestamp.
+
+Deliberately absent from the home screen: official composite indices (US AQI / EAQI / LKI — see
+Goals; they live in a retrospective scoreboard view) and any "driven by" claim.
 
 **Diary (the input that powers everything):** one-tap "how's breathing?" → 1–4 + optional
 confounder tags; exposure vector captured automatically. The app prompts on high-information days
 ("today is ozone-only — logging tonight would teach me a lot").
 
-**Detail screen:** 48h hourly sparkline per pollutant (past + CAMS forecast), so "should I walk now or at 7pm?" is answerable.
+**Detail screen:** 48h hourly sparkline per exposure variable (past + forecast), so "should I walk now or at 7pm?" is answerable.
+
+**Scoreboard screen (the receipts):** retrospective comparison of official composite indices vs the user's logged BI — "twelve days officials called Moderate; you rated four of them a 3." The only place US AQI / EAQI / LKI appear.
 
 **Settings:** source selection + API keys, saved locations, diary/conflict review.
 
@@ -112,7 +119,8 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Architecture
 
-- **Stack:** Vite + React, hand-rolled CSS per the drewhoover.com sibling-site conventions (system fonts, neutral palette + semantic data colors). D3 only if the sparklines need it.
+- **Stack:** **TypeScript (strict) + Vite + React + TanStack Router with file-based routing** — a deliberate departure from the plain-JS sibling-site paradigm; this app has a real domain model (exposure vectors, constraints, predictions) that deserves types. The inference engine is a pure, UI-free typed module (`src/engine/`) whose only contract is the fixture suite. Routes: `/` home, `/detail`, `/diary`, `/scoreboard`, `/settings`. GitHub Pages needs the SPA 404-redirect shim (or hash history) for deep links under `/breathing-index/`.
+- **Styling:** hand-rolled CSS per the drewhoover.com sibling-site conventions (system fonts, neutral palette + semantic data colors). D3 only if the sparklines need it.
 - **PWA:** `vite-plugin-pwa` — manifest, icons, service worker with stale-while-revalidate for the app shell and network-first for API calls; cached last-good readings shown with a staleness banner when offline.
 - **State:** profile + keys + saved locations in `localStorage`; current view state mirrored to the URL (shareable "look at Hamden right now" links) per the sibling-site URL-state pattern.
 - **All fetching is client-side.** No build-time data baking — air quality data is only useful live.
@@ -121,7 +129,7 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 ## Milestones
 
 1. **M1 — Data spike:** ✅ done ([findings](docs/m1-findings.md)) — confirmed smoke-like PM2.5 *plus* an ozone ramp the composite AQI hid; this killed the multiplier/`max()` design.
-2. **M2 — Home screen:** predicted BI (from priors), time-aware driver line, constituent strip, hourly curve, scale translation. Deployable locally.
+2. **M2 — Scaffold + home screen:** TypeScript/Vite/TanStack-Router app; predicted BI (from priors), evidence line, constituent strip with evidence-status coloring, hourly curve. Deployable locally.
 3. **M3 — Diary + trigger inference:** diary UI, constraint engine passing `tests/fixtures/trigger-cases.json`, prediction ranges, conflict surfacing.
 4. **M4 — PWA:** installable, offline last-known, geolocation.
 5. **M5 — Tunability:** settings screen (sources, AirNow/PurpleAir keys, diary review).
