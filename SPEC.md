@@ -38,7 +38,7 @@ air makes you *do*, not where a needle points:
 
 | BI | Label | Meaning |
 |---|---|---|
-| 1 | **Clear** | The air isn't a factor. Do anything. |
+| 1 | **Excellent** | The air isn't a factor. Do anything. |
 | 2 | **Noticeable** | You'll feel it, but you can carry on as planned. |
 | 3 | **Limiting** | Change the plan: shorter, slower, later, or elsewhere. |
 | 4 | **Dangerous** | Outside is unsafe for you. Stay in filtered air. |

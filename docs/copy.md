@@ -37,7 +37,7 @@ learned from your own symptom diary.                 (36)
 
 ### 5. PWA manifest description (one sentence)
 
-> A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Clear) to 4 (Dangerous).
+> A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Excellent) to 4 (Dangerous).
 
 ### 6. og:image:alt (one sentence)
 
@@ -45,7 +45,7 @@ learned from your own symptom diary.                 (36)
 
 ### 7. Project-card blurb for drewhoover.com (≤280 chars)
 
-> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and predicts your day on a four-level scale, from 1 (clear) to 4 (indoors).
+> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and predicts your day on a four-level scale, from 1 (excellent) to 4 (dangerous).
 
 (192)
 
@@ -53,7 +53,7 @@ learned from your own symptom diary.                 (36)
 
 The composite AQI collapses every pollutant into one number with population-calibrated labels. The project started with a concrete failure of that design: air labeled "insufficient" in Amsterdam (Dutch LKI 7–8) was manageable for the same asthmatic lungs that struggled in Hamden, CT under a US AQI of 70, labeled "Moderate."
 
-Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It predicts the day on a four-level behavioral scale, 1 (Clear) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
+Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It predicts the day on a four-level behavioral scale, 1 (Excellent) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
 
 ---
 
@@ -99,7 +99,7 @@ Intro:
 
 Kept as approved:
 
-- 1 Clear — "The air isn't a factor. Do anything."
+- 1 Excellent — "The air isn't a factor. Do anything."
 - 2 Noticeable — "You'll feel it, but you can carry on as planned."
 - 3 Limiting — "Change the plan: shorter, slower, later, or elsewhere."
 - 4 Dangerous — "Outside is unsafe for you. Stay in filtered air."
