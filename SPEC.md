@@ -129,7 +129,7 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 ## Milestones
 
 1. **M1 — Data spike:** ✅ done ([findings](docs/m1-findings.md)) — confirmed smoke-like PM2.5 *plus* an ozone ramp the composite AQI hid; this killed the multiplier/`max()` design.
-2. **M2 — Scaffold + home screen:** TypeScript/Vite/TanStack-Router app; predicted BI (from priors), evidence line, constituent strip with evidence-status coloring, hourly curve. Deployable locally.
+2. **M2 — Scaffold + home screen:** ✅ done — TypeScript/Vite/TanStack-Router app; inference engine (`src/engine/`) passing all fixtures; predicted BI (from priors), evidence line, constituent strip with evidence-status coloring, hourly curve, live Open-Meteo exposures. Detail-screen sparklines deferred to M3.
 3. **M3 — Diary + trigger inference:** diary UI, constraint engine passing `tests/fixtures/trigger-cases.json`, prediction ranges, conflict surfacing.
 4. **M4 — PWA:** installable, offline last-known, geolocation.
 5. **M5 — Tunability:** settings screen (sources, AirNow/PurpleAir keys, diary review).

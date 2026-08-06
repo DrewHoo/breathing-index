@@ -1,0 +1,234 @@
+:root {
+  --fg: #1a1a1a;
+  --fg-muted: #555;
+  --bg: #fafafa;
+  --bg-card: #ffffff;
+  --border: #e6e6e6;
+  --accent: #1f4e8c;
+  --bi-1: #2e7d32;
+  --bi-2: #b28704;
+  --bi-3: #e65100;
+  --bi-4: #b71c1c;
+  --status-confirmed: #b71c1c;
+  --status-suspected: #e65100;
+  --status-tolerated: #2e7d32;
+  --status-prior: #b28704;
+  --status-unknown: #9e9e9e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.site-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.site-header nav {
+  display: flex;
+  gap: 12px;
+}
+
+.site-header a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.site-header a[data-status='active'],
+.site-header a.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status-line {
+  color: var(--fg-muted);
+  padding: 40px 0;
+  text-align: center;
+}
+
+.status-line.error {
+  color: var(--bi-4);
+}
+
+.big-rating {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 20px;
+  margin-top: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+}
+
+.bi-digit {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 84px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .bi-digit {
+    font-size: 44px;
+    min-width: 60px;
+  }
+}
+
+.bi-1 { color: var(--bi-1); }
+.bi-2 { color: var(--bi-2); }
+.bi-3 { color: var(--bi-3); }
+.bi-4 { color: var(--bi-4); }
+
+.bi-label {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.bi-meaning {
+  color: var(--fg-muted);
+}
+
+.evidence-line {
+  margin: 12px 4px 20px;
+  font-size: 15px;
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.strip-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 6px 8px;
+  text-align: center;
+}
+
+.strip-bar {
+  height: 44px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.strip-fill {
+  width: 14px;
+  border-radius: 3px 3px 0 0;
+  background: var(--status-unknown);
+}
+
+.status-confirmed .strip-fill { background: var(--status-confirmed); }
+.status-suspected .strip-fill { background: var(--status-suspected); }
+.status-tolerated .strip-fill { background: var(--status-tolerated); }
+.status-prior-elevated .strip-fill { background: var(--status-prior); }
+
+.strip-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.strip-value {
+  font-size: 13px;
+}
+
+.strip-unit {
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.strip-status {
+  font-size: 10px;
+  color: var(--fg-muted);
+}
+
+.section-title {
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0 0 8px;
+}
+
+.curve {
+  width: 100%;
+  height: 96px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.bi-fill-1 { fill: var(--bi-1); }
+.bi-fill-2 { fill: var(--bi-2); }
+.bi-fill-3 { fill: var(--bi-3); }
+.bi-fill-4 { fill: var(--bi-4); }
+
+.curve rect.past {
+  opacity: 0.35;
+}
+
+.now-line {
+  stroke: var(--fg);
+  stroke-width: 0.4;
+  stroke-dasharray: 1 1;
+}
+
+.curve-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--fg-muted);
+  padding: 2px 2px 0;
+}
+
+.meta-line {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+
+.stub h1 {
+  font-size: 20px;
+}
+
+.stub p {
+  color: var(--fg-muted);
+  max-width: 44ch;
+}

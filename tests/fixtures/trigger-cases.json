@@ -56,11 +56,13 @@
     },
     {
       "name": "tolerance cascades upward: a level-2 day bounds levels 3 and 4",
+      "$comment": "With priors disabled, personal evidence only alarms at >= observed bad-day exposures; in production, priors cover the untested gap below.",
       "diary": [
         { "rating": 2, "exposure": { "pm25": 30, "o3": 40 } }
       ],
       "predict": [
-        { "exposure": { "pm25": 28, "o3": 30 }, "expect": [1, 2] }
+        { "exposure": { "pm25": 30, "o3": 30 }, "expect": [1, 2] },
+        { "exposure": { "pm25": 28, "o3": 30 }, "expect": [1, 1] }
       ]
     },
     {

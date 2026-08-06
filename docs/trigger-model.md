@@ -84,14 +84,23 @@ Define `tol_p,L = max x_p over all entries rated < L` (0 if none) — the exposu
 proven tolerable at level L. The **candidate set** for this entry at level L is:
 
 ```
-C = { p : x_p > tol_p,L }        // pollutants not already exonerated at this exposure
+C = { p : x_p > max(tol_p,L, negligible_p) }
 ```
+
+`negligible_p` is a per-variable background floor (engine config): an exposure below it cannot be
+a suspect even with no tolerance evidence — otherwise every bad day would implicate trace levels
+of all six pollutants (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
+health-relevant level; they encode "measurably present," not "harmful."
 
 - `|C| = 1` → **confirmed**: `θ_p,L ≤ x_p` for that pollutant. Clean attribution.
 - `|C| > 1` → **ambiguous constraint** `(C, x, L)`: one or more of C, possibly synergistically,
   suffices at these exposures. Stored as-is; never forced into a single attribution.
 - `|C| = 0` → **conflict**: every elevated pollutant was separately proven tolerable at these
-  levels. See Conflicts.
+  levels. Two kinds, distinguished by re-running the candidate test with only tolerance evidence
+  *predating* the entry: if the set would have been non-empty (later evidence emptied it) the
+  entry is **superseded** — sensitivity drifted, recency wins; if it was empty even then, the bad
+  day was unexplainable when it happened → **unmodeled-trigger** (see the missing-variable
+  detector below). See Conflicts.
 
 Note the asymmetry Drew called out: **confirmation of one candidate never exonerates the others.**
 A rating-3 on a PM2.5-only day proves PM2.5 is a trigger; it says nothing about ozone. Only a
@@ -114,6 +123,12 @@ Given a forecast exposure vector `y`, evaluate levels from 4 down to 2:
 - **Potentially ≥ L** if any single member of any candidate set is matched (`∃(C,x,L), ∃p ∈ C:
   y_p ≥ x_p`). This is exactly the requested conservatism: until disambiguated, a day with *either*
   suspect pollutant at the observed exposure is treated as potentially triggering.
+
+Personal evidence only alarms at exposures **at or above** ones actually observed on bad days —
+strictly, the threshold could sit anywhere in the untested gap below, but alarming on the whole
+gap would make everything "potentially triggering" forever. The priors cover that gap: they stay
+active in production (ceiling-only) even after personal evidence exists, so a novel-low exposure
+still warns at population levels while the personal model stays silent.
 
 ```
 prediction = [floor, ceiling]
@@ -195,7 +210,7 @@ must pass them. Prose versions:
 | 3 | Same as 2, forecast (pm25 20, o3 150) | Full combo match → [3,3]. Repeats are predictable without attribution. |
 | 4 | Case 2 + rating 1 @ (pm25 4, o3 155) | o3 exonerated ≤155; old entry collapses to pm25: confirmed θ_pm25,3 ≤ 20. pm25-only 20 → [3,3]; o3-only 150 → [1,1]. |
 | 5 | Case 2 + rating 3 @ (pm25 22, o3 6) | pm25 confirmed at level 3 — but o3 **stays** suspected: o3-only 150 → [1,3]. Confirmation ≠ exoneration. |
-| 6 | Rating 2 @ (pm25 30, o3 40) | Tolerance for levels 3–4: θ_p,3 > x_p ∀p. Forecast (pm25 28, o3 30) → ceiling 2, never 3. |
+| 6 | Rating 2 @ (pm25 30, o3 40) | Tolerance for levels 3–4: θ_p,3 > x_p ∀p. Forecast (pm25 30, o3 30) → ceiling 2, never 3; (pm25 28, o3 30) matches no evidence → [1,1] with priors off. |
 | 7 | Confirmed θ_pm25,2 ≤ 12, then rating 1 @ (pm25 18) | Conflict flagged; recency wins: tolerance 18 stands, confirmation dropped from inference. |
 | 8 | Rating 3 @ (pm25 25, o3 10), confounders ["sick"] | No constraints extracted; diary keeps the entry. |
 | 9 | Rating 4 @ (pm25 40, o3 20) | Evidence cascades: constraints extracted for levels 2, 3, **and** 4 (a level-4 day also proves levels 2–3 were reached). |
