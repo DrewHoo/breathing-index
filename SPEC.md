@@ -132,8 +132,8 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 2. **M2 — Scaffold + home screen:** ✅ done — TypeScript/Vite/TanStack-Router app; inference engine (`src/engine/`) passing all fixtures; predicted BI (from priors), evidence line, constituent strip with evidence-status coloring, hourly curve, live Open-Meteo exposures. Detail-screen sparklines deferred to M3.
 3. **M3 — Diary + trigger inference:** ✅ done — one-tap diary with confounder tags and automatic exposure + official-index capture; conflict cards (superseded / unmodeled-trigger) with tag-to-resolve; detail sparklines; scoreboard receipts; personal-tolerance-overrides-priors added to the engine (fixture 13).
 4. **M4 — PWA:** ✅ done — vite-plugin-pwa (autoUpdate SW, manifest, generated icon set via `scripts/generate-icons.mjs`), NetworkFirst runtime caching for Open-Meteo, plus an app-level last-good localStorage fallback with staleness banner and re-derived current hour. Geolocation was in from M2.
-5. **M5 — Tunability:** settings screen (sources, AirNow/PurpleAir keys, diary review).
-6. **M6 — Public:** flip repo public, Pages deploy, OG/meta/favicon polish, register on drewhoover.com index.
+5. **M5 — Tunability:** ✅ done — settings screen: saved locations (follow-me or fixed), AirNow measured-comparison toggle, diary export/import JSON. Home shows the AirNow measured strip (per-pollutant AQI + Action Day flag) via the keyless widget endpoint. PurpleAir (needs user API key) still planned.
+6. **M6 — Public:** ✅ done (2026-08-06) — repo public, Pages deploying via Actions (SPA 404 fallback), OG/Twitter meta + share card + drewhoover.com chrome, live at https://drewhoover.com/breathing-index/, registered on the drewhoover.com index.
 
 ## Open questions
 
