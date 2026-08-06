@@ -520,3 +520,59 @@ main {
   border: 1px solid #f0ddc0;
   font-size: 13px;
 }
+
+.measured {
+  margin-top: 24px;
+}
+
+.action-day {
+  font-weight: 700;
+  color: var(--bi-3);
+  margin: 4px 0 8px;
+}
+
+.measured-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.measured-item {
+  font-size: 13px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.measured-item.primary {
+  border-color: var(--accent);
+}
+
+.settings-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 16px 0;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.location-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.location-form input {
+  min-width: 0;
+  flex: 1;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchExposureSeries, findCurrentIndex, type ExposureSeries } from '../sources/openMeteo'
+import { loadSettings } from './settings'
 
 export interface Location {
   lat: number
@@ -56,12 +57,20 @@ export function useExposureSeries(): {
   /** true when showing last-known data because the live fetch failed */
   stale: boolean
 } {
-  const [location, setLocation] = useState<Location>(DEFAULT_LOCATION)
+  const [location, setLocation] = useState<Location>(() => {
+    const settings = loadSettings()
+    if (settings.activeLocation !== 'auto') {
+      const saved = settings.locations[settings.activeLocation]
+      if (saved) return saved
+    }
+    return DEFAULT_LOCATION
+  })
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
 
   useEffect(() => {
+    if (loadSettings().activeLocation !== 'auto') return
     navigator.geolocation?.getCurrentPosition(
       (pos) =>
         setLocation({

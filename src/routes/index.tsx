@@ -1,12 +1,14 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PRIORS } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { Prediction, Rating } from '../engine/types'
+import { fetchAirNow, type AirNowReport } from '../sources/airnow'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { loadDiary } from '../ui/diaryStorage'
 import { evidenceLine } from '../ui/evidence'
 import { BI_LABELS, VARIABLE_LABELS } from '../ui/labels'
+import { loadSettings } from '../ui/settings'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -46,6 +48,7 @@ function Home() {
         raw={current.raw}
       />
       <TodayCurve data={data} model={model} />
+      <MeasuredStrip lat={location.lat} lon={location.lon} />
       <Link to="/diary" className="log-cta">
         How's breathing? Log it →
       </Link>
@@ -101,13 +104,55 @@ function ConstituentStrip({
             </div>
             <div className="strip-name">{meta?.name ?? variable}</div>
             <div className="strip-value">
-              {Math.round(raw[variable] ?? 0)}
+              {/* humidity's status is driven by its 72h mean, so display that */}
+              {Math.round((variable === 'humidity' ? exposure[variable] : raw[variable]) ?? 0)}
               <span className="strip-unit"> {meta?.unit}</span>
             </div>
             <div className="strip-status">{status.replace('-', ' ')}</div>
           </div>
         )
       })}
+    </section>
+  )
+}
+
+function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
+  const [report, setReport] = useState<AirNowReport | null>(null)
+  const enabled = useMemo(() => loadSettings().airnowEnabled, [])
+
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    fetchAirNow(lat, lon)
+      .then((r) => {
+        if (!cancelled) setReport(r)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [enabled, lat, lon])
+
+  if (!enabled || !report || report.observations.length === 0) return null
+
+  return (
+    <section className="measured">
+      <h2 className="section-title">
+        Measured nearby ({report.reportingArea}
+        {report.time ? ` · ${report.time}` : ''})
+      </h2>
+      {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
+      <div className="measured-row">
+        {report.observations.map((o) => (
+          <span key={o.parameter} className={`measured-item${o.isPrimary ? ' primary' : ''}`}>
+            {o.parameter} <strong>{o.aqi}</strong> {o.category}
+          </span>
+        ))}
+      </div>
+      <p className="hint">
+        Station measurements (AirNow, per-pollutant US AQI). When these disagree with the model
+        above, trust your nose — it's often hyper-local smoke.
+      </p>
     </section>
   )
 }
