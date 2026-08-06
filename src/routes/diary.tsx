@@ -80,13 +80,13 @@ function Diary() {
         {pending !== null && (
           <div className="log-details">
             <p className="bi-meaning">{BI_LABELS[pending].meaning}</p>
-            {pending >= 2 && (
-              <div className="chips">
-                {OBSERVATIONS.map((obs) => (
+            <div className="chips">
+              {pending >= 2 &&
+                OBSERVATIONS.map((obs) => (
                   <button
                     key={obs.value}
                     type="button"
-                    className={`chip chip-observation${observations.includes(obs.value) ? ' chip-on' : ''}`}
+                    className={`chip${observations.includes(obs.value) ? ' chip-on' : ''}`}
                     onClick={() =>
                       setObservations((cur) =>
                         cur.includes(obs.value)
@@ -98,9 +98,6 @@ function Diary() {
                     {obs.label}
                   </button>
                 ))}
-              </div>
-            )}
-            <div className="chips">
               {CONFOUNDERS.map((tag) => (
                 <button
                   key={tag}
@@ -233,7 +230,7 @@ function EntryRow({
         <div className="entry-when">
           {when}
           {entry.observations?.map((tag) => (
-            <span key={tag} className="entry-tag entry-tag-observation">
+            <span key={tag} className="entry-tag">
               {OBSERVATIONS.find((o) => o.value === tag)?.label ?? tag}
             </span>
           ))}
