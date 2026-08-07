@@ -36,7 +36,7 @@ Analytics is Mixpanel, lazy-loaded and anonymous. Diary note text and coordinate
 ```sh
 npm install
 npm run dev     # local dev server
-npm test        # engine fixture suite (vitest)
+npm test        # breakpoint-derivation check + engine fixture suite (vitest)
 npm run build   # vite build + typecheck
 ```
 
