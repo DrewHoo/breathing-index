@@ -8,6 +8,7 @@ import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
 import { todaysSimilarEntries } from '../ui/recentEntry'
@@ -96,7 +97,7 @@ function Home() {
 
   const logNow = (rating: Rating) => {
     const entry: DiaryEntry = {
-      id: crypto.randomUUID(),
+      id: newEntryId(),
       time: new Date().toISOString(),
       rating,
       exposure: current.exposure,
