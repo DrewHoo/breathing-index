@@ -41,7 +41,7 @@ learned from your own symptom diary.                 (36)
 
 ### 6. og:image:alt (one sentence)
 
-> Share card for Breathing Index: the app name in large type beside the digits 1 through 4 colored green, yellow, orange, and red, above the tagline and a small bar chart of hourly air readings.
+> Share card for Breathing Index: the app name and tagline on a white card, a bar chart of one day's hourly air readings rising to a single red peak, and the scale from 1 Easy through 2 Noticeable and 3 Limiting to 4 Dangerous.
 
 ### 7. Project-card blurb for drewhoover.com (≤280 chars)
 
