@@ -1,15 +1,18 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { track } from '../ui/analytics'
 import { PRIORS } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
-import type { Prediction, Rating } from '../engine/types'
+import type { DiaryEntry, Prediction, Rating } from '../engine/types'
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
-import type { ExposureSeries } from '../sources/openMeteo'
-import { loadDiary } from '../ui/diaryStorage'
+import type { ExposureSeries, Hour } from '../sources/openMeteo'
+import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { evidenceLine } from '../ui/evidence'
-import { BI_LABELS, VARIABLE_LABELS } from '../ui/labels'
+import { BI_LABELS, VARIABLE_LABELS, variableUnit } from '../ui/labels'
+import { QuickLog } from '../ui/QuickLog'
+import { findTodaysSimilarEntry } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
+import { displayExposure, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/')({ component: Home })
@@ -18,8 +21,41 @@ const STRIP_VARIABLES = ['pm25', 'pm10', 'o3', 'no2', 'heat_stress', 'cold_dry_s
 
 function Home() {
   const { location, series: data, error, stale } = useExposureSeries()
-  const diary = useMemo(loadDiary, [])
+  const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const model = useMemo(() => buildModel(diary), [diary])
+  const unit = useTemperatureUnit()
+  const current: Hour | null = (data && data.hours[data.currentIndex]) ?? null
+
+  // Only ask for a rating if today hasn't already answered for air like this.
+  const logged = useMemo(
+    () => (current ? findTodaysSimilarEntry(diary, current.exposure, PRIORS) : null),
+    [diary, current],
+  )
+
+  const logRating = useCallback(
+    (rating: Rating) => {
+      if (!current) return
+      const entry: DiaryEntry = {
+        id: crypto.randomUUID(),
+        time: new Date().toISOString(),
+        rating,
+        exposure: current.exposure,
+        official: current.official,
+      }
+      const next = [...diary, entry]
+      setDiary(next)
+      saveDiary(next)
+      track('Diary entry saved', {
+        rating,
+        confounders: [],
+        observations: [],
+        hasNote: false,
+        totalEntries: next.length,
+        source: 'home-quick-log',
+      })
+    },
+    [current, diary],
+  )
 
   useEffect(() => {
     if (!data) return
@@ -38,8 +74,6 @@ function Home() {
 
   if (error) return <p className="status-line error">Couldn't reach Open-Meteo: {error}</p>
   if (!data) return <p className="status-line">Reading the air…</p>
-
-  const current = data.hours[data.currentIndex]
   if (!current) return <p className="status-line error">No data for the current hour.</p>
 
   const prediction = predict(model, current.exposure, PRIORS)
@@ -56,17 +90,19 @@ function Home() {
           .
         </p>
       )}
+      <QuickLog logged={logged} onRate={logRating} />
       <BigRating prediction={prediction} />
       <p className="evidence-line">{evidenceLine(prediction, diary)}</p>
       <ConstituentStrip
         model={model}
         exposure={current.exposure}
         raw={current.raw}
+        unit={unit}
       />
       <TodayCurve data={data} model={model} />
       <MeasuredStrip lat={location.lat} lon={location.lon} />
       <Link to="/diary" className="log-cta">
-        How's breathing? →
+        Open your diary →
       </Link>
       <p className="meta-line">
         {location.label} · Open-Meteo (model) · as of{' '}
@@ -98,10 +134,12 @@ function ConstituentStrip({
   model,
   exposure,
   raw,
+  unit,
 }: {
   model: ReturnType<typeof buildModel>
   exposure: Record<string, number>
   raw: Record<string, number>
+  unit: TemperatureUnit
 }) {
   return (
     <section className="strip">
@@ -121,8 +159,14 @@ function ConstituentStrip({
             <div className="strip-name">{meta?.name ?? variable}</div>
             <div className="strip-value">
               {/* humidity's status is driven by its 72h mean, so display that */}
-              {Math.round((variable === 'humidity' ? exposure[variable] : raw[variable]) ?? 0)}
-              <span className="strip-unit"> {meta?.unit}</span>
+              {Math.round(
+                displayExposure(
+                  variable,
+                  (variable === 'humidity' ? exposure[variable] : raw[variable]) ?? 0,
+                  unit,
+                ),
+              )}
+              <span className="strip-unit"> {variableUnit(variable, unit)}</span>
             </div>
             <div className="strip-status">{status.replace('-', ' ')}</div>
           </div>

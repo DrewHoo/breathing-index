@@ -1,20 +1,30 @@
 import { createFileRoute } from '@tanstack/react-router'
 import type { ExposureSeries } from '../sources/openMeteo'
+import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/detail')({ component: Detail })
 
-const ROWS: { key: string; label: string; unit: string }[] = [
+interface Row {
+  key: string
+  label: string
+  unit: string
+  /** an absolute temperature in °C — displayed in the user's unit */
+  temperature?: boolean
+}
+
+const ROWS: Row[] = [
   { key: 'pm25', label: 'PM2.5', unit: 'µg/m³' },
   { key: 'pm10', label: 'PM10', unit: 'µg/m³' },
   { key: 'o3', label: 'Ozone', unit: 'µg/m³' },
   { key: 'no2', label: 'NO₂', unit: 'µg/m³' },
-  { key: 'temp', label: 'Temp', unit: '°C' },
+  { key: 'temp', label: 'Temp', unit: '°C', temperature: true },
   { key: 'humidity', label: 'Humidity', unit: '%RH' },
 ]
 
 function Detail() {
   const { location, series, error } = useExposureSeries()
+  const unit = useTemperatureUnit()
   if (error) return <p className="status-line error">Couldn't reach Open-Meteo: {error}</p>
   if (!series) return <p className="status-line">Reading the air…</p>
 
@@ -22,7 +32,7 @@ function Detail() {
     <>
       <h1 className="section-title">Past 3 days · next 2 days</h1>
       {ROWS.map((row) => (
-        <SparkRow key={row.key} row={row} series={series} />
+        <SparkRow key={row.key} row={row} series={series} unit={unit} />
       ))}
       <DayLabels series={series} />
       <p className="meta-line">
@@ -35,10 +45,14 @@ function Detail() {
 function SparkRow({
   row,
   series,
+  unit,
 }: {
-  row: { key: string; label: string; unit: string }
+  row: Row
   series: ExposureSeries
+  unit: TemperatureUnit
 }) {
+  // Geometry stays in the source (metric) values so the curve's shape doesn't
+  // change with the label language; only the printed numbers are converted.
   const values = series.hours.map((h) => h.raw[row.key] ?? 0)
   const max = Math.max(...values, 1)
   const min = Math.min(...values)
@@ -48,15 +62,18 @@ function SparkRow({
     .join(' ')
   const nowX = (series.currentIndex / (n - 1)) * 100
   const current = values[series.currentIndex] ?? 0
+  const show = (v: number): number =>
+    Math.round(row.temperature ? displayTemperature(v, unit) : v)
   return (
     <div className="spark-row">
       <div className="spark-meta">
         <span className="spark-label">{row.label}</span>
         <span className="spark-value">
-          {Math.round(current)} <span className="strip-unit">{row.unit}</span>
+          {show(current)}{' '}
+          <span className="strip-unit">{row.temperature ? `°${unit}` : row.unit}</span>
         </span>
         <span className="spark-range">
-          {Math.round(min)}–{Math.round(max)}
+          {show(min)}–{show(max)}
         </span>
       </div>
       <svg className="spark" viewBox="0 0 100 30" preserveAspectRatio="none" role="img">

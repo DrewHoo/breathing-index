@@ -27,6 +27,8 @@ TypeScript, React, Vite, TanStack Router (file-based routes), vite-plugin-pwa. T
 
 All fetching is client-side; there is no backend. The diary lives in `localStorage` — export and import are in Settings.
 
+Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites diary history.
+
 Analytics is Mixpanel, lazy-loaded and anonymous. Diary note text and coordinates are never sent.
 
 ## Development

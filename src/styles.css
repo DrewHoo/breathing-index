@@ -413,6 +413,35 @@ main {
   padding: 2px 6px;
 }
 
+/* --- home-screen quick log --- */
+
+.quick-log {
+  margin-top: 16px;
+}
+
+.quick-log-hint {
+  margin: 10px 0 0;
+}
+
+.quick-log-hint a {
+  color: var(--accent);
+}
+
+.quick-log-answer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quick-log-answer-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.quick-log-answer-label {
+  font-weight: 600;
+}
+
 .log-cta {
   display: block;
   margin-top: 20px;

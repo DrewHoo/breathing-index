@@ -90,6 +90,12 @@ Architecture treats sources as plugins behind one interface: `fetch(lat, lon) �
 ## UX sketch
 
 **Home screen (the one that matters):**
+- Quick log at the top: the one-tap 1–4 row, shown only while today hasn't already answered for
+  air like this (same local day, exposure vector within a quarter of each variable's level-2
+  prior — `src/engine/similarity.ts`). Once it has, the card shows what the user said instead
+  ("You rated it noticeable · logged 9:05 AM") with a *log again* escape hatch. Good days are the
+  most informative entries, so the ask has to cost one tap; asking twice about the same air is
+  nagging.
 - Big predicted Breathing Index for right now — a single digit, or a range ("2–3") with a
   one-line reason ("still learning whether ozone alone affects you").
 - **Evidence line**, replacing any notion of a "driver": the prediction explained by the evidence
@@ -114,7 +120,9 @@ attribution — see docs/trigger-model.md); exposure vector captured automatical
 
 **Scoreboard screen (the receipts):** retrospective comparison of official composite indices vs the user's logged BI — "twelve days officials called Moderate; you rated four of them a 3." The only place US AQI / EAQI / LKI appear.
 
-**Settings:** source selection + API keys, saved locations, diary/conflict review.
+**Settings:** source selection + API keys, saved locations, diary/conflict review, temperature
+units (auto from the browser locale's region, or forced °C/°F — display only; stored exposures
+stay metric).
 
 Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debug view.
 

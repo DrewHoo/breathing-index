@@ -5,11 +5,12 @@ import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, Rating } from '../engine/types'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { BI_LABELS, variableName } from '../ui/labels'
+import { RatingButtons } from '../ui/QuickLog'
+import { displayExposure, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
 
-const RATINGS: Rating[] = [1, 2, 3, 4]
 const CONFOUNDERS = ['sick', 'allergies', 'exercised hard', 'mostly indoors', 'traveling']
 const OBSERVATIONS = [{ value: 'worse-outdoors', label: 'worse when outdoors' }]
 
@@ -20,6 +21,7 @@ function Diary() {
   const [confounders, setConfounders] = useState<string[]>([])
   const [observations, setObservations] = useState<string[]>([])
   const [note, setNote] = useState('')
+  const unit = useTemperatureUnit()
 
   const model = useMemo(() => buildModel(diary), [diary])
 
@@ -72,19 +74,10 @@ function Diary() {
     <>
       <section className="log-card">
         <h1 className="section-title">How's breathing right now?</h1>
-        <div className="rating-buttons">
-          {RATINGS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`rating-button bi-border-${r}${pending === r ? ' selected' : ''}`}
-              onClick={() => setPending(pending === r ? null : r)}
-            >
-              <span className={`rating-digit bi-${r}`}>{r}</span>
-              <span className="rating-label">{BI_LABELS[r].label}</span>
-            </button>
-          ))}
-        </div>
+        <RatingButtons
+          selected={pending}
+          onSelect={(r) => setPending(pending === r ? null : r)}
+        />
         {pending !== null && (
           <div className="log-details">
             <p className="bi-meaning">{BI_LABELS[pending].meaning}</p>
@@ -166,7 +159,7 @@ function Diary() {
           </p>
         )}
         {[...diary].reverse().map((entry) => (
-          <EntryRow key={entry.id} entry={entry} onDelete={remove} />
+          <EntryRow key={entry.id} entry={entry} unit={unit} onDelete={remove} />
         ))}
       </section>
     </>
@@ -214,9 +207,11 @@ function ConflictCard({
 
 function EntryRow({
   entry,
+  unit,
   onDelete,
 }: {
   entry: DiaryEntry
+  unit: TemperatureUnit
   onDelete: (id: string) => void
 }) {
   const when = new Date(entry.time).toLocaleString(undefined, {
@@ -229,7 +224,10 @@ function EntryRow({
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([variable, v]) => `${variableName(variable)} ${Math.round(v)}`)
+    .map(
+      ([variable, v]) =>
+        `${variableName(variable)} ${Math.round(displayExposure(variable, v, unit))}`,
+    )
     .join(' · ')
   return (
     <div className="entry-row">

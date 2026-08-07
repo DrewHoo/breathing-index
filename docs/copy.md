@@ -71,9 +71,26 @@ Breathing Index shows every exposure variable (pollutants, heat, humidity) and m
 
 ### 11. Home CTA button
 
-> How's breathing? →
+> Open your diary →
 
-(Kept: plain, and it matches the diary heading it opens.)
+(The home screen now asks "How's breathing right now?" itself, at the top, so the bottom link
+names its destination instead of repeating the question.)
+
+### 11a. Home quick-log card
+
+Asking state — same heading as the diary, since it's the same question:
+> How's breathing right now?
+
+Sub-line:
+> One tap logs it against the air right now. Add a note, tags, or a correction in your diary.
+
+Answered state, when today already has an entry in air like this:
+> Today, in air like this
+> **You rated it noticeable** — logged 9:05 AM
+
+(Heading says *air like this*, not *today*: the card comes back when the air moves, and the
+wording has to survive both. The reopen button is "log again" — it never hides the ask, it just
+stops leading with it.)
 
 ### 12. Scoreboard heading + intro
 

@@ -2,9 +2,16 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import type { DiaryEntry } from '../engine/types'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
-import { loadSettings, saveSettings, type Settings } from '../ui/settings'
+import { loadSettings, saveSettings, type Settings, type UnitPreference } from '../ui/settings'
+import { detectTemperatureUnit } from '../ui/units'
 
 export const Route = createFileRoute('/settings')({ component: SettingsScreen })
+
+const UNIT_OPTIONS: { value: UnitPreference; label: string }[] = [
+  { value: 'auto', label: 'Match my region' },
+  { value: 'fahrenheit', label: 'Fahrenheit (°F)' },
+  { value: 'celsius', label: 'Celsius (°C)' },
+]
 
 function SettingsScreen() {
   const [settings, setSettings] = useState<Settings>(loadSettings)
@@ -129,6 +136,28 @@ function SettingsScreen() {
           Model data (Open-Meteo) drives predictions; AirNow shows what nearby stations actually
           measured. Disagreement often means hyper-local smoke. PurpleAir sensor support is
           planned.
+        </p>
+      </section>
+
+      <section className="settings-section">
+        <h2 className="section-title">Units</h2>
+        {UNIT_OPTIONS.map((option) => (
+          <label key={option.value} className="settings-row">
+            <input
+              type="radio"
+              name="units"
+              checked={settings.units === option.value}
+              onChange={() => update({ ...settings, units: option.value })}
+            />
+            {option.label}
+            {option.value === 'auto' && (
+              <span className="hint">(°{detectTemperatureUnit()})</span>
+            )}
+          </label>
+        ))}
+        <p className="hint">
+          Temperature only — pollutants are reported in µg/m³ everywhere. Diary entries always
+          store °C, so switching relabels the display and never rewrites your history.
         </p>
       </section>
 
