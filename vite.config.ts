@@ -30,6 +30,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Workbox precaches js/wasm/css/html by default; the self-hosted fonts
+        // have to be named or the installed app falls back to system type.
+        globPatterns: ['**/*.{js,wasm,css,html,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/(air-quality-api|api)\.open-meteo\.com\/.*/,
