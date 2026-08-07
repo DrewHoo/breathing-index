@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchExposureSeries, findCurrentIndex, type ExposureSeries } from '../sources/openMeteo'
+import { reverseGeocode } from '../sources/reverseGeocode'
 import { loadSettings } from './settings'
 
 export interface Location {
@@ -50,8 +51,16 @@ function loadLastGood(key: string): ExposureSeries | null {
   }
 }
 
+/**
+ * Where the active coordinates came from. Reported to analytics in place of the
+ * location itself: now that the header names a real town, the label is the
+ * user's actual city and must not leave the device.
+ */
+export type LocationSource = 'default' | 'saved' | 'auto'
+
 export function useExposureSeries(): {
   location: Location
+  source: LocationSource
   series: ExposureSeries | null
   error: string | null
   /** true when showing last-known data because the live fetch failed */
@@ -65,22 +74,41 @@ export function useExposureSeries(): {
     }
     return DEFAULT_LOCATION
   })
+  const [source, setSource] = useState<LocationSource>(() =>
+    loadSettings().activeLocation !== 'auto' ? 'saved' : 'default',
+  )
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
 
   useEffect(() => {
     if (loadSettings().activeLocation !== 'auto') return
+    let cancelled = false
+
     navigator.geolocation?.getCurrentPosition(
-      (pos) =>
-        setLocation({
-          lat: Math.round(pos.coords.latitude * 1000) / 1000,
-          lon: Math.round(pos.coords.longitude * 1000) / 1000,
-          label: 'Your location',
-        }),
+      (pos) => {
+        if (cancelled) return
+        const lat = Math.round(pos.coords.latitude * 1000) / 1000
+        const lon = Math.round(pos.coords.longitude * 1000) / 1000
+
+        // Show the generic label immediately so the header is never empty, then
+        // name the place once we know it. The air data does not wait on this.
+        setLocation({ lat, lon, label: 'Your location' })
+        setSource('auto')
+        void reverseGeocode(lat, lon).then((label) => {
+          // Only name the place we actually looked up — the user may have
+          // switched to a saved location while the lookup was in flight.
+          if (!cancelled && label)
+            setLocation((prev) => (prev.lat === lat && prev.lon === lon ? { ...prev, label } : prev))
+        })
+      },
       () => undefined,
       { timeout: 5000, maximumAge: 600_000 },
     )
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   useEffect(() => {
@@ -107,5 +135,5 @@ export function useExposureSeries(): {
     }
   }, [location])
 
-  return { location, series, error, stale }
+  return { location, source, series, error, stale }
 }

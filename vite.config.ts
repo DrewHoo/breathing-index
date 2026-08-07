@@ -40,6 +40,17 @@ export default defineConfig({
               expiration: { maxEntries: 24, maxAgeSeconds: 6 * 3600 },
             },
           },
+          {
+            // Place names for a given coordinate essentially never change, so
+            // this one is cache-first — it keeps the header named when offline.
+            urlPattern: /^https:\/\/api\.bigdatacloud\.net\/data\/reverse-geocode-client.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'reverse-geocode',
+              expiration: { maxEntries: 16, maxAgeSeconds: 30 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

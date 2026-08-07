@@ -48,7 +48,7 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, series: data, error, stale } = useExposureSeries()
+  const { location, source, series: data, error, stale } = useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const [justSaved, setJustSaved] = useState<DiaryEntry | null>(null)
@@ -79,7 +79,9 @@ function Home() {
       reasonKinds: [...new Set(prediction.reasons.map((r) => r.kind))],
       diaryEntries: diary.length,
       stale,
-      location: location.label,
+      // How the location was chosen, never which one — location.label is now
+      // the user's actual town.
+      locationSource: source,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
