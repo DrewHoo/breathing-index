@@ -10,7 +10,7 @@ import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { evidenceLine } from '../ui/evidence'
 import { BI_LABELS, VARIABLE_LABELS, variableUnit } from '../ui/labels'
 import { QuickLog } from '../ui/QuickLog'
-import { findTodaysSimilarEntry } from '../ui/recentEntry'
+import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
 import { displayExposure, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
@@ -22,15 +22,30 @@ const STRIP_VARIABLES = ['pm25', 'pm10', 'o3', 'no2', 'heat_stress', 'cold_dry_s
 function Home() {
   const { location, series: data, error, stale } = useExposureSeries()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
-  const model = useMemo(() => buildModel(diary), [diary])
   const unit = useTemperatureUnit()
   const current: Hour | null = (data && data.hours[data.currentIndex]) ?? null
 
   // Only ask for a rating if today hasn't already answered for air like this.
-  const logged = useMemo(
-    () => (current ? findTodaysSimilarEntry(diary, current.exposure, PRIORS) : null),
+  const answered = useMemo(
+    () => (current ? todaysSimilarEntries(diary, current.exposure, PRIORS) : []),
     [diary, current],
   )
+  const logged = answered[0] ?? null
+
+  /**
+   * The forecast is built from every day *except* the answers the quick-log
+   * card is already showing. Today's rating is evidence for air exactly like
+   * today's, so leaving it in collapses the range onto the number the user just
+   * tapped — the screen would quote them back to themselves and call it a
+   * prediction. Held out, the headline stays what the rest of the diary
+   * expects, and the gap between the two is the interesting part.
+   */
+  const forecastDiary = useMemo(() => {
+    if (answered.length === 0) return diary
+    const reported = new Set(answered.map((e) => e.id))
+    return diary.filter((e) => !reported.has(e.id))
+  }, [diary, answered])
+  const model = useMemo(() => buildModel(forecastDiary), [forecastDiary])
 
   const logRating = useCallback(
     (rating: Rating) => {
@@ -92,7 +107,15 @@ function Home() {
       )}
       <QuickLog logged={logged} onRate={logRating} />
       <BigRating prediction={prediction} />
-      <p className="evidence-line">{evidenceLine(prediction, diary)}</p>
+      <div className="evidence-block">
+        <p className="evidence-line">{evidenceLine(prediction, forecastDiary)}</p>
+        {logged && (
+          <p className="hint forecast-note">
+            Your rating above isn't counted here — this is what your other days expect from air
+            like this.
+          </p>
+        )}
+      </div>
       <ConstituentStrip
         model={model}
         exposure={current.exposure}

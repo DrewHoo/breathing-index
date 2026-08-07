@@ -97,7 +97,13 @@ Architecture treats sources as plugins behind one interface: `fetch(lat, lon) �
   most informative entries, so the ask has to cost one tap; asking twice about the same air is
   nagging.
 - Big predicted Breathing Index for right now — a single digit, or a range ("2–3") with a
-  one-line reason ("still learning whether ozone alone affects you").
+  one-line reason ("still learning whether ozone alone affects you"). The entries the quick-log
+  card is reporting are **held out** of the model behind it: today's rating is evidence for air
+  exactly like today's, so leaving it in collapses the range onto the number the user just tapped
+  and the screen quotes them back to themselves. Held out, the headline stays what the *rest* of
+  the diary expects — and the gap between "you said 3" and "your other days say 1–2" is the
+  learning signal, not a bug. Other days' evidence is untouched: yesterday's 3 in this same air
+  still drives a firm 3.
 - **Evidence line**, replacing any notion of a "driver": the prediction explained by the evidence
   it matched, phrased as observation, not cause. "Ozone is above a level that alone has been
   enough for a 3" / "PM2.5 + ozone together match your Aug 6 bad day" / "nothing you've reacted

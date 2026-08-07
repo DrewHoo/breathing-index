@@ -121,9 +121,17 @@ main {
   color: var(--fg-muted);
 }
 
-.evidence-line {
+.evidence-block {
   margin: 12px 4px 20px;
+}
+
+.evidence-line {
+  margin: 0;
   font-size: 15px;
+}
+
+.forecast-note {
+  margin: 4px 0 0;
 }
 
 .strip {

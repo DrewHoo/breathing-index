@@ -92,6 +92,15 @@ Answered state, when today already has an entry in air like this:
 wording has to survive both. The reopen button is "log again" — it never hides the ask, it just
 stops leading with it.)
 
+### 11b. Forecast hold-out note
+
+Under the evidence line, only while the quick-log card is showing an answer:
+> Your rating above isn't counted here — this is what your other days expect from air like this.
+
+(The headline below an answered card would otherwise be the user's own tap played back as a
+prediction. The note says the hold-out out loud rather than letting the two numbers look like
+they disagree by accident.)
+
 ### 12. Scoreboard heading + intro
 
 Heading:
