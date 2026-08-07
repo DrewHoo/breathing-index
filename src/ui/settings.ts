@@ -11,10 +11,12 @@ export interface Settings {
   /** 'auto' = follow geolocation (Hamden fallback); otherwise index into locations */
   activeLocation: 'auto' | number
   locations: SavedLocation[]
-  /** show AirNow measured comparison on the home screen (US only) */
+  /** show AirNow measured comparison (US only) */
   airnowEnabled: boolean
   /** display unit for temperature — stored data is always metric */
   units: UnitPreference
+  /** the first-run intro has been dismissed */
+  introSeen: boolean
 }
 
 const KEY = 'breathing-index.settings.v1'
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   locations: [{ label: 'Hamden, CT', lat: 41.396, lon: -72.897 }],
   airnowEnabled: true,
   units: 'auto',
+  introSeen: false,
 }
 
 export function loadSettings(): Settings {

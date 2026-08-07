@@ -14,9 +14,9 @@ export default defineConfig({
         name: 'Breathing Index',
         short_name: 'Breathing',
         description:
-          'A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Excellent) to 4 (Dangerous).',
-        theme_color: '#1f4e8c',
-        background_color: '#fafafa',
+          'A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Easy) to 4 (Dangerous).',
+        theme_color: '#F3F6F7',
+        background_color: '#F3F6F7',
         display: 'standalone',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

@@ -1,35 +1,78 @@
-import type { DiaryEntry, Prediction } from '../engine/types'
-import { variableName } from './labels'
+import type { DiaryEntry, Prediction, TriggerModel } from '../engine/types'
+import { VARIABLE_LABELS, levelWord, variableName } from './labels'
 
-const list = (variables: string[]): string => variables.map(variableName).join(' + ')
+export interface Evidence {
+  /** the Why sentence — diary evidence, never mechanism */
+  main: string
+  /** optional second line, italic faint */
+  aside?: string
+}
+
+const entryDate = (diary: DiaryEntry[], index: number | undefined): string =>
+  index !== undefined && diary[index]
+    ? new Date(diary[index].time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : 'a previous'
+
+const withUnit = (variable: string, value: number): string => {
+  const unit = VARIABLE_LABELS[variable]?.unit
+  return `${Math.round(value)}${unit === '%' ? '%' : ` ${unit ?? ''}`}`.trim()
+}
 
 /**
- * The evidence line: explain a prediction by the evidence it matched, phrased
- * as observation, never mechanism. The app never says "because" about anything
- * it hasn't isolated.
+ * Explain a prediction by the evidence it matched, in the diary's voice:
+ * what you have handled, what days this resembles. The app never says
+ * "because" about anything it hasn't isolated.
  */
-export function evidenceLine(prediction: Prediction, diary: DiaryEntry[]): string {
+export function evidence(
+  prediction: Prediction,
+  model: TriggerModel,
+  diary: DiaryEntry[],
+): Evidence {
   const floorReason = prediction.reasons.find((r) => r.bound === 'floor')
   if (floorReason?.kind === 'confirmed') {
-    return `${list(floorReason.variables)} is above a level that alone has been enough for a ${floorReason.level}.`
+    const v = floorReason.variables[0]!
+    const bound = model.confirmed[v]?.[floorReason.level]
+    return {
+      main: `${variableName(v)} is past a level that alone has been enough for ${levelWord(floorReason.level)}${bound !== undefined ? ` (${withUnit(v, bound)})` : ''}.`,
+    }
   }
   if (floorReason?.kind === 'combo-repeat') {
-    const when =
-      floorReason.entryIndex !== undefined && diary[floorReason.entryIndex]
-        ? new Date(diary[floorReason.entryIndex]!.time).toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-          })
-        : 'a previous day'
-    return `${list(floorReason.variables)} together match ${when}, which you rated a ${floorReason.level}.`
+    const names = floorReason.variables.map((v) => variableName(v).toLowerCase())
+    return {
+      main: `${names.join(' and ')} together match your ${entryDate(diary, floorReason.entryIndex)} day — you rated that one ${levelWord(floorReason.level)}.`,
+    }
   }
+
   const suspect = prediction.reasons.find((r) => r.kind === 'suspect')
   if (suspect) {
-    return `${list(suspect.variables)} is at a level from a day you rated ${suspect.level} — still learning which variable matters.`
+    const [first, ...rest] = suspect.variables
+    const tolerated = model.tolerance[first!]?.[2]
+    const past =
+      tolerated !== undefined
+        ? `${variableName(first!)} is past what you have handled well (${withUnit(first!, tolerated)})`
+        : `${variableName(first!)} is at a level your diary has not cleared`
+    const also = rest.length
+      ? `, and ${rest.map((v) => variableName(v).toLowerCase()).join(' and ')} ${rest.length > 1 ? 'are' : 'is'} high too`
+      : ''
+    const source = model.constraints.find(
+      (c) => c.level === suspect.level && c.candidates.some((v) => suspect.variables.includes(v)),
+    )
+    const day = entryDate(diary, source?.entryIndex)
+    return {
+      main: `${past}${also}. Together this sits near your ${day} day — you rated that one ${levelWord(suspect.level)}.`,
+      aside: `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
+    }
   }
+
   const prior = prediction.reasons.find((r) => r.kind === 'prior')
   if (prior) {
-    return `${list(prior.variables)} above population guidance for sensitive groups — no personal data on this yet.`
+    const names = prior.variables.map((v, i) =>
+      i === 0 ? variableName(v) : variableName(v).toLowerCase(),
+    )
+    return {
+      main: `${names.join(' and ')} ${prior.variables.length > 1 ? 'are' : 'is'} past guidance for sensitive groups — your diary has no verdict on ${prior.variables.length > 1 ? 'them' : 'it'} yet.`,
+    }
   }
-  return "Nothing you've reacted to before is elevated."
+
+  return { main: 'Nothing you have reacted to before is elevated.' }
 }

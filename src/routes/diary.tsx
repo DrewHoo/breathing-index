@@ -1,28 +1,22 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
-import { track } from '../ui/analytics'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { Fragment, useMemo, useState } from 'react'
+import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
-import type { Conflict, DiaryEntry, Rating } from '../engine/types'
+import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
+import { track } from '../ui/analytics'
+import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
-import { BI_LABELS, variableName } from '../ui/labels'
-import { RatingButtons } from '../ui/QuickLog'
-import { displayExposure, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
-import { useExposureSeries } from '../ui/useExposureSeries'
+import { levelWord } from '../ui/labels'
+import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
 
-const CONFOUNDERS = ['sick', 'allergies', 'exercised hard', 'mostly indoors', 'traveling']
-const OBSERVATIONS = [{ value: 'worse-outdoors', label: 'worse when outdoors' }]
+const CONFLICT_TAGS = ['pollen', 'sick', 'indoors all day']
 
 function Diary() {
-  const { location, series, error } = useExposureSeries()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
-  const [pending, setPending] = useState<Rating | null>(null)
-  const [confounders, setConfounders] = useState<string[]>([])
-  const [observations, setObservations] = useState<string[]>([])
-  const [note, setNote] = useState('')
-  const unit = useTemperatureUnit()
-
+  const [leftAlone, setLeftAlone] = useState<Set<number>>(new Set())
+  const tempUnit = useTemperatureUnit()
   const model = useMemo(() => buildModel(diary), [diary])
 
   const update = (next: DiaryEntry[]) => {
@@ -30,233 +24,291 @@ function Diary() {
     saveDiary(next)
   }
 
-  const save = () => {
-    if (pending === null || !series) return
-    const hour = series.hours[series.currentIndex]
-    if (!hour) return
-    const entry: DiaryEntry = {
-      id: crypto.randomUUID(),
-      time: new Date().toISOString(),
-      rating: pending,
-      ...(note.trim() ? { note: note.trim() } : {}),
-      ...(confounders.length ? { confounders } : {}),
-      ...(observations.length && pending >= 2 ? { observations } : {}),
-      exposure: hour.exposure,
-      official: hour.official,
-    }
-    update([...diary, entry])
-    track('Diary entry saved', {
-      rating: entry.rating,
-      confounders: entry.confounders ?? [],
-      observations: entry.observations ?? [],
-      hasNote: Boolean(entry.note),
-      totalEntries: diary.length + 1,
-    })
-    setPending(null)
-    setConfounders([])
-    setObservations([])
-    setNote('')
+  const amend = (entryId: string, patch: Partial<DiaryEntry>) => {
+    update(diary.map((e) => (e.id === entryId ? { ...e, ...patch } : e)))
   }
 
-  const addConfounder = (entryId: string, tag: string) => {
-    update(
-      diary.map((e) =>
-        e.id === entryId ? { ...e, confounders: [...(e.confounders ?? []), tag] } : e,
-      ),
-    )
-  }
-
-  const remove = (entryId: string) => {
-    update(diary.filter((e) => e.id !== entryId))
-  }
+  const conflicts = model.conflicts.filter((c) => !leftAlone.has(c.entryIndex))
+  const conflictByEntryId = new Map(
+    conflicts.map((c) => [diary[c.entryIndex]?.id, c.entryIndex] as const),
+  )
 
   return (
     <>
-      <section className="log-card">
-        <h1 className="section-title">How's breathing right now?</h1>
-        <RatingButtons
-          selected={pending}
-          onSelect={(r) => setPending(pending === r ? null : r)}
-        />
-        {pending !== null && (
-          <div className="log-details">
-            <p className="bi-meaning">{BI_LABELS[pending].meaning}</p>
-            <div className="chips">
-              {pending >= 2 &&
-                OBSERVATIONS.map((obs) => (
-                  <button
-                    key={obs.value}
-                    type="button"
-                    className={`chip${observations.includes(obs.value) ? ' chip-on' : ''}`}
-                    onClick={() =>
-                      setObservations((cur) =>
-                        cur.includes(obs.value)
-                          ? cur.filter((v) => v !== obs.value)
-                          : [...cur, obs.value],
-                      )
-                    }
-                  >
-                    {obs.label}
-                  </button>
-                ))}
-              {CONFOUNDERS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`chip${confounders.includes(tag) ? ' chip-on' : ''}`}
-                  onClick={() =>
-                    setConfounders((cur) =>
-                      cur.includes(tag) ? cur.filter((t) => t !== tag) : [...cur, tag],
-                    )
-                  }
-                >
-                  {tag}
-                </button>
-              ))}
+      <div className="page-title-row">
+        <div className="page-title-group">
+          <span className="page-title">Diary</span>
+          <span className="page-title-count">
+            {diary.length} {diary.length === 1 ? 'entry' : 'entries'}
+          </span>
+        </div>
+        <Link to="/" search={{ log: true }} className="log-now">
+          + Log now
+        </Link>
+      </div>
+
+      <section className="section">
+        <SectionRule label="What your diary shows" />
+        <div className="row-card">
+          {evidenceRows(model, tempUnit).map((row) => (
+            <div key={row.name} className="evidence-row">
+              <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
+              <span className="evidence-name">{row.name}</span>
+              <span className="evidence-text">{row.text}</span>
             </div>
-            {confounders.length > 0 && (
-              <p className="hint">
-                Tagged entries stay in your diary but aren't used to learn your triggers.
-              </p>
-            )}
-            <input
-              className="note-input"
-              placeholder="note (optional)"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            <button type="button" className="save-button" disabled={!series} onClick={save}>
-              {series
-                ? `Save with current air (${location.label})`
-                : error
-                  ? 'No exposure data — try again'
-                  : 'Fetching current air…'}
-            </button>
-          </div>
-        )}
+          ))}
+        </div>
       </section>
 
-      {model.conflicts.length > 0 && (
-        <section>
-          <h2 className="section-title">Conflicts</h2>
-          {model.conflicts.map((conflict) => (
-            <ConflictCard
-              key={conflict.entryIndex}
-              conflict={conflict}
-              entry={diary[conflict.entryIndex]}
-              onTag={addConfounder}
-            />
-          ))}
-        </section>
-      )}
+      {conflicts.map((conflict) => (
+        <ConflictCard
+          key={conflict.entryIndex}
+          conflict={conflict}
+          entry={diary[conflict.entryIndex]}
+          onTag={(id, tag) => {
+            const entry = diary.find((e) => e.id === id)
+            amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
+            track('Conflict tagged', { tag })
+          }}
+          onNote={(id, note) => amend(id, { note })}
+          onLeave={() => setLeftAlone((cur) => new Set(cur).add(conflict.entryIndex))}
+        />
+      ))}
 
       <section>
-        <h2 className="section-title">Entries ({diary.length})</h2>
         {diary.length === 0 && (
-          <p className="hint">
+          <p className="settings-note">
             No entries yet. Log good days too: a rating of 1 records that you tolerated everything
-            in today's air.
+            in today&rsquo;s air.
           </p>
         )}
-        {[...diary].reverse().map((entry) => (
-          <EntryRow key={entry.id} entry={entry} unit={unit} onDelete={remove} />
+        {groupByDay(diary).map((group) => (
+          <Fragment key={group.label}>
+            <div className="entry-group-label">{group.label}</div>
+            {group.entries.map((entry) => (
+              <EntryRow
+                key={entry.id}
+                entry={entry}
+                tempUnit={tempUnit}
+                conflictIndex={conflictByEntryId.get(entry.id)}
+              />
+            ))}
+          </Fragment>
         ))}
       </section>
     </>
   )
 }
 
+/* --- what your diary shows --- */
+
+interface EvidenceRowData {
+  name: string
+  glyph: string
+  cls: string
+  text: string
+}
+
+function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceRowData[] {
+  const fmtTempStress = (side: 'heat_stress' | 'cold_dry_stress', stress: number): string => {
+    const celsius = side === 'heat_stress' ? 25 + stress : 10 - stress
+    return `${Math.round(displayTemperature(celsius, tempUnit))} °${tempUnit}`
+  }
+  const summarize = (variable: string, fmt: (v: number) => string): Omit<EvidenceRowData, 'name'> => {
+    const confirmed = model.confirmed[variable]
+    const level = ([4, 3, 2] as const).find((l) => confirmed?.[l] !== undefined)
+    const tol = model.tolerance[variable]?.[2]
+    const hasTol = tol !== undefined && tol > negligibleFor(variable)
+    if (level !== undefined) {
+      return {
+        glyph: '●',
+        cls: 'trigger',
+        text: `trigger — ${levelWord(level)} near ${fmt(confirmed![level]!)}${hasTol ? `, fine up to ${fmt(tol)}` : ''}`,
+      }
+    }
+    if (model.constraints.some((c) => c.candidates.includes(variable))) {
+      return { glyph: '◐', cls: 'suspect', text: 'suspect — never seen it act alone' }
+    }
+    if (hasTol) {
+      return { glyph: '○', cls: 'fine', text: `fine in everything up to ${fmt(tol)}` }
+    }
+    return { glyph: '◌', cls: '', text: 'no evidence yet either way' }
+  }
+
+  const bare = (v: number) => `${Math.round(v)}`
+  const rows: EvidenceRowData[] = [
+    { name: 'Smoke', ...summarize('pm25', bare) },
+    { name: 'Ozone', ...summarize('o3', bare) },
+    { name: 'Dust', ...summarize('pm10', bare) },
+    { name: 'NO₂', ...summarize('no2', bare) },
+    { name: 'Heat', ...summarize('heat_stress', (v) => fmtTempStress('heat_stress', v)) },
+    { name: 'Humidity', ...summarize('humidity', (v) => `${Math.round(v)}%`) },
+  ]
+  const cold = summarize('cold_dry_stress', (v) => fmtTempStress('cold_dry_stress', v))
+  if (cold.cls !== '') rows.splice(5, 0, { name: 'Cold, dry', ...cold })
+  return rows
+}
+
+/* --- conflicts --- */
+
 function ConflictCard({
   conflict,
   entry,
   onTag,
+  onNote,
+  onLeave,
 }: {
   conflict: Conflict
   entry: DiaryEntry | undefined
   onTag: (entryId: string, tag: string) => void
+  onNote: (entryId: string, note: string) => void
+  onLeave: () => void
 }) {
+  const [noteOpen, setNoteOpen] = useState(false)
+  const [note, setNote] = useState(entry?.note ?? '')
   if (!entry) return null
   const when = new Date(entry.time).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
   })
   return (
-    <div className="conflict-card">
-      {conflict.kind === 'unmodeled-trigger' ? (
-        <p>
-          Nothing I track explains your {when} rating of {entry.rating} — every measured variable
-          was at a level you've tolerated before. Was something else going on?
-        </p>
-      ) : (
-        <p>
-          Your {when} rating of {entry.rating} clashes with newer evidence — you've since tolerated
-          higher levels of everything elevated that day. Newer evidence wins; this entry isn't used
-          for learning. If something else explains it, tag it:
-        </p>
-      )}
-      <div className="chips">
-        {CONFOUNDERS.map((tag) => (
+    <section className="conflict-card" id={`conflict-${conflict.entryIndex}`}>
+      <span className="conflict-text">
+        <strong>{when} does not add up.</strong>{' '}
+        {conflict.kind === 'unmodeled-trigger'
+          ? `You rated it ${levelWord(entry.rating)}, but everything I track sat at levels you have handled fine. Was something else going on?`
+          : `You rated it ${levelWord(entry.rating)}, but you have since handled more of everything elevated that day. Newer evidence wins — if something else explains it, tag it.`}
+      </span>
+      <div className="chip-row">
+        {CONFLICT_TAGS.map((tag) => (
           <button key={tag} type="button" className="chip" onClick={() => onTag(entry.id, tag)}>
             {tag}
           </button>
         ))}
+        <button type="button" className="chip" onClick={onLeave}>
+          leave it
+        </button>
+        <button type="button" className="chip" onClick={() => setNoteOpen((v) => !v)}>
+          + note
+        </button>
       </div>
-    </div>
+      {noteOpen && (
+        <input
+          className="note-input"
+          placeholder="note"
+          value={note}
+          autoFocus
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={() => onNote(entry.id, note.trim())}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              onNote(entry.id, note.trim())
+              setNoteOpen(false)
+            }
+          }}
+        />
+      )}
+    </section>
   )
+}
+
+/* --- entries --- */
+
+function groupByDay(diary: DiaryEntry[]): { label: string; entries: DiaryEntry[] }[] {
+  const sorted = [...diary].sort((a, b) => b.time.localeCompare(a.time))
+  const dayLabel = (iso: string): string => {
+    const date = new Date(iso)
+    const now = new Date()
+    const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    const days = Math.round((startOf(now) - startOf(date)) / 86_400_000)
+    if (days === 0) return 'Today'
+    if (days === 1) return 'Yesterday'
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  }
+  const groups: { label: string; entries: DiaryEntry[] }[] = []
+  for (const entry of sorted) {
+    const label = dayLabel(entry.time)
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.entries.push(entry)
+    else groups.push({ label, entries: [entry] })
+  }
+  return groups
+}
+
+const OBSERVATION_LABELS: Record<string, string> = { 'worse-outdoors': 'worse outdoors' }
+
+/** "smoke 38 · ozone 165 — “walk cut short at the park”" */
+function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
+  const parts: { ratio: number; text: string }[] = []
+  for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
+    const v = entry.exposure[key] ?? 0
+    const prior = PRIORS[key]?.[2] ?? 1
+    if (v > 0) {
+      const short = key === 'pm25' ? 'smoke' : key === 'o3' ? 'ozone' : key === 'pm10' ? 'dust' : 'NO₂'
+      parts.push({ ratio: v / prior, text: `${short} ${Math.round(v)}` })
+    }
+  }
+  const heat = entry.exposure.heat_stress ?? 0
+  const cold = entry.exposure.cold_dry_stress ?? 0
+  if (heat > 0 || cold > 0) {
+    const celsius = heat > 0 ? 25 + heat : 10 - cold
+    parts.push({
+      ratio: (heat > 0 ? heat : cold) / 7,
+      text: `${Math.round(displayTemperature(celsius, tempUnit))}°${tempUnit}`,
+    })
+  }
+  const line = parts
+    .sort((a, b) => b.ratio - a.ratio)
+    .slice(0, 3)
+    .map((p) => p.text)
+    .join(' · ')
+  return entry.note ? `${line}${line ? ' — ' : ''}“${entry.note}”` : line
 }
 
 function EntryRow({
   entry,
-  unit,
-  onDelete,
+  tempUnit,
+  conflictIndex,
 }: {
   entry: DiaryEntry
-  unit: TemperatureUnit
-  onDelete: (id: string) => void
+  tempUnit: TemperatureUnit
+  conflictIndex: number | undefined
 }) {
-  const when = new Date(entry.time).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
+  const when = new Date(entry.time).toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
   })
-  const highlights = Object.entries(entry.exposure)
-    .filter(([, v]) => v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(
-      ([variable, v]) =>
-        `${variableName(variable)} ${Math.round(displayExposure(variable, v, unit))}`,
-    )
-    .join(' · ')
+  const tags = [
+    ...(entry.observations ?? []).map((o) => OBSERVATION_LABELS[o] ?? o),
+    ...(entry.confounders ?? []),
+  ]
   return (
     <div className="entry-row">
-      <span className={`entry-chip bi-bg-${entry.rating}`}>{entry.rating}</span>
+      <LevelPill level={entry.rating} variant="entry" />
       <div className="entry-body">
-        <div className="entry-when">
+        <span className="entry-when">
           {when}
-          {entry.observations?.map((tag) => (
+          {tags.map((tag) => (
             <span key={tag} className="entry-tag">
-              {OBSERVATIONS.find((o) => o.value === tag)?.label ?? tag}
+              · {tag}
             </span>
           ))}
-          {entry.confounders?.map((tag) => (
-            <span key={tag} className="entry-tag">
-              {tag}
-            </span>
-          ))}
-        </div>
-        <div className="entry-exposures">{highlights}</div>
-        {entry.note && <div className="entry-note">{entry.note}</div>}
+          {conflictIndex !== undefined && (
+            <button
+              type="button"
+              className="entry-conflict-link"
+              onClick={() =>
+                document
+                  .getElementById(`conflict-${conflictIndex}`)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
+            >
+              · does not add up ↑
+            </button>
+          )}
+        </span>
+        <span className="entry-exposures">{exposureLine(entry, tempUnit)}</span>
       </div>
-      <button
-        type="button"
-        className="entry-delete"
-        aria-label="delete entry"
-        onClick={() => onDelete(entry.id)}
-      >
-        ×
-      </button>
     </div>
   )
 }
