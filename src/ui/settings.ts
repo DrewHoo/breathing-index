@@ -17,6 +17,8 @@ export interface Settings {
   units: UnitPreference
   /** the first-run intro has been dismissed */
   introSeen: boolean
+  /** send content-free usage pings (see ui/analytics.ts) */
+  analyticsEnabled: boolean
 }
 
 const KEY = 'breathing-index.settings.v1'
@@ -27,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   airnowEnabled: true,
   units: 'auto',
   introSeen: false,
+  analyticsEnabled: true,
 }
 
 export function loadSettings(): Settings {

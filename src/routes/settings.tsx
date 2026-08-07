@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import type { DiaryEntry } from '../engine/types'
+import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { loadSettings, saveSettings, type Settings, type UnitPreference } from '../ui/settings'
@@ -213,6 +214,32 @@ function SettingsScreen() {
         {message && <span className="settings-note">{message}</span>}
         <span className="settings-note">
           Everything lives in this browser only. Export a backup now and then.
+        </span>
+        <div className="row-card">
+          <div className="settings-row tall">
+            <div className="settings-row-sub">
+              <span className="settings-row-label">Usage pings</span>
+              <span className="settings-row-hint">screen views and taps · no diary content</span>
+            </div>
+            <button
+              type="button"
+              className={`toggle${settings.analyticsEnabled ? ' on' : ''}`}
+              role="switch"
+              aria-checked={settings.analyticsEnabled}
+              aria-label="Usage pings"
+              onClick={() => {
+                const enabled = !settings.analyticsEnabled
+                setAnalyticsEnabled(enabled)
+                update({ ...settings, analyticsEnabled: enabled })
+              }}
+            >
+              <span className="toggle-knob" />
+            </button>
+          </div>
+        </div>
+        <span className="settings-note">
+          Anonymous usage pings (screen views, taps — never ratings, notes, or location) help me see
+          what&rsquo;s broken.
         </span>
       </section>
 

@@ -75,9 +75,9 @@ function Home() {
   useEffect(() => {
     if (!prediction) return
     track('Prediction viewed', {
-      floor: prediction.floor,
-      ceiling: prediction.ceiling,
-      reasonKinds: [...new Set(prediction.reasons.map((r) => r.kind))],
+      // The predicted band and the variables behind it are this person's air
+      // and lungs, so only the shape of the evidence goes out: how many
+      // entries the model had, and whether the reading was stale.
       diaryEntries: diary.length,
       stale,
       // How the location was chosen, never which one — location.label is now
@@ -96,6 +96,7 @@ function Home() {
   }
 
   const logNow = (rating: Rating) => {
+    const tapped = performance.now()
     const entry: DiaryEntry = {
       id: newEntryId(),
       time: new Date().toISOString(),
@@ -106,11 +107,11 @@ function Home() {
     updateDiary([...diary, entry])
     setJustSaved(entry)
     setDismissed(false)
+    // The rating and the air it was rated against are the diary — they stay
+    // here. What ships is that a tap happened, and that saving it was fast.
     track('Diary entry saved', {
-      rating,
-      confounders: [],
-      observations: [],
-      hasNote: false,
+      coldStart,
+      saveMs: Math.round(performance.now() - tapped),
       totalEntries: diary.length + 1,
     })
   }
