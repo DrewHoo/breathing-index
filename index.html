@@ -10,6 +10,22 @@
       content="Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale."
     />
     <meta name="theme-color" content="#F3F6F7" />
+    <meta name="author" content="Drew Hoover" />
+    <meta name="application-name" content="Breathing Index" />
+    <!-- max-image-preview:large is what lets the share card run full width in results. -->
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <!--
+      Every deep route is served by the SPA 404 shim, so it points here rather
+      than claiming to be its own page. Those routes are app state, not content,
+      and GitHub Pages returns them with a 404 status anyway.
+    -->
+    <link rel="canonical" href="https://breathingindex.com/" />
+
+    <!-- iOS home-screen chrome, to match the manifest -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Breathing" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,12 +48,14 @@
       content="The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and predicts your day on a 1–4 scale."
     />
     <meta property="og:url" content="https://breathingindex.com/" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:image" content="https://breathingindex.com/og.png" />
+    <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta
       property="og:image:alt"
-      content="Share card for Breathing Index: the app name in large type beside the digits 1 through 4 colored green, yellow, orange, and red, above the tagline and a small bar chart of hourly air readings."
+      content="Share card for Breathing Index: the app name and tagline on a white card, a bar chart of one day's hourly air readings rising to a single red peak, and the scale from 1 Easy through 2 Noticeable and 3 Limiting to 4 Dangerous."
     />
 
     <!-- Twitter / X -->
@@ -48,10 +66,52 @@
       content="The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and predicts your day on a 1–4 scale."
     />
     <meta name="twitter:image" content="https://breathingindex.com/og.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Share card for Breathing Index: the app name and tagline on a white card, a bar chart of one day's hourly air readings rising to a single red peak, and the scale from 1 Easy through 2 Noticeable and 3 Limiting to 4 Dangerous."
+    />
 
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Breathing Index",
+        "url": "https://breathingindex.com/",
+        "description": "Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale.",
+        "applicationCategory": "HealthApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript.",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "image": "https://breathingindex.com/og.png",
+        "author": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/",
+          "sameAs": ["https://github.com/DrewHoo"]
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      The app is client-rendered, so #root is empty until JS runs. Googlebot
+      renders it, but plenty of crawlers and link unfurlers do not — this gives
+      them, and anyone without JS, the actual pitch rather than a blank page.
+    -->
+    <noscript>
+      <main>
+        <h1>Breathing Index</h1>
+        <p>
+          A personal air quality index. The composite AQI reduces every pollutant to one number.
+          Breathing Index shows each exposure variable — smoke, dust, ozone, NO₂, heat, humidity —
+          separately, learns which ones actually affect you from your own symptom diary, and
+          predicts your day on a four-level scale: 1 Easy, 2 Noticeable, 3 Limiting, 4 Dangerous.
+        </p>
+        <p>It needs JavaScript to run. Data comes from Open-Meteo, with AirNow station comparison in the US.</p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
