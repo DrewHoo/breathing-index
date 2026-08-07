@@ -40,7 +40,7 @@ npm test        # engine fixture suite (vitest)
 npm run build   # vite build + typecheck
 ```
 
-Deploys to GitHub Pages via Actions. Push triggers currently aren't firing on this repo, so dispatch manually:
+Deploys to GitHub Pages via Actions on every push to `main`. To redeploy without a new commit — or when an Actions incident swallows the push trigger — dispatch it manually:
 
 ```sh
 gh workflow run deploy.yml
