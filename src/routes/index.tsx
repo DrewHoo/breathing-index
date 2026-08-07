@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
@@ -6,6 +6,7 @@ import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/typ
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
+import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { newEntryId } from '../ui/entryId'
@@ -51,9 +52,12 @@ function fmtHour(h: number, spaced: boolean): string {
 function Home() {
   const { location, source, series: data, error, stale } = useExposureSeries()
   const { log: forceLog } = Route.useSearch()
+  const navigate = useNavigate()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const [justSaved, setJustSaved] = useState<DiaryEntry | null>(null)
   const [dismissed, setDismissed] = useState(false)
+  // Claimed at mount, not at render: yesterday's held-out entries are news once.
+  const [released] = useState(claimBankedRelease)
   const tempUnit = useTemperatureUnit()
 
   const current = data?.hours[data.currentIndex]
@@ -95,6 +99,10 @@ function Home() {
     saveDiary(next)
   }
 
+  // The echo comes from the diary, not from this session: a 4 logged at
+  // breakfast is still the answer to "how is your breathing?" after a reload.
+  const savedEntry = justSaved ?? heldOut[0] ?? null
+
   const logNow = (rating: Rating) => {
     const entry: DiaryEntry = {
       id: newEntryId(),
@@ -106,6 +114,12 @@ function Home() {
     updateDiary([...diary, entry])
     setJustSaved(entry)
     setDismissed(false)
+    // Only while the forecast still owes the user a personalization: this is the
+    // tap whose payoff arrives tomorrow, and the app promises to acknowledge it.
+    if (coldStart) markBankedToday()
+    // The ask has been answered, so drop the flag that reopened it — otherwise a
+    // reload of this URL asks again over an entry that already exists.
+    if (forceLog) navigate({ to: '/', search: {} })
     track('Diary entry saved', {
       rating,
       confounders: [],
@@ -115,24 +129,36 @@ function Home() {
     })
   }
 
+  // Amends whatever the card is echoing, which after a reload is a diary entry
+  // this session never saw. Undo stays on justSaved — see below.
   const amendSaved = (patch: Partial<DiaryEntry>) => {
-    if (!justSaved) return
-    const amended = { ...justSaved, ...patch }
-    setJustSaved(amended)
-    updateDiary(diary.map((e) => (e.id === justSaved.id ? amended : e)))
+    if (!savedEntry) return
+    const amended = { ...savedEntry, ...patch }
+    if (justSaved?.id === savedEntry.id) setJustSaved(amended)
+    updateDiary(diary.map((e) => (e.id === savedEntry.id ? amended : e)))
   }
 
+  // Session-scoped on purpose: undo takes back a tap you just made, and is not
+  // a delete button for this morning's entry. That lives in the diary.
   const undo = () => {
     if (!justSaved) return
     updateDiary(diary.filter((e) => e.id !== justSaved.id))
     setJustSaved(null)
   }
 
+  const logAgain = () => {
+    setJustSaved(null)
+    setDismissed(false)
+    navigate({ to: '/', search: { log: true } })
+  }
+
   const fetchedTime = new Date(data.fetchedAt).toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
   })
-  const showCard = !dismissed && (justSaved !== null || heldOut.length === 0 || Boolean(forceLog))
+  // "log again" reopens the ask over an existing answer; a fresh tap closes it.
+  const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
+  const showCard = !dismissed
 
   return (
     <>
@@ -147,10 +173,12 @@ function Home() {
       {showCard && (
         <QuickLogCard
           coldStart={coldStart}
-          saved={justSaved}
+          saved={echo}
+          canUndo={justSaved !== null && justSaved.id === echo?.id}
           onLog={logNow}
           onAmend={amendSaved}
           onUndo={undo}
+          onLogAgain={logAgain}
           onDismiss={() => setDismissed(true)}
         />
       )}
@@ -158,9 +186,17 @@ function Home() {
       <ForecastBlock
         prediction={prediction}
         coldStart={coldStart}
-        holdOut={justSaved !== null}
+        holdOut={showCard && echo !== null}
+        banked={coldStart ? heldOut.length : 0}
       />
-      <WhyBlock prediction={prediction} model={model} diary={modelDiary} coldStart={coldStart} />
+      <WhyBlock
+        prediction={prediction}
+        model={model}
+        diary={modelDiary}
+        diaryCount={diary.length}
+        coldStart={coldStart}
+        nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
+      />
       <AirTable data={data} model={model} tempUnit={tempUnit} />
       <ByHour data={data} model={model} coldStart={coldStart} />
       <MeasuredStrip lat={location.lat} lon={location.lon} />
@@ -180,16 +216,21 @@ const SAVED_CHIPS = [
 function QuickLogCard({
   coldStart,
   saved,
+  canUndo,
   onLog,
   onAmend,
   onUndo,
+  onLogAgain,
   onDismiss,
 }: {
   coldStart: boolean
   saved: DiaryEntry | null
+  /** the echoed entry was saved in this session, so taking it back is fair */
+  canUndo: boolean
   onLog: (rating: Rating) => void
   onAmend: (patch: Partial<DiaryEntry>) => void
   onUndo: () => void
+  onLogAgain: () => void
   onDismiss: () => void
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
@@ -217,12 +258,14 @@ function QuickLogCard({
         <div className="quicklog-saved-row">
           <LevelPill level={saved.rating} variant="inline" />
           <div className="quicklog-saved-text">
-            <span className="quicklog-saved-when">Saved, {savedTime}</span>
-            <span className="quicklog-saved-sub">logged with this air</span>
+            <span className="quicklog-saved-when">You rated it {levelWord(saved.rating)}</span>
+            <span className="quicklog-saved-sub">logged {savedTime}, with this air</span>
           </div>
-          <button type="button" className="quicklog-undo" onClick={onUndo}>
-            undo
-          </button>
+          {canUndo && (
+            <button type="button" className="quicklog-undo" onClick={onUndo}>
+              undo
+            </button>
+          )}
         </div>
         <div className="chip-row">
           {SAVED_CHIPS.map((chip) => (
@@ -259,9 +302,14 @@ function QuickLogCard({
             }}
           />
         )}
-        <button type="button" className="dismiss-button" onClick={onDismiss}>
-          Nothing to add
-        </button>
+        <div className="quicklog-actions">
+          <button type="button" className="dismiss-button" onClick={onLogAgain}>
+            Log again
+          </button>
+          <button type="button" className="dismiss-button" onClick={onDismiss}>
+            Nothing to add
+          </button>
+        </div>
       </section>
     )
   }
@@ -272,7 +320,7 @@ function QuickLogCard({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span className="quicklog-question">How is your breathing?</span>
           <span className="quicklog-cold-sub">
-            Your first tap starts the learning — good days count double.
+            Easy days teach the most — they prove today&rsquo;s whole mix is fine for you.
           </span>
         </div>
       ) : (
@@ -299,10 +347,13 @@ function ForecastBlock({
   prediction,
   coldStart,
   holdOut,
+  banked,
 }: {
   prediction: Prediction
   coldStart: boolean
   holdOut: boolean
+  /** entries logged today against a model that can't use them yet */
+  banked: number
 }) {
   const { floor, ceiling } = prediction
   const headline = coldStart
@@ -320,8 +371,13 @@ function ForecastBlock({
       </span>
       {holdOut && (
         <span className="holdout-note">
-          Your tap is not counted here — this is what the rest of your diary expects from air like
-          this.
+          Your rating above isn&rsquo;t counted here — this is what your other days expect from air
+          like this.
+        </span>
+      )}
+      {banked > 0 && (
+        <span className="banked-note">
+          {banked} {banked === 1 ? 'entry' : 'entries'} banked · starts counting tomorrow
         </span>
       )}
     </section>
@@ -404,20 +460,41 @@ function WhyBlock({
   prediction,
   model,
   diary,
+  diaryCount,
   coldStart,
+  nowCounting,
 }: {
   prediction: Prediction
   model: TriggerModel
+  /** the model diary: everything the forecast is allowed to use */
   diary: DiaryEntry[]
+  /** the whole diary, held-out entries included */
+  diaryCount: number
   coldStart: boolean
+  /** entries released from the hold-out overnight, announced once */
+  nowCounting: number
 }) {
   if (coldStart) {
     return (
       <section className="section tight">
         <SectionRule label="Why" />
         <span className="why-text">
-          No diary yet, so this ceiling comes from population breakpoints for sensitive groups.
-          Every entry you log replaces a piece of it with <em>you</em>.
+          {diary.length === 0 && diaryCount > 0 ? (
+            <>
+              Your first entries are from today, so they&rsquo;re held aside — today&rsquo;s rating
+              can&rsquo;t grade itself. Tomorrow they start driving this forecast.
+            </>
+          ) : diaryCount > 0 ? (
+            <>
+              Every entry so far came with something else going on, so this ceiling still comes from
+              population breakpoints for sensitive groups.
+            </>
+          ) : (
+            <>
+              No diary yet, so this ceiling comes from population breakpoints for sensitive groups.
+              Every entry you log replaces a piece of it with <em>you</em>.
+            </>
+          )}
         </span>
       </section>
     )
@@ -426,6 +503,11 @@ function WhyBlock({
   return (
     <section className="section tight">
       <SectionRule label="Why" />
+      {nowCounting > 0 && (
+        <span className="why-new">
+          Now drawing on your {nowCounting} {nowCounting === 1 ? 'entry' : 'entries'}.
+        </span>
+      )}
       <span className="why-text">{main}</span>
       {aside && <span className="why-aside">{aside}</span>}
     </section>
@@ -548,7 +630,7 @@ function statusChip(
     case 'tolerated':
       return { text: '○ fine before', cls: 'fine' }
     default:
-      return { text: '◌ no data', cls: '' }
+      return { text: '◌ no evidence yet', cls: '' }
   }
 }
 
@@ -563,12 +645,16 @@ function AirTable({
 }) {
   const rows = buildAirRows(data, model, tempUnit)
   const hour = fmtHour(hourNum(data.hours[data.currentIndex]!.time), true)
-  const hasTolerance = rows.some((r) => r.tol !== undefined)
+  // The glyph needs its legend from the first row the diary has a verdict on,
+  // not only from the rows that also carry a tolerance tick.
+  const showLegend = rows.some(
+    (r) => r.tol !== undefined || statusChip(model, r.statusVar, r.statusValue).cls !== '',
+  )
   return (
     <section className="section" style={{ gap: 4 }}>
       <SectionRule
         label="In the air"
-        note={`${hour} · range = past 48 h${hasTolerance ? ' · ○ handled fine' : ''}`}
+        note={`${hour} · range = past 48 h${showLegend ? ' · ○ handled fine' : ''}`}
         faint
       />
       <div className="air-table">

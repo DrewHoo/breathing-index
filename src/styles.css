@@ -357,6 +357,15 @@ main {
   border-color: var(--l2);
 }
 
+.quicklog-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.quicklog-actions .dismiss-button {
+  flex: 1;
+}
+
 .dismiss-button {
   width: 100%;
   min-height: 30px;
@@ -400,6 +409,13 @@ main {
 .holdout-note {
   font: italic 400 11.5px/1.5 var(--sans);
   color: var(--faint);
+}
+
+/* what the diary is doing for you: banked today, counting from tomorrow */
+.banked-note,
+.why-new {
+  font: 500 12px/1.5 var(--sans);
+  color: var(--accent);
 }
 
 /* --- why --- */

@@ -37,7 +37,7 @@ learned from your own symptom diary.                 (36)
 
 ### 5. PWA manifest description (one sentence)
 
-> A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Excellent) to 4 (Dangerous).
+> A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Easy) to 4 (Dangerous).
 
 ### 6. og:image:alt (one sentence)
 
@@ -45,7 +45,7 @@ learned from your own symptom diary.                 (36)
 
 ### 7. Project-card blurb for drewhoover.com (≤280 chars)
 
-> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and predicts your day on a four-level scale, from 1 (excellent) to 4 (dangerous).
+> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and predicts your day on a four-level scale, from 1 (easy) to 4 (dangerous).
 
 (192)
 
@@ -53,7 +53,7 @@ learned from your own symptom diary.                 (36)
 
 The composite AQI collapses every pollutant into one number with population-calibrated labels. The project started with a concrete failure of that design: air labeled "insufficient" in Amsterdam (Dutch LKI 7–8) was manageable for the same asthmatic lungs that struggled in Hamden, CT under a US AQI of 70, labeled "Moderate."
 
-Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It predicts the day on a four-level behavioral scale, 1 (Excellent) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
+Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It predicts the day on a four-level behavioral scale, 1 (Easy) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
 
 ---
 
@@ -85,12 +85,14 @@ Sub-line:
 > One tap logs it against the air right now. Add a note, tags, or a correction in your diary.
 
 Answered state, when today already has an entry in air like this:
-> Today, in air like this
-> **You rated it noticeable** — logged 9:05 AM
+> **You rated it noticeable**
+> logged 9:05 AM, with this air
 
-(Heading says *air like this*, not *today*: the card comes back when the air moves, and the
-wording has to survive both. The reopen button is "log again" — it never hides the ask, it just
-stops leading with it.)
+(The line says *this air*, not *today*: the card comes back when the air moves, and the wording
+has to survive both. The state is read from the diary, not from the session, so a 4 logged at
+breakfast is still on the screen after a reload. The reopen button is "Log again", the diary's
+"+ Log now" from the other side — it never hides the ask, it just stops leading with it. "undo" only appears for a tap made in this session; taking
+back this morning's entry is the diary's job.)
 
 ### 11b. Forecast hold-out note
 
@@ -100,6 +102,26 @@ Under the evidence line, only while the quick-log card is showing an answer:
 (The headline below an answered card would otherwise be the user's own tap played back as a
 prediction. The note says the hold-out out loud rather than letting the two numbers look like
 they disagree by accident.)
+
+### 11c. The first day, and the day after
+
+Quick-log sub-line before there is anything to learn from:
+> Easy days teach the most — they prove today's whole mix is fine for you.
+
+Under the forecast, while today's entries are logged but held out:
+> 1 entry banked · starts counting tomorrow
+
+Why block, when every entry in the diary is one of today's:
+> Your first entries are from today, so they're held aside — today's rating can't grade itself.
+> Tomorrow they start driving this forecast.
+
+Why block, once on the next local day, when they do:
+> Now drawing on your 3 entries.
+
+(Nothing here promises a mechanism the engine doesn't have. A 1 is worth exactly one entry; what
+makes it valuable is that it clears every variable in that entry's air at once. The forecast is
+still "unpersonalized" on day one, and the copy says when that ends instead of implying it
+already has.)
 
 ### 12. Scoreboard heading + intro
 
@@ -125,7 +147,7 @@ Intro:
 
 Kept as approved:
 
-- 1 Excellent — "The air isn't a factor. Do anything."
+- 1 Easy — "The air isn't a factor. Do anything."
 - 2 Noticeable — "You'll feel it, but you can carry on as planned."
 - 3 Limiting — "Change the plan: shorter, slower, later, or elsewhere."
 - 4 Dangerous — "Outside is unsafe for you. Stay in filtered air."
