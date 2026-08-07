@@ -62,7 +62,17 @@ The theme: **evidence gets weight, weight decays, and claims carry their context
    drop a variable from an entry — rather than recording 0 — when its window has no data.
    Either show so2/co in the air table or exclude them from evidence lines; never cite a
    variable the user can't see.
-6. **Confidence surfaces to the UI.** `Prediction` gains an evidence grade per level:
+6. **Thresholds are source-scoped.** Live case (Hamden, 2026-08-07): CAMS model ozone read
+   166 µg/m³ while the New Haven monitor implied ~82 — CAMS global carries a known
+   warm-season positive surface-ozone bias in the eastern US. Bounds learned against a biased
+   source still predict correctly *on that source*, so per-source learning is fine — but the
+   bounds don't transfer. Therefore: every learned bound records the source it was learned
+   from; a source switch starts a fresh bound set for affected variables (old bounds retained,
+   inert) rather than silently reusing numbers that mean something else. EPA priors are
+   real-world concentrations compared against possibly-inflated inputs — over-warning, the
+   safe direction — note this in config comments. Historical backfill
+   ([15](15-premium-sources.md)) is the eventual bridge between source-scoped bound sets.
+7. **Confidence surfaces to the UI.** `Prediction` gains an evidence grade per level:
    `prior | provisional (n=1) | confirmed (n≥2)`. The Why line already phrases evidence
    honestly; give it the vocabulary ("one day suggests…" vs "two separate days show…").
 

@@ -1,6 +1,6 @@
 # Encrypted backup & sync — the first paid feature
 
-**Status:** proposed · **Effort:** L · **Deps:** [01-data-durability.md](01-data-durability.md) (nudges/UI), [02-honest-analytics.md](02-honest-analytics.md) (trust story must be clean first) · **Priority:** first monetization
+**Status:** deferred pending Drew's feedback (PR #1 review) · **Effort:** L · **Deps:** [01-data-durability.md](01-data-durability.md) (nudges/UI), [02-honest-analytics.md](02-honest-analytics.md) (trust story must be clean first)
 
 ## Why this one first
 

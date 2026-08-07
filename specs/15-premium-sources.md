@@ -28,6 +28,18 @@ account, and metered proxying is the standard shape for this.
    spatially shared, which is what makes proxying economical at all.
 5. **Settings UI:** sources list grows rows with a key field (BYO) or a "Plus" chip; each row
    states coverage and what it improves, in the existing laconic style.
+6. **Historical backfill — score sources against the diary** (added 2026-08-08). Several
+   sources expose history (Open-Meteo archive, AirNow observations-by-date, PurpleAir sensor
+   history); diary entries carry timestamps and places. So we can retro-fetch what *each
+   source* said at every logged moment and answer two questions no live view can: (a) which
+   source's numbers best explain this user's ratings — the source-scoring receipt that decides
+   what the engine should listen to; (b) when a user upgrades sources, re-ground their
+   existing entries in the new source's terms so learned bounds migrate honestly instead of
+   restarting cold (the bridge [03](03-engine-robustness.md)'s source-scoped bounds
+   anticipates). Backfilled vectors are tagged `backfilled` provenance and re-run through
+   inference as a parallel bound set — never silently overwriting the original vectors.
+   Rate-limit friendly: one batch fetch per (source, place, day), cached forever — history
+   doesn't change.
 
 ## Acceptance
 

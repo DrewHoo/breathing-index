@@ -1,6 +1,6 @@
 # Doctor-visit report — the diary, shaped for a pulmonologist
 
-**Status:** proposed · **Effort:** M · **Deps:** [08-scoreboard.md](08-scoreboard.md) (it's the centerpiece), [09-medical-disclaimer.md](09-medical-disclaimer.md) (framing) · **Priority:** third monetization; zero backend
+**Status:** deferred (Drew, PR #1 review) — when revived, ships as a premium (Plus-tier) feature, not pay-per-report · **Effort:** M · **Deps:** [09-medical-disclaimer.md](09-medical-disclaimer.md) (framing); scoreboard centerpiece inherits [08](08-scoreboard.md)'s deferral
 
 ## Why
 

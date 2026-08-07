@@ -1,6 +1,9 @@
 # Scoreboard — ship the receipts
 
-**Status:** proposed · **Effort:** M · **Deps:** none (official indices already captured per entry) · **Priority:** high — the emotional payoff of the whole product
+**Status:** deferred indefinitely (Drew, PR #1 review) · **Effort:** M · **Deps:** none (official indices already captured per entry)
+
+> Kept for the record; official-index capture on diary entries continues so this stays buildable
+> whenever it's revived.
 
 ## Problem
 

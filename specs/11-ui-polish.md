@@ -18,8 +18,14 @@ the row may earn a "likely smoke" sub-label. Evidence lines inherit the same nam
 "Ozone 180 µg/m³" (model row) sits above "OZONE 58 Moderate" (station AQI points) with no
 hint the scales differ. Convert station AQI per-pollutant back to concentration for a
 same-unit comparison ("station ≈ 120 µg/m³ vs model 180"), or at minimum caption the strip:
-"station numbers are AQI points, not µg/m³." Keep the existing disagreement-means-local-source
-line — it's good.
+"station numbers are AQI points, not µg/m³."
+
+The disagreement caption also points the wrong way for ozone. "Disagreement usually means a
+local source, such as smoke, that the model missed" is right for PM (station reads high ⇒
+hyperlocal source). Ozone has no hyperlocal sources: when the *model* reads high against a
+monitor — the observed Hamden case, CAMS 166 vs station ~82 µg/m³-equivalent — the model is
+biased and the station wins. Make the caption per-pollutant: PM keeps the local-source line;
+ozone gets "when these disagree, trust the station."
 
 ## 3. Dark mode
 

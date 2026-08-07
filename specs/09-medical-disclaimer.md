@@ -1,4 +1,4 @@
-# Medical framing — one honest sentence, everywhere it matters
+# Medical framing, privacy policy & terms — one honest sentence, everywhere it matters
 
 **Status:** proposed · **Effort:** S · **Deps:** none · **Priority:** high — asymmetric risk, nearly free
 
@@ -29,9 +29,27 @@ a solo project.
    breathing feels dangerous, use your rescue plan and get help, whatever this app says."
    Rendered once, small, under the forecast when ceiling = 4.
 
+5. **Privacy policy & terms pages** (added per PR #1 review). Two static prerendered pages,
+   `/privacy` and `/terms`, linked from the Settings footer and intro small-print — same
+   no-app-JS treatment as [17-content-pages.md](17-content-pages.md), same laconic voice; no
+   legalese boilerplate longer than the app itself.
+   - **Privacy** states what is actually true (post-[02](02-honest-analytics.md), which this
+     depends on): diary lives in browser storage only; content-free usage pings to Mixpanel
+     (list the exact properties) with an in-app opt-out; air data fetched directly from
+     Open-Meteo/AirNow (they see your coordinates in the request, nothing else); no accounts,
+     no sale of data, no cookies beyond storage. Update this page in the same PR as any
+     future telemetry or backend change — it's a contract, not marketing.
+   - **Terms**: informational-not-medical (the canonical sentence), no warranty, provided
+     as-is, liability limited to the maximum extent permitted, data sources' accuracy not
+     guaranteed, US-style disclaimer language kept to ~a screen. Note plainly that a lawyer
+     hasn't reviewed it and Drew is one person — honesty is the brand here too.
+
 ## Acceptance
 
 - The sentence appears in intro, Settings, and page metadata; grep finds exactly one source
   string.
 - Forecast ceiling of 4 renders the rescue-plan clause.
 - No forecast surface issues a bare imperative sourced from priors alone.
+- `/privacy` and `/terms` return full HTML without JS, are linked from Settings and intro,
+  and the privacy page's telemetry list matches the actual `track(` call sites (checked by
+  hand in review, kept honest by the spec-02 audit rule).
