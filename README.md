@@ -1,6 +1,6 @@
 # breathing-index
 
-A personal air quality PWA. Live at [drewhoover.com/breathing-index](https://drewhoover.com/breathing-index/).
+A personal air quality PWA. Live at [breathingindex.com](https://breathingindex.com/).
 
 ## Why
 

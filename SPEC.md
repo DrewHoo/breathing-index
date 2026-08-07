@@ -134,12 +134,12 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Architecture
 
-- **Stack:** **TypeScript (strict) + Vite + React + TanStack Router with file-based routing** — a deliberate departure from the plain-JS sibling-site paradigm; this app has a real domain model (exposure vectors, constraints, predictions) that deserves types. The inference engine is a pure, UI-free typed module (`src/engine/`) whose only contract is the fixture suite. Routes: `/` home, `/detail`, `/diary`, `/scoreboard`, `/settings`. GitHub Pages needs the SPA 404-redirect shim (or hash history) for deep links under `/breathing-index/`.
+- **Stack:** **TypeScript (strict) + Vite + React + TanStack Router with file-based routing** — a deliberate departure from the plain-JS sibling-site paradigm; this app has a real domain model (exposure vectors, constraints, predictions) that deserves types. The inference engine is a pure, UI-free typed module (`src/engine/`) whose only contract is the fixture suite. Routes: `/` home, `/detail`, `/diary`, `/scoreboard`, `/settings`. GitHub Pages needs the SPA 404-redirect shim (or hash history) for deep links.
 - **Styling:** hand-rolled CSS per the drewhoover.com sibling-site conventions (system fonts, neutral palette + semantic data colors). D3 only if the sparklines need it.
 - **PWA:** `vite-plugin-pwa` — manifest, icons, service worker with stale-while-revalidate for the app shell and network-first for API calls; cached last-good readings shown with a staleness banner when offline.
 - **State:** profile + keys + saved locations in `localStorage`; current view state mirrored to the URL (shareable "look at Hamden right now" links) per the sibling-site URL-state pattern.
 - **All fetching is client-side.** No build-time data baking — air quality data is only useful live.
-- **Hosting:** GitHub Pages via Actions workflow, `base: '/breathing-index/'` in `vite.config.js`. **Repo is private for now**, which means no Pages deploy until it's flipped public (user-site routing at `drewhoover.com/<slug>/` requires a public repo). Local dev + phone-on-LAN testing until then.
+- **Hosting:** GitHub Pages via Actions workflow, on its own apex domain `breathingindex.com` (`base: '/'` in `vite.config.ts`; `public/CNAME` carries the custom domain into every deploy artifact). It started as a project site under the drewhoover.com user site at `/breathing-index/`; that path now serves redirect stubs plus a self-destructing service worker from the `DrewHoo.github.io` repo.
 
 ## Milestones
 
@@ -148,7 +148,8 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 3. **M3 — Diary + trigger inference:** ✅ done — one-tap diary with confounder tags and automatic exposure + official-index capture; conflict cards (superseded / unmodeled-trigger) with tag-to-resolve; detail sparklines; scoreboard receipts; personal-tolerance-overrides-priors added to the engine (fixture 13).
 4. **M4 — PWA:** ✅ done — vite-plugin-pwa (autoUpdate SW, manifest, generated icon set via `scripts/generate-icons.mjs`), NetworkFirst runtime caching for Open-Meteo, plus an app-level last-good localStorage fallback with staleness banner and re-derived current hour. Geolocation was in from M2.
 5. **M5 — Tunability:** ✅ done — settings screen: saved locations (follow-me or fixed), AirNow measured-comparison toggle, diary export/import JSON. Home shows the AirNow measured strip (per-pollutant AQI + Action Day flag) via the keyless widget endpoint. PurpleAir (needs user API key) still planned.
-6. **M6 — Public:** ✅ done (2026-08-06) — repo public, Pages deploying via Actions (SPA 404 fallback), OG/Twitter meta + share card + drewhoover.com chrome, live at https://drewhoover.com/breathing-index/, registered on the drewhoover.com index.
+6. **M6 — Public:** ✅ done (2026-08-06) — repo public, Pages deploying via Actions (SPA 404 fallback), OG/Twitter meta + share card + drewhoover.com chrome, live under `drewhoover.com/breathing-index/`, registered on the drewhoover.com index.
+7. **M7 — Own domain:** ✅ done (2026-08-07) — moved to https://breathingindex.com/ (`base: '/'`, `public/CNAME`, absolute OG/Twitter URLs). The old path keeps working via per-route redirect stubs in `DrewHoo.github.io/public/breathing-index/`, alongside a self-destructing `sw.js` that unregisters the stale PWA service worker still scoped to `drewhoover.com/breathing-index/`. Note that `localStorage` is per-origin: diary data does **not** follow the move, so it has to travel by the settings-screen export/import.
 
 ## Open questions
 
