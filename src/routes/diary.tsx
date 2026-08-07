@@ -6,6 +6,7 @@ import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { BackupChip } from '../ui/durabilityUi'
 import { levelWord } from '../ui/labels'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 
@@ -16,12 +17,13 @@ const CONFLICT_TAGS = ['pollen', 'sick', 'indoors all day']
 function Diary() {
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const [leftAlone, setLeftAlone] = useState<Set<number>>(new Set())
+  const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
   const model = useMemo(() => buildModel(diary), [diary])
 
   const update = (next: DiaryEntry[]) => {
     setDiary(next)
-    saveDiary(next)
+    setSaveFailed(!saveDiary(next))
   }
 
   const amend = (entryId: string, patch: Partial<DiaryEntry>) => {
@@ -46,6 +48,13 @@ function Diary() {
           + Log now
         </Link>
       </div>
+
+      {saveFailed && (
+        <p className="save-error">
+          Couldn&rsquo;t save that change — export your diary now.
+        </p>
+      )}
+      <BackupChip entryCount={diary.length} />
 
       <section className="section">
         <SectionRule label="What your diary shows" />

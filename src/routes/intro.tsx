@@ -1,7 +1,11 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import type { Rating } from '../engine/types'
 import { track } from '../ui/analytics'
 import { LevelPill } from '../ui/bits'
+import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
+import { mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
+import { clearSentinel, sentinelInIndexedDb, sentinelInLocalStorage } from '../ui/durability'
 import { BI_LABELS } from '../ui/labels'
 import { loadSettings, saveSettings } from '../ui/settings'
 
@@ -11,6 +15,16 @@ const LEVELS: Rating[] = [1, 2, 3, 4]
 
 function Intro() {
   const navigate = useNavigate()
+  // A sentinel outliving the diary means this browser cleared it. Showing the
+  // welcome then would tell someone who lost four months that they are new here.
+  const [evicted, setEvicted] = useState(() => !hasStoredDiary() && sentinelInLocalStorage())
+
+  useEffect(() => {
+    if (evicted || hasStoredDiary()) return
+    void sentinelInIndexedDb().then((found) => {
+      if (found && !hasStoredDiary()) setEvicted(true)
+    })
+  }, [evicted])
 
   const finish = (choice: 'location' | 'manual') => {
     saveSettings({ ...loadSettings(), introSeen: true, activeLocation: 'auto' })
@@ -26,6 +40,21 @@ function Intro() {
     } else {
       void navigate({ to: '/settings' })
     }
+  }
+
+  if (evicted) {
+    return (
+      <Restore
+        onRestored={() => {
+          saveSettings({ ...loadSettings(), introSeen: true })
+          void navigate({ to: '/diary' })
+        }}
+        onStartOver={() => {
+          clearSentinel()
+          setEvicted(false)
+        }}
+      />
+    )
   }
 
   return (
@@ -57,6 +86,77 @@ function Intro() {
         </button>
         <button type="button" className="intro-alt" onClick={() => finish('manual')}>
           or pick a place by hand →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Shown in place of the intro when the diary was cleared out from under us. */
+function Restore({
+  onRestored,
+  onStartOver,
+}: {
+  onRestored: () => void
+  onStartOver: () => void
+}) {
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    track('Diary eviction seen')
+  }, [])
+
+  const restore = async (file: File) => {
+    const parsed = parseDiaryImport(await file.text())
+    if (!parsed.ok) {
+      setMessage(parsed.reason)
+      return
+    }
+    const { merged, added } = mergeDiary(loadDiary(), parsed.entries)
+    if (!saveDiary(merged)) {
+      setMessage('This browser refused the write. Free some space and try again.')
+      return
+    }
+    track('Diary restored', { entries: added.length })
+    onRestored()
+  }
+
+  return (
+    <div className="intro">
+      <span className="wordmark">Breathing Index 🫁</span>
+      <div className="intro-headline">
+        Your diary is gone from this browser — restore from a backup?
+      </div>
+      <p className="intro-body">
+        You logged entries here before; this browser cleared them. Safari wipes stored data for
+        sites you haven&rsquo;t opened in a week, and &ldquo;Clear History and Website Data&rdquo;
+        takes everything. Nothing was ever sent anywhere, so there is nothing to fetch back.
+      </p>
+      <p className="intro-body">
+        If you exported a backup, load the JSON file and your history returns intact.
+      </p>
+      <p className="intro-privacy">
+        Adding the app to your home screen is what stops this happening again.
+      </p>
+      {message && <p className="intro-privacy">{message}</p>}
+      <input
+        ref={fileInput}
+        type="file"
+        accept="application/json"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) void restore(file)
+          e.target.value = ''
+        }}
+      />
+      <div className="intro-cta-block">
+        <button type="button" className="intro-cta" onClick={() => fileInput.current?.click()}>
+          Restore from a backup
+        </button>
+        <button type="button" className="intro-alt" onClick={onStartOver}>
+          or start over with an empty diary →
         </button>
       </div>
     </div>
