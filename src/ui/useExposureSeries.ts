@@ -65,6 +65,8 @@ export function useExposureSeries(): {
   error: string | null
   /** true when showing last-known data because the live fetch failed */
   stale: boolean
+  /** ask again after a failure — the error screen's Retry button */
+  retry: () => void
 } {
   const [location, setLocation] = useState<Location>(() => {
     const settings = loadSettings()
@@ -80,6 +82,15 @@ export function useExposureSeries(): {
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  // Drop the in-flight failure as well as the counter: the whole point of
+  // pressing Retry is to go back to the network, not to replay the miss.
+  const retry = () => {
+    cache = null
+    setError(null)
+    setAttempt((n) => n + 1)
+  }
 
   useEffect(() => {
     if (loadSettings().activeLocation !== 'auto') return
@@ -133,7 +144,7 @@ export function useExposureSeries(): {
     return () => {
       cancelled = true
     }
-  }, [location])
+  }, [location, attempt])
 
-  return { location, source, series, error, stale }
+  return { location, source, series, error, stale, retry }
 }
