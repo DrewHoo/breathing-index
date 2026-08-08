@@ -64,7 +64,7 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, source, gap, retryLocation, series: data, error, stale, retry } =
+  const { location, source, gap, asking, retryLocation, series: data, error, stale, retry } =
     useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const navigate = useNavigate()
@@ -166,7 +166,7 @@ function Home() {
         <header className="screen-header">
           <span className="wordmark">Breathing Index 🫁</span>
         </header>
-        <LocationNeededCard gap={gap} onRetry={retryLocation} />
+        <LocationNeededCard gap={gap} asking={asking} onRetry={retryLocation} />
       </>
     )
   }
@@ -267,7 +267,7 @@ function Home() {
         </p>
       )}
 
-      {!chosenPlace && <LocationNeededCard gap="no-answer" onRetry={retryLocation} />}
+      {!chosenPlace && <LocationNeededCard gap="no-answer" asking={asking} onRetry={retryLocation} />}
 
       {showCard && chosenPlace && (
         <QuickLogCard
