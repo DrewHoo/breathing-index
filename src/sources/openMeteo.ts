@@ -14,7 +14,16 @@ export interface ExposureSeries {
   currentIndex: number
   fetchedAt: string
   utcOffsetSeconds: number
+  /** which source these numbers are: learned bounds are scoped to it */
+  source: string
 }
+
+/**
+ * Open-Meteo's air-quality endpoint serves the CAMS model, not monitors. The
+ * name is on every entry logged against it, because a bound learned here does
+ * not transfer to a station feed reading the same air differently.
+ */
+export const EXPOSURE_SOURCE = 'cams'
 
 const AIR_VARS =
   'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
@@ -35,16 +44,22 @@ export function findCurrentIndex(times: string[], utcOffsetSeconds: number): num
   return index === -1 ? times.length - 1 : index
 }
 
-function windowMax(values: (number | null)[], i: number, span: number): number {
-  let max = 0
+/**
+ * Window features return null, not 0, when the window holds no data. A gap in
+ * the feed is not a clean reading: recorded as 0 it would drop the variable
+ * below its background floor and quietly disqualify the real trigger from
+ * candidacy. Absent, it simply proves nothing either way.
+ */
+function windowMax(values: (number | null)[], i: number, span: number): number | null {
+  let max: number | null = null
   for (let j = Math.max(0, i - span + 1); j <= i; j++) {
     const v = values[j]
-    if (v != null && v > max) max = v
+    if (v != null && (max === null || v > max)) max = v
   }
   return max
 }
 
-function windowMean(values: (number | null)[], i: number, span: number): number {
+function windowMean(values: (number | null)[], i: number, span: number): number | null {
   let sum = 0
   let n = 0
   for (let j = Math.max(0, i - span + 1); j <= i; j++) {
@@ -54,7 +69,7 @@ function windowMean(values: (number | null)[], i: number, span: number): number 
       n++
     }
   }
-  return n === 0 ? 0 : sum / n
+  return n === 0 ? null : sum / n
 }
 
 /**
@@ -93,21 +108,25 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     const wi = weatherTimeIndex.get(time) ?? i
     const t = temp[wi] ?? null
     const d = dew[wi] ?? null
-    const heatStress = t != null ? Math.max(0, t - 25) : 0
-    const coldDryStress = t != null && t < 10 && d != null && d < 2 ? 10 - t : 0
+    const heatStress = t != null ? Math.max(0, t - 25) : null
+    const coldDryStress = t == null ? null : t < 10 && d != null && d < 2 ? 10 - t : 0
+    // The engine may only reason about variables the app can show the user, so
+    // so2 and co stay out of the exposure vector until the air table has rows
+    // for them: an evidence line must never cite a number nobody can check.
+    const exposure: Exposure = {}
+    const put = (variable: string, x: number | null): void => {
+      if (x !== null) exposure[variable] = x
+    }
+    put('pm25', windowMax(pm25, i, 8))
+    put('pm10', windowMax(pm10, i, 8))
+    put('o3', windowMax(o3, i, 8))
+    put('no2', windowMax(no2, i, 8))
+    put('heat_stress', heatStress)
+    put('cold_dry_stress', coldDryStress)
+    put('humidity', windowMean(rh, wi, 72))
     return {
       time,
-      exposure: {
-        pm25: windowMax(pm25, i, 8),
-        pm10: windowMax(pm10, i, 8),
-        o3: windowMax(o3, i, 8),
-        no2: windowMax(no2, i, 8),
-        so2: windowMax(so2, i, 8),
-        co: windowMax(co, i, 8),
-        heat_stress: heatStress,
-        cold_dry_stress: coldDryStress,
-        humidity: windowMean(rh, wi, 72),
-      },
+      exposure,
       raw: {
         pm25: pm25[i] ?? 0,
         pm10: pm10[i] ?? 0,
@@ -115,8 +134,8 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
         no2: no2[i] ?? 0,
         so2: so2[i] ?? 0,
         co: co[i] ?? 0,
-        heat_stress: heatStress,
-        cold_dry_stress: coldDryStress,
+        heat_stress: heatStress ?? 0,
+        cold_dry_stress: coldDryStress ?? 0,
         humidity: rh[wi] ?? 0,
         temp: t ?? 0,
       },
@@ -131,5 +150,6 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     currentIndex,
     fetchedAt: new Date().toISOString(),
     utcOffsetSeconds: air.utc_offset_seconds,
+    source: EXPOSURE_SOURCE,
   }
 }

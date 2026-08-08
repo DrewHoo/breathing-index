@@ -116,6 +116,8 @@ function Home() {
       time: new Date().toISOString(),
       rating,
       exposure: current.exposure,
+      // Bounds are scoped to the source that taught them (engine config).
+      source: data.source,
       official: current.official,
     }
     updateDiary([...diary, entry])
