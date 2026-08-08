@@ -106,8 +106,10 @@ function Home() {
   }
 
   // No air to attach, so the entry keeps the coordinates instead and the vector
-  // is fetched for that hour later.
+  // is fetched for that hour later. Only reachable from the error screen, which
+  // renders after the null-location guard — the check is for the compiler.
   const logPending = (rating: Rating) => {
+    if (!location) return
     const entry: DiaryEntry = {
       id: newEntryId(),
       time: new Date().toISOString(),
