@@ -21,6 +21,7 @@ const series = (): ExposureSeries => ({
   hours: [hour('2026-08-07T08:00', 5), hour('2026-08-07T09:00', 31), hour('2026-08-07T10:00', 12)],
   currentIndex: 2,
   fetchedAt: '2026-08-07T14:05:00.000Z',
+  source: 'cams',
   utcOffsetSeconds: -4 * 3600,
 })
 

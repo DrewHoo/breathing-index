@@ -15,6 +15,7 @@ const series = (times: string[], currentIndex: number): ExposureSeries => ({
   hours: times.map(hour),
   currentIndex,
   fetchedAt: '2026-08-07T17:10:00.000Z',
+  source: 'cams',
   utcOffsetSeconds: -4 * 3600,
 })
 
