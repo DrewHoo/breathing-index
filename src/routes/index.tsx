@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
@@ -7,7 +7,9 @@ import { fetchAirNow, type AirNowReport } from '../sources/airnow'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
-import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
+import { sentinelInLocalStorage } from '../ui/durability'
+import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
@@ -20,6 +22,9 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { log?: boolean } =>
     search.log ? { log: true } : {},
   beforeLoad: () => {
+    // A sentinel with no diary means the browser took it. /intro sorts out
+    // which screen that deserves — the restore offer, not the welcome.
+    if (!hasStoredDiary() && sentinelInLocalStorage()) throw redirect({ to: '/intro' })
     if (!loadSettings().introSeen && loadDiary().length === 0) {
       throw redirect({ to: '/intro' })
     }
@@ -54,6 +59,7 @@ function Home() {
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
   const [justSaved, setJustSaved] = useState<DiaryEntry | null>(null)
   const [dismissed, setDismissed] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
 
   const current = data?.hours[data.currentIndex]
@@ -92,7 +98,7 @@ function Home() {
 
   const updateDiary = (next: DiaryEntry[]) => {
     setDiary(next)
-    saveDiary(next)
+    setSaveFailed(!saveDiary(next))
   }
 
   const logNow = (rating: Rating) => {
@@ -154,6 +160,15 @@ function Home() {
           onUndo={undo}
           onDismiss={() => setDismissed(true)}
         />
+      )}
+
+      {saveFailed ? (
+        <p className="save-error">
+          Couldn&rsquo;t save that — this browser is out of room.{' '}
+          <Link to="/settings">Export your diary now.</Link>
+        </p>
+      ) : (
+        <InstallNudge entryCount={diary.length} />
       )}
 
       <ForecastBlock
