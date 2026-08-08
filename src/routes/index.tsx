@@ -14,7 +14,14 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
-import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
+import {
+  BI_LABELS,
+  FORECAST_MEANING,
+  RESCUE_CLAUSE,
+  VARIABLE_LABELS,
+  levelWord,
+} from '../ui/labels'
+import { LocationNeededCard } from '../ui/locationUi'
 import { backfillPending, settled } from '../ui/pendingExposure'
 import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
@@ -57,7 +64,8 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, source, series: data, error, stale, retry } = useExposureSeries()
+  const { location, source, gap, retryLocation, series: data, error, stale, retry } =
+    useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const navigate = useNavigate()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
@@ -148,6 +156,20 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, diary])
 
+  // No place, no air — the whole screen is the ask, since a forecast under it
+  // would be a forecast for somewhere else.
+  if (gap) {
+    return (
+      <>
+        <header className="screen-header">
+          <span className="wordmark">Breathing Index 🫁</span>
+        </header>
+        <LocationNeededCard gap={gap} onRetry={retryLocation} />
+      </>
+    )
+  }
+  if (!location) return <p className="status-line">Reading the air…</p>
+
   // The air is unreachable and there is nothing cached to fall back on. The
   // rating still has to be catchable: it is the half of an entry that can't be
   // reconstructed later.
@@ -227,6 +249,10 @@ function Home() {
   // "log again" reopens the ask over an existing answer; a fresh tap closes it.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
+  // A rating binds to the air in `current` forever, so the ask only appears
+  // over air from a place the user chose or the device reported. The hook no
+  // longer serves the sample place; this is what keeps it that way.
+  const chosenPlace = source !== 'default'
 
   return (
     <>
@@ -237,7 +263,9 @@ function Home() {
         </p>
       )}
 
-      {showCard && (
+      {!chosenPlace && <LocationNeededCard gap="no-answer" onRetry={retryLocation} />}
+
+      {showCard && chosenPlace && (
         <QuickLogCard
           coldStart={coldStart}
           saved={echo}
@@ -262,7 +290,7 @@ function Home() {
       <ForecastBlock
         prediction={prediction}
         coldStart={coldStart}
-        holdOut={showCard && echo !== null}
+        holdOut={showCard && chosenPlace && echo !== null}
         banked={coldStart ? heldOut.length : 0}
       />
       <WhyBlock
@@ -511,6 +539,8 @@ function ForecastBlock({
       <span className="forecast-meaning">
         {coldStart ? 'Averages for sensitive lungs — not you, yet.' : FORECAST_MEANING[ceiling]}
       </span>
+      {/* Only where it is predicted. A 4 the user logged is their own report. */}
+      {ceiling === 4 && <span className="rescue-note">{RESCUE_CLAUSE}</span>}
       {holdOut && (
         <span className="holdout-note">
           Your rating above isn&rsquo;t counted here — this is what your other days expect from air

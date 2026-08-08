@@ -33,6 +33,8 @@ Temperatures display in °F for browsers whose locale resolves to a Fahrenheit r
 
 Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) and content-free: events record that a screen was viewed or an entry saved, never what was rated, tagged, noted, or measured, and IP geolocation is off. Turn it off entirely in Settings. Fonts are self-hosted, so the app makes no third-party request for chrome either.
 
+`public/privacy.html` and `public/terms.html` are prerendered documents served straight off disk at `/privacy` and `/terms` — no bundle, no router, and excluded from the service worker's navigation fallback. The privacy page enumerates every event and property the app sends; it is a contract, so any change to a `track()` call site belongs in the same commit as the change to that page.
+
 ## Development
 
 ```sh

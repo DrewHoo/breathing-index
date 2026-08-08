@@ -6,7 +6,7 @@ import { LevelPill } from '../ui/bits'
 import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
 import { mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
 import { clearSentinel, sentinelInIndexedDb, sentinelInLocalStorage } from '../ui/durability'
-import { BI_LABELS } from '../ui/labels'
+import { BI_LABELS, DISCLAIMER } from '../ui/labels'
 import { loadSettings, saveSettings } from '../ui/settings'
 
 export const Route = createFileRoute('/intro')({ component: Intro })
@@ -31,10 +31,14 @@ function Intro() {
     track('Intro dismissed', { choice })
     if (choice === 'location') {
       // Surface the permission prompt now; useExposureSeries picks the fix up.
+      // 30 s because the dialog is user-paced: 5 s expired while it was still on
+      // screen, and the expiry read as a refusal the user never made. Nothing to
+      // do with either outcome here — the home screen asks again and says what
+      // happened.
       navigator.geolocation?.getCurrentPosition(
         () => undefined,
         () => undefined,
-        { timeout: 5000 },
+        { timeout: 30_000 },
       )
       void navigate({ to: '/' })
     } else {
@@ -80,6 +84,10 @@ function Intro() {
         ))}
       </div>
       <p className="intro-privacy">Your diary never leaves this phone. No account, no cloud.</p>
+      <p className="intro-privacy disclaimer">{DISCLAIMER}</p>
+      <p className="intro-privacy">
+        <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+      </p>
       <div className="intro-cta-block">
         <button type="button" className="intro-cta" onClick={() => finish('location')}>
           Use my location

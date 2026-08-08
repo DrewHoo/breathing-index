@@ -421,6 +421,13 @@ main {
   color: var(--faint);
 }
 
+/* Under a *predicted* 4 only. Small, but the one alarm color, because it is
+   the one line on the screen that outranks the screen. */
+.rescue-note {
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--alarm);
+}
+
 /* what the diary is doing for you: banked today, counting from tomorrow */
 .banked-note,
 .why-new {
@@ -897,6 +904,23 @@ main {
   color: var(--faint);
 }
 
+.place-search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 4px;
+}
+
+.place-search-actions {
+  display: flex;
+  gap: 14px;
+  padding-bottom: 4px;
+}
+
+.place-search-actions .row-action {
+  padding: 6px 0;
+}
+
 .location-form {
   display: flex;
   gap: 6px;
@@ -960,6 +984,27 @@ main {
   font: 400 12px/1.5 var(--sans);
   color: var(--faint);
   margin: 0;
+}
+
+/* Small print, but a notch darker than the rest of it: this is the one
+   sentence someone is worse off for having skimmed. */
+.intro-privacy.disclaimer {
+  color: var(--secondary);
+}
+
+/* /privacy and /terms are real documents, not routes, so they are plain
+   anchors and need the house link colour rather than the browser's blue. */
+.intro-privacy a,
+.legal-links a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.legal-links {
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+  display: flex;
+  gap: 6px;
 }
 
 .intro-cta-block {
@@ -1034,6 +1079,15 @@ main {
   font: 400 11px var(--sans);
   color: var(--faint);
   padding: 6px 0 6px 6px;
+}
+
+/* --- location needed: the card shown in place of air we cannot honestly show --- */
+
+.locneed-link {
+  margin-left: auto;
+  font: 500 11.5px var(--sans);
+  color: var(--accent);
+  text-decoration: none;
 }
 
 .backup-chip-row {
