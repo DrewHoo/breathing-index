@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
@@ -8,7 +8,9 @@ import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
 import { LevelPill, SectionRule } from '../ui/bits'
-import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
+import { sentinelInLocalStorage } from '../ui/durability'
+import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
@@ -21,6 +23,9 @@ export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { log?: boolean } =>
     search.log ? { log: true } : {},
   beforeLoad: () => {
+    // A sentinel with no diary means the browser took it. /intro sorts out
+    // which screen that deserves — the restore offer, not the welcome.
+    if (!hasStoredDiary() && sentinelInLocalStorage()) throw redirect({ to: '/intro' })
     if (!loadSettings().introSeen && loadDiary().length === 0) {
       throw redirect({ to: '/intro' })
     }
@@ -58,6 +63,7 @@ function Home() {
   const [dismissed, setDismissed] = useState(false)
   // Claimed at mount, not at render: yesterday's held-out entries are news once.
   const [released] = useState(claimBankedRelease)
+  const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
 
   const current = data?.hours[data.currentIndex]
@@ -96,7 +102,7 @@ function Home() {
 
   const updateDiary = (next: DiaryEntry[]) => {
     setDiary(next)
-    saveDiary(next)
+    setSaveFailed(!saveDiary(next))
   }
 
   // The echo comes from the diary, not from this session: a 4 logged at
@@ -182,6 +188,15 @@ function Home() {
           onLogAgain={logAgain}
           onDismiss={() => setDismissed(true)}
         />
+      )}
+
+      {saveFailed ? (
+        <p className="save-error">
+          Couldn&rsquo;t save that — this browser is out of room.{' '}
+          <Link to="/settings">Export your diary now.</Link>
+        </p>
+      ) : (
+        <InstallNudge entryCount={diary.length} />
       )}
 
       <ForecastBlock

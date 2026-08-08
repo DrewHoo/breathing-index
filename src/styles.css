@@ -979,6 +979,73 @@ main {
   padding: 4px 0;
 }
 
+/* --- durability: install card, backup chip, save failure --- */
+
+.nudge {
+  padding: 11px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: card-fade 150ms ease-out;
+}
+
+.nudge-title {
+  font: 600 13px var(--sans);
+}
+
+.nudge-text {
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--secondary);
+}
+
+.nudge-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.nudge-cta {
+  border: 1px solid #a9c0cc;
+  border-radius: 16px;
+  padding: 6px 14px;
+  font: 600 12px var(--sans);
+  color: var(--accent);
+}
+
+.nudge-how {
+  flex: 1;
+  font: 500 11.5px var(--sans);
+  color: var(--accent);
+}
+
+.nudge-dismiss {
+  margin-left: auto;
+  font: 400 11px var(--sans);
+  color: var(--faint);
+  padding: 6px 0 6px 6px;
+}
+
+.backup-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.backup-chip {
+  padding: 5px 11px;
+}
+
+.save-error {
+  margin: 0;
+  font: 500 11.5px/1.5 var(--sans);
+  color: var(--alarm);
+}
+
+.save-error a {
+  color: var(--alarm);
+}
+
 /* --- measured nearby (AirNow) --- */
 
 .measured-row {

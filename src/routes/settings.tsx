@@ -1,9 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
-import type { DiaryEntry } from '../engine/types'
 import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { exportDiary, mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
 import { loadSettings, saveSettings, type Settings, type UnitPreference } from '../ui/settings'
 import { detectTemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
@@ -48,27 +48,30 @@ function SettingsScreen() {
     })
   }
 
-  const exportDiary = () => {
-    const blob = new Blob([JSON.stringify(loadDiary(), null, 2)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `breathing-index-diary-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
+  const backUp = async () => {
+    const outcome = await exportDiary(loadDiary())
+    if (outcome === 'copied') {
+      setMessage('Copied your diary to the clipboard — paste it somewhere safe.')
+    } else if (outcome === 'failed') {
+      setMessage('This browser would not hand the file over. Try again from a browser tab.')
+    } else if (outcome !== 'cancelled') {
+      setMessage(null)
+    }
   }
 
   const importDiary = async (file: File) => {
-    try {
-      const parsed = JSON.parse(await file.text()) as unknown
-      if (!Array.isArray(parsed)) throw new Error('not an array')
-      const existing = loadDiary()
-      const known = new Set(existing.map((e) => e.id))
-      const incoming = (parsed as DiaryEntry[]).filter((e) => e.id && !known.has(e.id))
-      saveDiary([...existing, ...incoming].sort((a, b) => a.time.localeCompare(b.time)))
-      setMessage(`Imported ${incoming.length} new entries (${existing.length} kept).`)
-    } catch {
-      setMessage('Could not read that file — expected a diary JSON export.')
+    const parsed = parseDiaryImport(await file.text())
+    if (!parsed.ok) {
+      setMessage(parsed.reason)
+      return
     }
+    const existing = loadDiary()
+    const { merged, added } = mergeDiary(existing, parsed.entries)
+    if (!saveDiary(merged)) {
+      setMessage('Could not save the import — this browser is out of room.')
+      return
+    }
+    setMessage(`Imported ${added.length} new entries (${existing.length} kept).`)
   }
 
   const unitOptions: { value: UnitPreference; label: string }[] = [
@@ -189,7 +192,7 @@ function SettingsScreen() {
       <section className="section">
         <SectionRule label="Your diary" />
         <div className="row-card">
-          <button type="button" className="settings-row" onClick={exportDiary}>
+          <button type="button" className="settings-row" onClick={() => void backUp()}>
             <span className="settings-row-label">Export backup</span>
             <span className="settings-row-hint">
               {entryCount} {entryCount === 1 ? 'entry' : 'entries'} · JSON
