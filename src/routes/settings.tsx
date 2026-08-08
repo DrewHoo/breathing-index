@@ -2,6 +2,7 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useRef, useState } from 'react'
 import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
+import { DISCLAIMER } from '../ui/labels'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { exportDiary, mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
 import { loadSettings, saveSettings, type Settings, type UnitPreference } from '../ui/settings'
@@ -252,6 +253,14 @@ function SettingsScreen() {
         </span>
         <span className="settings-footer-chevron">▸</span>
       </Link>
+
+      <span className="settings-note">{DISCLAIMER}</span>
+      {/* Plain anchors: these are prerendered documents, not app routes. */}
+      <span className="legal-links">
+        <a href="/privacy">Privacy</a>
+        <span>·</span>
+        <a href="/terms">Terms</a>
+      </span>
     </>
   )
 }
