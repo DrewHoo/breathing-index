@@ -139,15 +139,77 @@ Intro:
 
 > Your diary is stored only in this browser. Export a backup periodically. Import merges by entry id, so re-importing the same file is safe.
 
-### 15. Offline banner prefix
+### 15. Staleness banner
 
-> Offline. Showing air data fetched {time}.
+> The newest air I have is from {hour}.
+
+Offline, with a cached reading behind it:
+
+> Offline — the newest air I have is from {hour}.
+
+({hour} is the payload's own newest hour, not the time of the fetch. A service-worker cache hit
+arrives looking live, so arrival time can't be trusted to answer "is this now?". The banner appears
+whenever that hour is more than 90 minutes behind the clock, however the bytes got here.)
+
+### 15a. No air at all, and the log that still has to work
+
+> I can't reach the air readings from here — no forecast until I can.
+
+with a **Retry** button, above it the quick-log card, and on its answer:
+
+> Saved — I'll attach the air readings when I'm back online.
+
+In the diary, until the readings arrive:
+
+> air readings still to come
 
 ### 16. The four level meanings
 
-Kept as approved:
+Kept as approved — these are the *rating* anchors, shown where the user learns the scale and
+logs a day they have already lived:
 
 - 1 Easy — "The air isn't a factor. Do anything."
 - 2 Noticeable — "You'll feel it, but you can carry on as planned."
 - 3 Limiting — "Change the plan: shorter, slower, later, or elsewhere."
 - 4 Dangerous — "Outside is unsafe for you. Stay in filtered air."
+
+### 16a. The four forecast meanings
+
+Separate strings (`FORECAST_MEANING` in `src/ui/labels.ts`), because a *prediction* wearing the
+rating anchors reads as an instruction the app has not earned. Same information, reported rather
+than ordered; only the top of the scale, where being wrong is expensive, still advises:
+
+- 1 — "The air isn't expected to be a factor."
+- 2 — "You'll feel it, but you can carry on as planned."
+- 3 — "Enough to change the plan: shorter, slower, later."
+- 4 — "Outside could be unsafe for you. Plan around filtered air."
+
+(Cold start replaces all four with the existing "Averages for sensitive lungs — not you, yet.")
+
+### 17. The disclaimer
+
+One sentence, `DISCLAIMER` in `src/ui/labels.ts`, reused verbatim by the intro small-print, the
+Settings footer, `index.html` (`<meta name="disclaimer">` and the noscript block) and both legal
+pages. The last three are literal copies — they ship without the bundle and cannot import it.
+
+> Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.
+
+Deliberately not on Today. The home screen is where someone checks the air in ten seconds; the
+intro and Settings are where trust is negotiated.
+
+### 18. The rescue clause
+
+`RESCUE_CLAUSE` in `src/ui/labels.ts`. Rendered once, small, in the alarm colour, under the
+forecast and only when the *predicted* ceiling is 4 — cold start included, since that is the
+case where the app is guessing hardest:
+
+> — if breathing feels dangerous, use your rescue plan and get help, whatever this app says.
+
+A logged 4 gets nothing extra: that is the user reporting their own day back to themselves.
+
+### 19. Legal-page links
+
+Intro small-print and Settings footer, plain anchors (`/privacy`, `/terms` are prerendered
+documents, not routes):
+
+> Privacy · Terms

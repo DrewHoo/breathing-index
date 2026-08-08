@@ -12,6 +12,12 @@ export interface Hour {
 export interface ExposureSeries {
   hours: Hour[]
   currentIndex: number
+  /**
+   * When this object was parsed — debug metadata only. It is not a freshness
+   * signal: a service-worker cache hit is parsed now and carries hours-old air.
+   * Everything the UI says about age comes from the hours themselves (see
+   * ui/freshness.ts).
+   */
   fetchedAt: string
   utcOffsetSeconds: number
   /** which source these numbers are: learned bounds are scoped to it */
@@ -36,6 +42,14 @@ interface HourlyBlock {
 
 const series = (block: HourlyBlock, key: string): (number | null)[] =>
   (block[key] as (number | null)[] | undefined) ?? []
+
+/**
+ * API times ("2026-08-07T13:00") are local to the location, with the offset
+ * carried separately; this is the instant such an hour begins.
+ */
+export function hourInstant(time: string, utcOffsetSeconds: number): number {
+  return Date.parse(`${time.slice(0, 16)}:00Z`) - utcOffsetSeconds * 1000
+}
 
 /** API times are local to the location; find the hour containing "now". */
 export function findCurrentIndex(times: string[], utcOffsetSeconds: number): number {

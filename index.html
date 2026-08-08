@@ -9,6 +9,14 @@
       name="description"
       content="Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale."
     />
+    <!--
+      Literal copy of DISCLAIMER in src/ui/labels.ts — this page ships before
+      the bundle exists, so it cannot import it. Keep the two in step.
+    -->
+    <meta
+      name="disclaimer"
+      content="Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen."
+    />
     <meta name="theme-color" content="#F3F6F7" />
     <meta name="author" content="Drew Hoover" />
     <meta name="application-name" content="Breathing Index" />
@@ -116,6 +124,11 @@
           predicts your day on a four-level scale: 1 Easy, 2 Noticeable, 3 Limiting, 4 Dangerous.
         </p>
         <p>It needs JavaScript to run. Data comes from Open-Meteo, with AirNow station comparison in the US.</p>
+        <p>
+          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+        <p><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
       </main>
     </noscript>
     <script type="module" src="/src/main.tsx"></script>

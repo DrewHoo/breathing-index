@@ -27,9 +27,13 @@ TypeScript, React, Vite, TanStack Router (file-based routes), vite-plugin-pwa. T
 
 All fetching is client-side; there is no backend. The diary lives in `localStorage` — export and import are in Settings.
 
+Freshness comes from the payload's own newest hour rather than from when the response arrived: the service worker serves Open-Meteo network-first with a six-hour cache, so a cache hit is indistinguishable from a live fetch at arrival time. With no readings at all the quick log still works — the rating saves at once and picks up the exposure vector for its hour from Open-Meteo's three-day history on the next successful fetch. Until it does, the entry stays out of inference.
+
 Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites diary history.
 
 Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) and content-free: events record that a screen was viewed or an entry saved, never what was rated, tagged, noted, or measured, and IP geolocation is off. Turn it off entirely in Settings. Fonts are self-hosted, so the app makes no third-party request for chrome either.
+
+`public/privacy.html` and `public/terms.html` are prerendered documents served straight off disk at `/privacy` and `/terms` — no bundle, no router, and excluded from the service worker's navigation fallback. The privacy page enumerates every event and property the app sends; it is a contract, so any change to a `track()` call site belongs in the same commit as the change to that page.
 
 ## Development
 

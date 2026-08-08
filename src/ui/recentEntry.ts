@@ -1,5 +1,6 @@
 import { isSimilarExposure } from '../engine/similarity'
 import type { DiaryEntry, Exposure, Priors } from '../engine/types'
+import { isPending } from './pendingExposure'
 
 const sameLocalDay = (a: Date, b: Date): boolean => a.toDateString() === b.toDateString()
 
@@ -14,6 +15,9 @@ const sameLocalDay = (a: Date, b: Date): boolean => a.toDateString() === b.toDat
  *
  * The full list, not just the newest, because the home screen also has to keep
  * these entries out of the model behind its forecast — see routes/index.tsx.
+ *
+ * Entries still waiting for their air are skipped: with an empty vector they
+ * would match any air at all. They rejoin the moment the backfill lands.
  */
 export function todaysSimilarEntries(
   diary: DiaryEntry[],
@@ -23,6 +27,7 @@ export function todaysSimilarEntries(
 ): DiaryEntry[] {
   return diary
     .filter((entry) => {
+      if (isPending(entry)) return false
       const at = new Date(entry.time)
       if (Number.isNaN(at.getTime()) || !sameLocalDay(at, now)) return false
       return isSimilarExposure(entry.exposure, exposure, priors)
