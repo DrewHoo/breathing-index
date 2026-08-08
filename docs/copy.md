@@ -139,9 +139,29 @@ Intro:
 
 > Your diary is stored only in this browser. Export a backup periodically. Import merges by entry id, so re-importing the same file is safe.
 
-### 15. Offline banner prefix
+### 15. Staleness banner
 
-> Offline. Showing air data fetched {time}.
+> The newest air I have is from {hour}.
+
+Offline, with a cached reading behind it:
+
+> Offline — the newest air I have is from {hour}.
+
+({hour} is the payload's own newest hour, not the time of the fetch. A service-worker cache hit
+arrives looking live, so arrival time can't be trusted to answer "is this now?". The banner appears
+whenever that hour is more than 90 minutes behind the clock, however the bytes got here.)
+
+### 15a. No air at all, and the log that still has to work
+
+> I can't reach the air readings from here — no forecast until I can.
+
+with a **Retry** button, above it the quick-log card, and on its answer:
+
+> Saved — I'll attach the air readings when I'm back online.
+
+In the diary, until the readings arrive:
+
+> air readings still to come
 
 ### 16. The four level meanings
 

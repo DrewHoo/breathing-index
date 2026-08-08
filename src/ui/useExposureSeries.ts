@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchExposureSeries, findCurrentIndex, type ExposureSeries } from '../sources/openMeteo'
 import { reverseGeocode } from '../sources/reverseGeocode'
 import { loadSettings } from './settings'
@@ -9,6 +9,12 @@ export interface Location {
   label: string
 }
 
+/**
+ * A sample place, for previewing what the app looks like — never a fallback for
+ * someone whose location we could not get. Its label carries the marker, and no
+ * screen may strip it: air from a place you did not choose is the gaslighting
+ * this app exists to undo.
+ */
 export const DEFAULT_LOCATION: Location = { lat: 41.396, lon: -72.897, label: 'Hamden, CT (default)' }
 
 const TTL_MS = 10 * 60_000
@@ -58,34 +64,60 @@ function loadLastGood(key: string): ExposureSeries | null {
  */
 export type LocationSource = 'default' | 'saved' | 'auto'
 
+/** Why there is no place to read the air for. The home screen says which. */
+export type LocationGap = 'denied' | 'no-answer' | 'unsupported'
+
+/** The place the user picked in Settings, if that is how they set it up. */
+function chosenLocation(): Location | null {
+  const settings = loadSettings()
+  if (settings.activeLocation === 'auto') return null
+  return settings.locations[settings.activeLocation] ?? null
+}
+
 export function useExposureSeries(): {
-  location: Location
+  /** null until we know where to read — never a stand-in place */
+  location: Location | null
   source: LocationSource
+  /** set when the browser will not say where we are and no place is saved */
+  gap: LocationGap | null
+  /** ask the browser again, after the user has had a word with it */
+  retryLocation: () => void
   series: ExposureSeries | null
   error: string | null
   /** true when showing last-known data because the live fetch failed */
   stale: boolean
+  /** ask again after a failure — the error screen's Retry button */
+  retry: () => void
 } {
-  const [location, setLocation] = useState<Location>(() => {
-    const settings = loadSettings()
-    if (settings.activeLocation !== 'auto') {
-      const saved = settings.locations[settings.activeLocation]
-      if (saved) return saved
-    }
-    return DEFAULT_LOCATION
-  })
-  const [source, setSource] = useState<LocationSource>(() =>
-    loadSettings().activeLocation !== 'auto' ? 'saved' : 'default',
-  )
+  const [location, setLocation] = useState<Location | null>(chosenLocation)
+  const [source, setSource] = useState<LocationSource>(() => (chosenLocation() ? 'saved' : 'auto'))
+  const [gap, setGap] = useState<LocationGap | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
 
+  // Drop the in-flight failure as well as the counter: the whole point of
+  // pressing Retry is to go back to the network, not to replay the miss.
+  const retry = () => {
+    cache = null
+    setError(null)
+    setAttempt((n) => n + 1)
+  }
+
+  const retryLocation = useCallback(() => setAttempt((n) => n + 1), [])
+
   useEffect(() => {
-    if (loadSettings().activeLocation !== 'auto') return
+    if (chosenLocation()) return
     let cancelled = false
 
-    navigator.geolocation?.getCurrentPosition(
+    if (!navigator.geolocation) {
+      setGap('unsupported')
+      return
+    }
+    setGap(null)
+
+    navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (cancelled) return
         const lat = Math.round(pos.coords.latitude * 1000) / 1000
@@ -95,23 +127,35 @@ export function useExposureSeries(): {
         // name the place once we know it. The air data does not wait on this.
         setLocation({ lat, lon, label: 'Your location' })
         setSource('auto')
+        setGap(null)
         void reverseGeocode(lat, lon).then((label) => {
           // Only name the place we actually looked up — the user may have
           // switched to a saved location while the lookup was in flight.
           if (!cancelled && label)
-            setLocation((prev) => (prev.lat === lat && prev.lon === lon ? { ...prev, label } : prev))
+            setLocation((prev) =>
+              prev && prev.lat === lat && prev.lon === lon ? { ...prev, label } : prev,
+            )
         })
       },
-      () => undefined,
-      { timeout: 5000, maximumAge: 600_000 },
+      (err) => {
+        if (cancelled) return
+        // A refusal is an answer: say so and ask for a place, rather than
+        // loading a town the user has never breathed in. A timeout is not a
+        // refusal — the permission dialog may still be up — so it reads as
+        // "no answer yet" and the retry button is the whole fix.
+        setGap(err.code === err.PERMISSION_DENIED ? 'denied' : 'no-answer')
+      },
+      // The permission dialog is user-paced; 5 s used to expire underneath it.
+      { timeout: 30_000, maximumAge: 600_000 },
     )
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [attempt])
 
   useEffect(() => {
+    if (!location) return
     let cancelled = false
     setError(null)
     getSeries(location)
@@ -133,7 +177,7 @@ export function useExposureSeries(): {
     return () => {
       cancelled = true
     }
-  }, [location])
+  }, [location, attempt])
 
-  return { location, source, series, error, stale }
+  return { location, source, gap, retryLocation, series, error, stale, retry }
 }

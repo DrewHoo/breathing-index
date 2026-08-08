@@ -31,10 +31,14 @@ function Intro() {
     track('Intro dismissed', { choice })
     if (choice === 'location') {
       // Surface the permission prompt now; useExposureSeries picks the fix up.
+      // 30 s because the dialog is user-paced: 5 s expired while it was still on
+      // screen, and the expiry read as a refusal the user never made. Nothing to
+      // do with either outcome here — the home screen asks again and says what
+      // happened.
       navigator.geolocation?.getCurrentPosition(
         () => undefined,
         () => undefined,
-        { timeout: 5000 },
+        { timeout: 30_000 },
       )
       void navigate({ to: '/' })
     } else {
