@@ -77,7 +77,8 @@ function Diary() {
           onTag={(id, tag) => {
             const entry = diary.find((e) => e.id === id)
             amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
-            track('Conflict tagged', { tag })
+            // Which tag they picked is a symptom note; only the card kind ships.
+            track('Conflict tagged', { kind: conflict.kind })
           }}
           onNote={(id, note) => amend(id, { note })}
           onLeave={() => setLeftAlone((cur) => new Set(cur).add(conflict.entryIndex))}

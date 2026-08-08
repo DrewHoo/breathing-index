@@ -29,14 +29,14 @@ All fetching is client-side; there is no backend. The diary lives in `localStora
 
 Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites diary history.
 
-Analytics is Mixpanel, lazy-loaded and anonymous. Diary note text and coordinates are never sent.
+Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) and content-free: events record that a screen was viewed or an entry saved, never what was rated, tagged, noted, or measured, and IP geolocation is off. Turn it off entirely in Settings. Fonts are self-hosted, so the app makes no third-party request for chrome either.
 
 ## Development
 
 ```sh
 npm install
 npm run dev     # local dev server
-npm test        # engine fixture suite (vitest)
+npm test        # breakpoint-derivation check + engine fixture suite (vitest)
 npm run build   # vite build + typecheck
 ```
 
