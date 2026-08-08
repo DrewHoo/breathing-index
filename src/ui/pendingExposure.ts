@@ -72,6 +72,11 @@ export function resolvePending(
     return {
       ...rest,
       exposure: hour.exposure,
+      // A vector that arrives late still has to say where it came from and
+      // which of its numbers were guessed — an entry backfilled in Connecticut
+      // carries calendar pollen, and untagged it could confirm a bound.
+      source: series.source,
+      ...(hour.estimated?.length ? { estimated: hour.estimated } : {}),
       official: hour.official,
       exposureAgeMinutes: Math.round(
         (instant - hourInstant(hour.time, series.utcOffsetSeconds)) / 60_000,

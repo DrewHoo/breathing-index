@@ -1,12 +1,12 @@
 {
-  "$comment": "Fixtures for the diary→trigger inference engine (docs/trigger-model.md). Exposures are the per-pollutant scalar feature x_p in µg/m³. Predictions are [floor, ceiling] on the 1–4 Breathing Index. Priors are disabled in all cases except cold-start so expectations isolate diary-driven inference.",
+  "$comment": "Fixtures for the diary→trigger inference engine (docs/trigger-model.md). Exposures are the per-pollutant scalar feature x_p in µg/m³. Predictions are [floor, ceiling] on the 1–4 Breathing Index. Priors are disabled in all cases except the ones that name them, so expectations isolate diary-driven inference. expectConfirmed and expectSuspectedStrong are exact: every bound the engine learns must be listed, or the case fails.",
   "cases": [
     {
       "name": "cold-start: priors only, ceiling never floor",
       "priors": { "pm25": { "2": 9.1 }, "o3": { "2": 100 } },
       "diary": [],
       "predict": [
-        { "exposure": { "pm25": 15, "o3": 20 }, "expect": [1, 2], "expectSource": "prior" },
+        { "exposure": { "pm25": 15, "o3": 20 }, "expect": [1, 2], "expectSource": "prior", "expectGrade": "prior" },
         { "exposure": { "pm25": 5, "o3": 20 }, "expect": [1, 1] }
       ]
     },
@@ -16,6 +16,7 @@
         { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } }
       ],
       "expectCandidates": { "3": [["pm25", "o3"]] },
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 20, "o3": 5 }, "expect": [1, 3] },
         { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 3] },
@@ -24,32 +25,37 @@
     },
     {
       "name": "full combo repeat is guaranteed without attribution",
+      "$comment": "A repeat of an observed day is monotone dominance, not attribution, so it floors on n=1 — but it says so: the grade is provisional.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } }
       ],
       "predict": [
-        { "exposure": { "pm25": 21, "o3": 155 }, "expect": [3, 3] }
+        { "exposure": { "pm25": 21, "o3": 155 }, "expect": [3, 3], "expectGrade": "provisional" }
       ]
     },
     {
       "name": "exoneration path: clean high-ozone day attributes old entry to pm25",
+      "why": "Revised twice for the robustness rules. (1) The clean day's ozone moved 155 → 180: with the 15 % noise margin on model pollutants, a 155-vs-150 exoneration is inside the error bars and no longer collapses the set. (2) The collapse now yields a *suspected-strong* bound rather than a confirmed one — pm25 survived as the lone candidate on one bad day that still had 150 µg/m³ of ozone in the background, which is a ceiling claim, not the floor promise v1 made from n=1.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } },
-        { "rating": 1, "exposure": { "pm25": 4, "o3": 155 } }
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 180 } }
       ],
-      "expectConfirmed": { "pm25": { "3": 20 } },
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "pm25": { "2": 20, "3": 20 } },
       "predict": [
-        { "exposure": { "pm25": 20, "o3": 5 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 20, "o3": 5 }, "expect": [1, 3], "expectGrade": "provisional" },
         { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 1] }
       ]
     },
     {
       "name": "confirmation does not exonerate the other candidate",
+      "why": "Expectation widened, not changed: expectConfirmed is now exact, so the level-2 bound the second day always implied (a level-3 day is also a level-2 day) has to be written down.",
+      "$comment": "The second day is a genuinely clean singleton — ozone at 6 is below its background floor — so it confirms without needing a repetition.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 20, "o3": 150 } },
         { "rating": 3, "exposure": { "pm25": 22, "o3": 6 } }
       ],
-      "expectConfirmed": { "pm25": { "3": 22 } },
+      "expectConfirmed": { "pm25": { "2": 22, "3": 22 } },
       "predict": [
         { "exposure": { "pm25": 5, "o3": 150 }, "expect": [1, 3] }
       ]
@@ -67,11 +73,13 @@
     },
     {
       "name": "conflict: later tolerance beats earlier confirmation (recency wins)",
+      "why": "Same behaviour, stricter assertion: conflicts are now checked by kind and by both clashing entry indices, not by count alone.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 12, "o3": 2 } },
         { "rating": 1, "exposure": { "pm25": 18, "o3": 2 } }
       ],
-      "expectConflicts": 1,
+      "expectConflicts": [{ "kind": "superseded", "entry": 0, "against": 1 }],
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 15, "o3": 2 }, "expect": [1, 1] }
       ]
@@ -81,12 +89,15 @@
       "diary": [
         { "rating": 3, "exposure": { "pm25": 25, "o3": 10 }, "confounders": ["sick"] }
       ],
+      "expectConfirmed": {},
+      "expectConflicts": [],
       "predict": [
         { "exposure": { "pm25": 25, "o3": 10 }, "expect": [1, 1] }
       ]
     },
     {
       "name": "severity cascades downward: a level-4 day is evidence at levels 2 and 3",
+      "$comment": "Ozone at 20 sits at its background floor, so pm25 is the only variable above negligible: a genuinely clean singleton, which confirms from one day.",
       "diary": [
         { "rating": 4, "exposure": { "pm25": 40, "o3": 20 } },
         { "rating": 1, "exposure": { "pm25": 8, "o3": 25 } }
@@ -98,11 +109,12 @@
     },
     {
       "name": "U-shaped temperature via one-sided encoding: cold-dry day attributes cleanly",
+      "why": "Expectation widened for exact matching: the level-2 bound this day always implied is now written down.",
       "$comment": "Inference only ever sees monotone features; heat_stress and cold_dry_stress are separate dimensions, so a cold trigger says nothing about hot days.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 8 } }
       ],
-      "expectConfirmed": { "cold_dry_stress": { "3": 8 } },
+      "expectConfirmed": { "cold_dry_stress": { "2": 8, "3": 8 } },
       "predict": [
         { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 6, "cold_dry_stress": 0 }, "expect": [1, 1] },
         { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 9 }, "expect": [3, 3] }
@@ -110,27 +122,57 @@
     },
     {
       "name": "empty candidate set flags an unmodeled trigger, forces nothing",
-      "$comment": "Every modeled variable was already proven tolerable at level 3, so the bad day is unexplainable: flag as probable missing variable (pollen? indoor air?), extract no constraints.",
+      "$comment": "Every modeled variable was already proven tolerable at level 3 — and by more than the noise margin — so the bad day is unexplainable: flag as probable missing variable (pollen? indoor air?), extract no constraints. One such day is a conflict; two would re-open the tolerance instead (see the sensitivity-shift case).",
       "diary": [
         { "rating": 1, "exposure": { "pm25": 20, "o3": 100 } },
         { "rating": 3, "exposure": { "pm25": 15, "o3": 80 } }
       ],
-      "expectConflicts": 1,
-      "expectConflictKind": "unmodeled-trigger",
+      "expectConflicts": [{ "kind": "unmodeled-trigger", "entry": 1, "against": 0 }],
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 15, "o3": 80 }, "expect": [1, 1] }
       ]
     },
     {
       "name": "personal tolerance overrides priors",
-      "$comment": "User rated 2 at o3 168, personally refuting the population prior 'potentially 3 at 160'. The level-2 prior still applies where no tolerance evidence exists.",
+      "why": "The diary gained a second tolerant day. A tolerance set by a single entry is now provisional — one good day can be an indoor day — and only a repeated one suppresses a population prior. The point of the case is unchanged; it just costs two entries now. The single-entry half is its own case below.",
+      "$comment": "User rated 2 at o3 168 and again at 170, personally refuting the population prior 'potentially 3 at 160'. The level-2 prior still applies where no tolerance evidence exists.",
       "priors": { "o3": { "2": 100, "3": 160 } },
       "diary": [
-        { "rating": 2, "exposure": { "o3": 168 } }
+        { "rating": 2, "exposure": { "o3": 168 } },
+        { "rating": 2, "exposure": { "o3": 170 } }
       ],
+      "expectConfirmed": { "o3": { "2": 168 } },
       "predict": [
-        { "exposure": { "o3": 165 }, "expect": [1, 2] },
+        { "exposure": { "o3": 165 }, "expect": [1, 2], "expectSource": "prior" },
         { "exposure": { "o3": 180 }, "expect": [2, 3] }
+      ]
+    },
+    {
+      "name": "one tolerant day is provisional: the prior stays up",
+      "$comment": "Rule 1 of the robustness spec: the exposure vector is outdoor air, and good days are exactly the days nobody volunteers the 'indoors all day' chip. One unconfounded fine day therefore cannot retire a population prior — it only narrows the personal candidate sets.",
+      "priors": { "o3": { "2": 100, "3": 139 } },
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 160 } }
+      ],
+      "expectConfirmed": {},
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pm25": 4, "o3": 150 }, "expect": [1, 3], "expectSource": "prior", "expectGrade": "prior" }
+      ]
+    },
+    {
+      "name": "a second tolerant day confirms the tolerance and retires the prior",
+      "$comment": "Same air as the case above, twice: repetition is what turns a fine day into evidence strong enough to overrule the population.",
+      "priors": { "o3": { "2": 100, "3": 139 } },
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 160 } },
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 155 } }
+      ],
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pm25": 4, "o3": 150 }, "expect": [1, 1] },
+        { "exposure": { "pm25": 4, "o3": 170 }, "expect": [1, 3], "expectSource": "prior" }
       ]
     },
     {
@@ -139,12 +181,14 @@
         { "rating": 3, "exposure": { "pm25": 20, "humidity": 75 } }
       ],
       "expectCandidates": { "3": [["pm25", "humidity"]] },
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 3] }
       ]
     },
     {
       "name": "worse-outdoors observation excludes indoor proxies from candidates",
+      "why": "Expectation widened for exact matching (the implied level-2 bound). The observation also keeps humidity out of the confirmation's co-exposure context: a variable the user has ruled out as the cause is not background the claim depends on.",
       "$comment": "Same day, but the user noticed symptoms were tied to being outside — humidity (the indoor-mold proxy) is ruled out, collapsing the candidate set to pm25 alone.",
       "diary": [
         {
@@ -153,7 +197,7 @@
           "observations": ["worse-outdoors"]
         }
       ],
-      "expectConfirmed": { "pm25": { "3": 20 } },
+      "expectConfirmed": { "pm25": { "2": 20, "3": 20 } },
       "predict": [
         { "exposure": { "pm25": 20, "humidity": 40 }, "expect": [3, 3] },
         { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 1] }
@@ -161,7 +205,7 @@
     },
     {
       "name": "worse-outdoors with only indoor proxies elevated flags an unmodeled outdoor trigger",
-      "$comment": "Symptoms tied to outside, but no modeled outdoor variable is elevated — likely an unmodeled outdoor trigger such as pollen.",
+      "$comment": "Symptoms tied to outside, but no modeled outdoor variable is elevated — likely an unmodeled outdoor trigger such as pollen. Nothing was tolerated away here, so the conflict has no clashing partner to show.",
       "diary": [
         {
           "rating": 3,
@@ -169,15 +213,15 @@
           "observations": ["worse-outdoors"]
         }
       ],
-      "expectConflicts": 1,
-      "expectConflictKind": "unmodeled-trigger",
+      "expectConflicts": [{ "kind": "unmodeled-trigger", "entry": 0 }],
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 3, "o3": 10, "humidity": 80 }, "expect": [1, 1] }
       ]
     },
     {
       "name": "calendar pollen suspects a season and can never confirm it",
-      "$comment": "Hamden in August: the ragweed figure is a calendar estimate for the region, not a reading, so it is the entry's only candidate but must not become a confirmed bound — an estimate may raise a ceiling, never guarantee a floor. Repeating the exact day predicts [1,3], not [3,3].",
+      "$comment": "Hamden in August: the ragweed figure is a calendar estimate for the region, not a reading. It is the day's lone candidate, and nothing else was even measurably present — a clean singleton, which for measured air is the one shape that confirms on a single day. It still stops at suspected-strong, because the number was never observed. Repeating the exact day predicts [1,3], not [3,3].",
       "diary": [
         {
           "rating": 3,
@@ -185,28 +229,32 @@
           "estimated": ["ragweed_pollen"]
         }
       ],
-      "expectCandidates": { "3": [["ragweed_pollen"]] },
-      "expectNoConfirmed": ["ragweed_pollen"],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "ragweed_pollen": { "2": 10, "3": 10 } },
       "predict": [
-        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 }, "expect": [1, 3] },
+        {
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 },
+          "expect": [1, 3],
+          "expectGrade": "provisional"
+        },
         { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 50 }, "expect": [1, 3] },
         { "exposure": { "pm25": 3, "o3": 10 }, "expect": [1, 1] }
       ]
     },
     {
       "name": "measured pollen confirms where the calendar could not",
-      "$comment": "The same day in Amsterdam, where CAMS actually measures the species. Identical vector, no estimated tag: the singleton candidate confirms and the repeat day is a floor. This is the pair that makes the rule above about provenance rather than about pollen.",
+      "$comment": "The same day in Amsterdam, where CAMS actually measures the species. Identical vector, no estimated tag: the clean singleton confirms and the repeat day is a floor. This is the pair that makes the rule above about provenance rather than about pollen.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 } }
       ],
-      "expectConfirmed": { "ragweed_pollen": { "3": 10 } },
+      "expectConfirmed": { "ragweed_pollen": { "2": 10, "3": 10 } },
       "predict": [
         { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 }, "expect": [3, 3] }
       ]
     },
     {
       "name": "an estimate cannot carry a co-elevated day into a floor either",
-      "$comment": "Ozone and a calendar ragweed month together. The combination repeats, but half of it was guessed, so it stays a ceiling: the combo-repeat floor clause skips estimated constraints.",
+      "$comment": "Ozone and a calendar ragweed month together. The combination repeats exactly, which is normally a floor without attribution — but half of it was guessed, so the combo-repeat clause skips it and the day only raises the ceiling.",
       "diary": [
         {
           "rating": 3,
@@ -215,14 +263,14 @@
         }
       ],
       "expectCandidates": { "3": [["o3", "ragweed_pollen"]] },
-      "expectNoConfirmed": ["ragweed_pollen", "o3"],
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 3, "o3": 155, "ragweed_pollen": 50 }, "expect": [1, 3] }
       ]
     },
     {
       "name": "a good day exonerates the calendar estimate that day carried",
-      "$comment": "Tolerance is not restricted to measured variables: rating the peak of the season easy has to be able to quiet it, or a calendar suspicion would alarm every August forever.",
+      "$comment": "Tolerance is not restricted to measured variables: rating the peak of the season easy has to be able to quiet it, or a calendar suspicion would alarm every August forever. September's high band (50) handled easily, then a later August day at the moderate band (10) rated limiting — 10 sits under what the peak day proved, so the season is not the suspect and the day is flagged unexplained instead.",
       "diary": [
         {
           "rating": 1,
@@ -231,14 +279,14 @@
         },
         {
           "rating": 3,
-          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 50 },
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 },
           "estimated": ["ragweed_pollen"]
         }
       ],
-      "expectConflicts": 1,
-      "expectConflictKind": "unmodeled-trigger",
+      "expectConflicts": [{ "kind": "unmodeled-trigger", "entry": 1, "against": 0 }],
+      "expectConfirmed": {},
       "predict": [
-        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 50 }, "expect": [1, 1] }
+        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 }, "expect": [1, 1] }
       ]
     },
     {
@@ -247,10 +295,128 @@
         { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }
       ],
       "expectCandidates": { "3": [["o3", "heat_stress"]] },
+      "expectConfirmed": {},
       "predict": [
         { "exposure": { "pm25": 5, "o3": 150, "heat_stress": 0 }, "expect": [1, 3] },
         { "exposure": { "pm25": 5, "o3": 10, "heat_stress": 6 }, "expect": [1, 3] },
         { "exposure": { "pm25": 5, "o3": 155, "heat_stress": 7 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "the noise margin swallows a 5 % supersession",
+      "$comment": "Rule 1: CAMS estimates carry ±30–50 % error, so a bad day 5 % under a tolerated day is not a contradiction — it is the same air read twice. pm25 19 against a tolerance of 20 stays a candidate and confirms cleanly.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 } },
+        { "rating": 3, "exposure": { "pm25": 19 } }
+      ],
+      "expectConflicts": [],
+      "expectConfirmed": { "pm25": { "2": 19, "3": 19 } },
+      "predict": [
+        { "exposure": { "pm25": 19 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 18 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a contradiction outside the noise margin is still a conflict",
+      "$comment": "The other side of the margin: pm25 16 against a tolerance of 20 is a real gap, so the day is unexplainable rather than noisy. One such day is a conflict; the next one re-opens the tolerance.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 } },
+        { "rating": 3, "exposure": { "pm25": 16 } }
+      ],
+      "expectConflicts": [{ "kind": "unmodeled-trigger", "entry": 1, "against": 0 }],
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pm25": 16 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "two bad days under a tolerated day re-open the tolerance (sensitivity shift)",
+      "$comment": "The acceptance scenario of specs/03-engine-robustness.md: one good day at pm25 20, then repeated bad days at 15. Recency now works in both directions — the tolerance drops to just under the lower bad day (15 × 0.85 = 12.75), inference re-runs, and the days that used to be discarded as unmodeled triggers become a personalized level-3 bound. Level 4 keeps the old tolerance: no bad day ever contradicted it.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20, "o3": 10 } },
+        { "rating": 3, "exposure": { "pm25": 15, "o3": 10 } },
+        { "rating": 3, "exposure": { "pm25": 15, "o3": 10 } },
+        { "rating": 3, "exposure": { "pm25": 15, "o3": 10 } }
+      ],
+      "expectConflicts": [{ "kind": "sensitivity-shift", "entry": 3, "against": 0 }],
+      "expectTolerance": { "pm25": { "2": 12.75, "3": 12.75, "4": 20 } },
+      "expectConfirmed": { "pm25": { "2": 15, "3": 15 } },
+      "predict": [
+        { "exposure": { "pm25": 15, "o3": 10 }, "expect": [3, 3], "expectGrade": "confirmed" },
+        { "exposure": { "pm25": 12, "o3": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a context-bound confirmation does not floor on a clean background",
+      "$comment": "Rule 4: both bad days collapsed to pm25 only because ozone had been exonerated at 180 — but ozone was still sitting at 140–150 in the background. Two days make the bound confirmed; the background it was seen against travels with it. Today's clean air only earns the ceiling.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 180 } },
+        { "rating": 3, "exposure": { "pm25": 22, "o3": 150 } },
+        { "rating": 3, "exposure": { "pm25": 20, "o3": 140 } }
+      ],
+      "expectConfirmed": { "pm25": { "2": 20, "3": 20 } },
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pm25": 25, "o3": 10 }, "expect": [1, 3], "expectGrade": "confirmed" },
+        { "exposure": { "pm25": 25, "o3": 150 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "a clean day's claim is not swallowed by a lower context-bound one",
+      "$comment": "Rule 4, the other half: the same variable can carry two claims at one level — 'pm25 22, against 150 of ozone' and 'pm25 25, alone, full stop'. Merging them would lose the unconditional one and quietly stop warning on clean high-smoke air.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 4, "o3": 180 } },
+        { "rating": 3, "exposure": { "pm25": 22, "o3": 150 } },
+        { "rating": 3, "exposure": { "pm25": 25, "o3": 6 } }
+      ],
+      "expectConfirmed": { "pm25": { "2": 22, "3": 22 } },
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pm25": 25, "o3": 5 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 23, "o3": 5 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 23, "o3": 150 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "raised background floors keep routine air out of candidate sets",
+      "$comment": "Rule 5: humidity 62 %RH, half a degree of heat stress, CO at 450 and ozone at 18 are what most days look like. Under the old floors this bad day implicated all five variables; now pm25 stands alone.",
+      "diary": [
+        {
+          "rating": 3,
+          "exposure": { "pm25": 20, "o3": 18, "co": 450, "heat_stress": 0.5, "humidity": 62 }
+        }
+      ],
+      "expectConfirmed": { "pm25": { "2": 20, "3": 20 } },
+      "predict": [
+        { "exposure": { "pm25": 20 }, "expect": [3, 3] },
+        { "exposure": { "co": 450, "heat_stress": 0.5, "humidity": 62 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a variable absent from an entry proves nothing about it",
+      "$comment": "Rule 5: when a window has no data the variable is dropped from the entry rather than recorded as 0. The good day here has no ozone reading, so it exonerates pm25 and nothing else — and the bad day's ozone is free to be the suspect it is.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 } },
+        { "rating": 3, "exposure": { "pm25": 5, "o3": 150 } }
+      ],
+      "expectConfirmed": { "o3": { "2": 150, "3": 150 } },
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pm25": 5, "o3": 150 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "bounds are source-scoped: a source switch starts a fresh set",
+      "$comment": "Rule 6: CAMS model ozone read 166 µg/m³ in Hamden while the New Haven monitor implied ~82. A bound learned against one source still predicts on that source, so the old set is kept — inert — rather than reused against numbers that mean something else. Here the airnow bad day is not silenced by a tolerance learned from cams.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 }, "source": "cams" },
+        { "rating": 3, "exposure": { "pm25": 15 }, "source": "airnow" }
+      ],
+      "expectConfirmed": { "pm25": { "2": 15, "3": 15 } },
+      "expectConflicts": [],
+      "expectInertSources": ["cams"],
+      "predict": [
+        { "exposure": { "pm25": 15 }, "expect": [3, 3] }
       ]
     }
   ]

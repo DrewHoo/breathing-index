@@ -4,6 +4,11 @@ import type { Priors } from './types'
  * Background floors: an exposure at or below this can never become a suspect,
  * even with no tolerance evidence. These encode "measurably present," not
  * "harmful" — they sit well below any health-relevant level.
+ *
+ * They sit *above* routine background, though, or every bad day implicates
+ * every variable and candidate sets never collapse. The weather rows are the
+ * ones that had to move: 55 %RH over three days is an ordinary week in New
+ * England, and a heat-stress floor of 0 made 25.1 °C a suspect.
  */
 const NEGLIGIBLE: Record<string, number> = {
   pm25: 5, // µg/m³
@@ -11,10 +16,10 @@ const NEGLIGIBLE: Record<string, number> = {
   o3: 20,
   no2: 10,
   so2: 5,
-  co: 300,
-  heat_stress: 0, // any positive stress is non-negligible
-  cold_dry_stress: 0,
-  humidity: 55, // %RH mean72h below this is not a mold-proxy candidate
+  co: 500, // µg/m³ — urban background runs 200–400
+  heat_stress: 1, // °C above 25: 26 °C is warm, not stressful
+  cold_dry_stress: 1, // °C below 10, same reasoning on the other side
+  humidity: 65, // %RH mean72h below this is not a mold-proxy candidate
   grass_pollen: 2, // grains/m³
   ragweed_pollen: 1,
   birch_pollen: 2,
@@ -23,6 +28,50 @@ const NEGLIGIBLE: Record<string, number> = {
 export function negligibleFor(variable: string): number {
   return NEGLIGIBLE[variable] ?? 0
 }
+
+/**
+ * Per-variable noise margin ε, relative. Every threshold comparison the engine
+ * makes between two *observations* is fuzzed by it, because the inputs are not
+ * exact: CAMS model estimates carry tens of percent of error against monitors,
+ * and a 19.9-vs-20.0 µg/m³ difference must not flip a forecast or manufacture a
+ * contradiction between two days.
+ *
+ * 15 % for the modeled pollutants is a starting guess; the app already fetches
+ * AirNow alongside, so the honest version is a per-pollutant model-vs-station
+ * error derived from accumulated comparisons. Weather comes from a measurement
+ * network rather than a chemistry model, so it gets 5 %.
+ */
+const NOISE_MARGIN: Record<string, number> = {
+  heat_stress: 0.05,
+  cold_dry_stress: 0.05,
+  humidity: 0.05,
+}
+
+const DEFAULT_NOISE_MARGIN = 0.15
+
+export function noiseMarginFor(variable: string): number {
+  return NOISE_MARGIN[variable] ?? DEFAULT_NOISE_MARGIN
+}
+
+/**
+ * Variables whose numbers mean something different when the exposure source
+ * changes — everything the air-quality source measures. A CAMS ozone estimate
+ * and a monitor's ozone reading are not interchangeable (Hamden, 2026-08-07:
+ * CAMS 166 µg/m³ against a nearby monitor implying ~82), so bounds learned
+ * against one source do not transfer to the other. Weather-derived variables
+ * come from a different pipe and survive an air-source switch.
+ */
+export const SOURCE_SCOPED_VARIABLES: ReadonlySet<string> = new Set([
+  'pm25',
+  'pm10',
+  'o3',
+  'no2',
+  'so2',
+  'co',
+])
+
+/** Entries logged before the source was recorded, all from the same era. */
+export const UNSPECIFIED_SOURCE = 'unspecified'
 
 /**
  * Variables that proxy indoor exposure. The "worse-outdoors" observation
@@ -56,6 +105,12 @@ export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
  * 2. **Which end of the category.** Every row is the *lower* bound of its category:
  *    the exposure at which a category begins, not its midpoint. That is what makes
  *    "potentially at this level" true at the threshold rather than halfway past it.
+ * 3. **Real-world numbers against modeled inputs.** These breakpoints describe actual
+ *    concentrations; the engine compares them against a model estimate that can carry
+ *    a regional bias (CAMS global runs warm-season surface ozone high in the eastern
+ *    US). Where the model is inflated, the priors fire early — over-warning, which is
+ *    the safe direction for a ceiling. Unlike the learned bounds, priors are *not*
+ *    source-scoped: they are the fallback for a person the app does not know yet.
  */
 export const PRIORS: Priors = {
   // --- derived by scripts/derive-breakpoints.mjs — edit there, not here ---

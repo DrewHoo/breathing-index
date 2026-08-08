@@ -28,7 +28,11 @@ describe('tagging a conflict "pollen"', () => {
     const tagged = { ...entry, ...calendarPollenPatch(entry, HAMDEN) }
     const model = buildModel([tagged])
     expect(model.conflicts).toHaveLength(0)
-    expect(model.constraints.map((c) => c.candidates)).toContainEqual(['ragweed_pollen'])
+    // The day had nothing else measurably in it, which for measured air is the
+    // one shape that confirms on a single day. A calendar figure stops short.
+    expect(
+      model.confirmations.filter((c) => c.variable === 'ragweed_pollen').map((c) => c.strength),
+    ).toEqual(['suspected-strong', 'suspected-strong'])
     expect(model.confirmed.ragweed_pollen).toBeUndefined()
   })
 
