@@ -40,7 +40,7 @@ window chosen to match its mechanism of action:
 | pm25, pm10 | `max(now, max8h)` | v1 simplification; consider `mean24h` later |
 | heat_stress, cold_dry_stress | `now` | felt immediately |
 | humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
-| pollen (per species) | `max24h` when measured; calendar prior otherwise | daily cycle, seasonal |
+| pollen (per species) | `max(now, max8h)` when measured; calendar-region prior otherwise | acts within hours; `max24h` is the later refinement |
 
 Window choices are an open tuning question; feature extraction is the only place they live.
 
@@ -183,10 +183,20 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   honest v2 upgrade.
 - **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
   only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
-  prior per species (e.g. CT ragweed ≈ Aug–Oct) acting like other priors — ceiling-only, never
-  floor — with an upgrade path to a measured source (Google Pollen API, Ambee) as a user-keyed
-  plugin. A calendar prior can make a season *suspected*; only measured data or diary
-  disambiguation can confirm.
+  prior per species (e.g. CT ragweed ≈ Aug–Oct), with an upgrade path to a measured source
+  (Google Pollen API, Ambee) as a user-keyed plugin. A calendar prior can make a season
+  *suspected*; only measured data or diary disambiguation can confirm.
+
+  The mechanism is **provenance, not a special case for pollen**: an entry lists in
+  `DiaryEntry.estimated` any variable whose value was estimated rather than read
+  (`src/sources/pollenCalendar.ts` is today's only producer). Estimated variables join candidate
+  sets like any other — a season is a real suspect — but a candidate set that narrows to one
+  *estimated* variable records a constraint instead of a confirmation, and a constraint carrying
+  an estimate never satisfies the combo-repeat floor clause. Guesses raise ceilings; they never
+  guarantee floors. Tolerance is deliberately *not* restricted this way: rating the peak of the
+  season easy has to be able to quiet it, or a calendar suspicion would alarm every August
+  forever. When a measured source replaces the calendar the variable names are unchanged and the
+  tag simply stops being written — old estimated entries keep their provenance.
 
 ## Observation tags: the opposite of confounders
 
@@ -248,3 +258,4 @@ must pass them. Prose versions:
 | 14 | Rating 3 @ (pm25 20, humidity 75) | Without observations: ambiguous, C = {pm25, humidity}. |
 | 15 | Same entry + `worse-outdoors` | Humidity excluded → confirmed θ_pm25,3 ≤ 20. Humidity-only day predicts [1,1]. |
 | 16 | Rating 3 @ (pm25 3, o3 10, humidity 80) + `worse-outdoors` | Empty candidate set → unmodeled *outdoor* trigger flagged (pollen?). |
+| 17 | Rating 3 @ (pm25 3, o3 10, ragweed 10) with ragweed `estimated` | Ragweed is the only candidate but the figure is a calendar estimate: constraint, not confirmation. The same day repeated → [1,3]. The identical entry *without* the tag confirms θ_ragweed,3 ≤ 10 → [3,3]. |

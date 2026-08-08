@@ -6,9 +6,17 @@ import type { Exposure, InferenceEntry, Level, Priors, Rating } from './types'
 interface FixtureCase {
   name: string
   priors?: Record<string, Record<string, number>>
-  diary: { rating: number; exposure: Exposure; confounders?: string[]; observations?: string[] }[]
+  diary: {
+    rating: number
+    exposure: Exposure
+    confounders?: string[]
+    observations?: string[]
+    estimated?: string[]
+  }[]
   expectCandidates?: Record<string, string[][]>
   expectConfirmed?: Record<string, Record<string, number>>
+  /** variables that must hold no confirmed bound at any level */
+  expectNoConfirmed?: string[]
   expectConflicts?: number
   expectConflictKind?: string
   predict?: { exposure: Exposure; expect: number[]; expectSource?: string }[]
@@ -31,6 +39,7 @@ for (const fixture of fixtures.cases as FixtureCase[]) {
       exposure: d.exposure,
       confounders: d.confounders,
       observations: d.observations,
+      estimated: d.estimated,
     }))
     const model = buildModel(diary)
     const priors = toPriors(fixture.priors)
@@ -44,6 +53,14 @@ for (const fixture of fixtures.cases as FixtureCase[]) {
               `confirmed ${variable}@${level}`,
             ).toBe(bound)
           }
+        }
+      })
+    }
+
+    if (fixture.expectNoConfirmed) {
+      it('confirms nothing from the estimated variables', () => {
+        for (const variable of fixture.expectNoConfirmed!) {
+          expect(model.confirmed[variable], `confirmed ${variable}`).toBeUndefined()
         }
       })
     }

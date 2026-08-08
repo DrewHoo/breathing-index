@@ -58,6 +58,26 @@ function loadLastGood(key: string): ExposureSeries | null {
 }
 
 /**
+ * The coordinates the app last read the air for: the saved place if there is
+ * one, otherwise whatever the cached series belongs to. For screens that need
+ * a place but have no business reopening the location prompt — the diary,
+ * attaching a calendar estimate to a day already logged.
+ */
+export function lastKnownCoords(): { lat: number; lon: number } | null {
+  const chosen = chosenLocation()
+  if (chosen) return { lat: chosen.lat, lon: chosen.lon }
+  try {
+    const raw = localStorage.getItem(LAST_GOOD_KEY)
+    if (!raw) return null
+    const [lat, lon] = (JSON.parse(raw) as { key: string }).key.split(',').map(Number)
+    if (lat === undefined || lon === undefined) return null
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Where the active coordinates came from. Reported to analytics in place of the
  * location itself: now that the header names a real town, the label is the
  * user's actual city and must not leave the device.

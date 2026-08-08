@@ -16,6 +16,13 @@ export interface DiaryEntry {
   /** things the user noticed that sharpen attribution (e.g. "worse-outdoors") */
   observations?: string[]
   exposure: Exposure
+  /**
+   * Variables in `exposure` whose values are estimates rather than readings —
+   * today, calendar-region pollen where no measured source covers the place.
+   * Inference lets them join candidate sets but never confirm a bound: a guess
+   * may raise a ceiling, never guarantee a floor.
+   */
+  estimated?: string[]
   /** official composite indices at log time — scoreboard receipts, never used by inference */
   official?: { usAqi: number | null; eaqi: number | null }
   /** minutes between the log and the newest hour of air attached to it */
@@ -38,7 +45,7 @@ export interface DiaryEntry {
 /** The subset of DiaryEntry that inference reads. */
 export type InferenceEntry = Pick<
   DiaryEntry,
-  'rating' | 'exposure' | 'confounders' | 'observations'
+  'rating' | 'exposure' | 'confounders' | 'observations' | 'estimated'
 >
 
 /** variable -> level -> exposure at which that level is *potentially* reached (ceiling-only) */
@@ -52,6 +59,11 @@ export interface AmbiguousConstraint {
   /** variables not exonerated at this entry's exposures — one or more of these suffices */
   candidates: string[]
   exposure: Exposure
+  /**
+   * A candidate's exposure here was estimated, not measured, so repeating this
+   * combination suggests the level without guaranteeing it: ceiling, no floor.
+   */
+  estimated?: boolean
 }
 
 export type ConflictKind = 'superseded' | 'unmodeled-trigger'

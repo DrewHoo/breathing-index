@@ -23,6 +23,19 @@ function excludedCandidates(entry: InferenceEntry): ReadonlySet<string> {
   return entry.observations?.includes('worse-outdoors') ? INDOOR_PROXY_VARIABLES : NO_EXCLUSIONS
 }
 
+/**
+ * Variables whose exposure on this entry was estimated rather than read — a
+ * calendar-region pollen figure, today. They are ordinary candidates (a season
+ * is a real suspect) but no claim resting on one may harden into a floor.
+ *
+ * Tolerance is deliberately left alone: a low-rated day still exonerates the
+ * estimate, which is what lets a quiet ragweed season fade out of the forecast
+ * instead of alarming every August day forever.
+ */
+function estimatedIn(entry: InferenceEntry): ReadonlySet<string> {
+  return entry.estimated?.length ? new Set(entry.estimated) : NO_EXCLUSIONS
+}
+
 function setBound(
   bounds: Bounds,
   variable: string,
@@ -83,6 +96,7 @@ export function buildModel(diary: InferenceEntry[]): TriggerModel {
     if (entry.rating < 2) continue
     let conflict: Conflict | null = null
     const excluded = excludedCandidates(entry)
+    const estimated = estimatedIn(entry)
     for (const level of LEVELS) {
       if (level > entry.rating) break
       const candidates = candidatesFor(entry.exposure, level, tolerance, excluded)
@@ -98,10 +112,18 @@ export function buildModel(diary: InferenceEntry[]): TriggerModel {
         }
         continue
       }
-      if (candidates.length === 1) {
+      // A lone candidate is a confirmation — unless its exposure was estimated,
+      // in which case the day stays an unresolved suspicion of that variable.
+      if (candidates.length === 1 && !estimated.has(candidates[0]!)) {
         setBound(confirmed, candidates[0]!, level, entry.exposure[candidates[0]!]!, 'min')
       } else {
-        constraints.push({ entryIndex: index, level, candidates, exposure: entry.exposure })
+        constraints.push({
+          entryIndex: index,
+          level,
+          candidates,
+          exposure: entry.exposure,
+          ...(candidates.some((v) => estimated.has(v)) ? { estimated: true } : {}),
+        })
       }
     }
     if (conflict) conflicts.push(conflict)
@@ -130,8 +152,14 @@ export function predict(model: TriggerModel, exposure: Exposure, priors: Priors 
       reasons.push({ bound: 'floor', level, kind: 'confirmed', variables: [confirmedHit[0]] })
       break
     }
+    // Estimated constraints are excluded here and only here: repeating a
+    // combination that was partly a guess is not proof of anything, so it
+    // raises the ceiling below without ever guaranteeing the floor.
     const comboHit = model.constraints.find(
-      (c) => c.level === level && c.candidates.every((v) => value(exposure, v) >= c.exposure[v]!),
+      (c) =>
+        c.level === level &&
+        !c.estimated &&
+        c.candidates.every((v) => value(exposure, v) >= c.exposure[v]!),
     )
     if (comboHit) {
       floor = level

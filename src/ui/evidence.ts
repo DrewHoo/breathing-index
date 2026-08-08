@@ -8,6 +8,10 @@ export interface Evidence {
   aside?: string
 }
 
+/** What the Why line owes anyone whose pollen number came off a calendar. */
+const ESTIMATE_ASIDE =
+  'That pollen figure is a calendar estimate for your region, not a measurement.'
+
 const entryDate = (diary: DiaryEntry[], index: number | undefined): string =>
   index !== undefined && diary[index]
     ? new Date(diary[index].time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -27,7 +31,13 @@ export function evidence(
   prediction: Prediction,
   model: TriggerModel,
   diary: DiaryEntry[],
+  /** variables in today's vector that were estimated rather than read */
+  estimated: string[] = [],
 ): Evidence {
+  // Anything the Why line blames that was a calendar figure has to say so here
+  // too: the air table's sub-label does not travel up to this sentence.
+  const guessed = (variables: string[]): boolean => variables.some((v) => estimated.includes(v))
+
   const floorReason = prediction.reasons.find((r) => r.bound === 'floor')
   if (floorReason?.kind === 'confirmed') {
     const v = floorReason.variables[0]!
@@ -60,7 +70,9 @@ export function evidence(
     const day = entryDate(diary, source?.entryIndex)
     return {
       main: `${past}${also}. Together this sits near your ${day} day — you rated that one ${levelWord(suspect.level)}.`,
-      aside: `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
+      aside: guessed(suspect.variables)
+        ? ESTIMATE_ASIDE
+        : `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
     }
   }
 
@@ -71,6 +83,7 @@ export function evidence(
     )
     return {
       main: `${names.join(' and ')} ${prior.variables.length > 1 ? 'are' : 'is'} past guidance for sensitive groups — your diary has no verdict on ${prior.variables.length > 1 ? 'them' : 'it'} yet.`,
+      ...(guessed(prior.variables) ? { aside: ESTIMATE_ASIDE } : {}),
     }
   }
 
