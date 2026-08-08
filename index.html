@@ -27,11 +27,17 @@
     <meta name="apple-mobile-web-app-title" content="Breathing" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      Fonts are self-hosted from public/fonts (see src/fonts.css). The hosted
+      Google stylesheet handed Google the IP of everyone who opened the app,
+      and left the installed PWA with system type offline.
+    -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400&family=Spline+Sans+Mono:wght@400..600&display=swap"
-      rel="stylesheet"
+      rel="preload"
+      href="/fonts/instrument-sans-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
 
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />

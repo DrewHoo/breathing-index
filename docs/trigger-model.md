@@ -142,12 +142,12 @@ ceiling doubles as a data-collection prompt: the app can literally say *"today i
 day — logging how you feel tonight would teach me a lot."* (High-information days are the ones
 where candidate sets would collapse.)
 
-**Cold start:** with an empty diary, predictions come entirely from prior thresholds (EPA
-sensitive-group breakpoints, seeded with the v0 "Drew profile" sensitivities), all marked
-`prior`, contributing to ceiling only, never to floor. Every diary entry replaces prior with
-person — concretely, a prior for (p, L) is **suppressed** at exposures the user has personally
-tolerated below level L: rating a 2 while ozone sat at 168 refutes the population claim
-"potentially a 3 at 160" for any exposure up to 168.
+**Cold start:** with an empty diary, predictions come entirely from prior thresholds (published
+breakpoints — EPA AQI for PM and ozone, WHO guideline values for the other gases — seeded with the
+v0 "Drew profile" sensitivities), all marked `prior`, contributing to ceiling only, never to floor.
+Every diary entry replaces prior with person — concretely, a prior for (p, L) is **suppressed** at
+exposures the user has personally tolerated below level L: rating a 2 while ozone sat at 168
+refutes the population claim "potentially a 3 at 139" for any exposure up to 168.
 
 **No max(), no composite score.** The 1–4 rating is the max of *predicted levels*, but levels are
 grounded in per-pollutant/per-combination evidence — co-elevation is represented as a first-class

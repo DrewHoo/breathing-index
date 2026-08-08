@@ -70,10 +70,12 @@ pass: `tests/fixtures/trigger-cases.json`. The short version:
   entries confirm one candidate (bad single-pollutant day) or exonerate one (fine day with that
   pollutant just as high). Until then, **every candidate is treated as potentially triggering**.
 - A repeat of a known-bad *combination* is predictable even without attribution.
-- Cold start: EPA sensitive-group breakpoints (seeded with an asthma-tilted profile) act as priors
-  that only ever raise the prediction ceiling; personal data replaces them entry by entry.
+- Cold start: published breakpoints (seeded with an asthma-tilted profile) act as priors that only
+  ever raise the prediction ceiling; personal data replaces them entry by entry. PM and ozone come
+  from the EPA AQI table, NO₂/SO₂/CO from the stricter WHO guideline values — the per-row source is
+  named in `src/engine/config.ts` and derived by `scripts/derive-breakpoints.mjs`.
 
-**Verification note:** implementers must pull the current official breakpoint tables (EPA 2024 PM2.5 revision; EEA EAQI bands; RIVM LKI bands) from primary sources at build time — do not trust from-memory constants for the health-relevant math.
+**Verification note:** implementers must pull the current official breakpoint tables (EPA 2024 PM2.5 revision; EEA EAQI bands; RIVM LKI bands) from primary sources at build time — do not trust from-memory constants for the health-relevant math. For the cold-start priors this lives in `scripts/derive-breakpoints.mjs`, which keeps each table in its published units, does the ppb → µg/m³ conversion, and fails `npm test` if `src/engine/config.ts` drifts from it.
 
 ## Data sources (the "tunable" part)
 
