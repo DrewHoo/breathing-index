@@ -5,67 +5,20 @@
 // with a single alarm color at level 4. The scale rail is lifted straight from
 // the home screen, because that is the thing worth recognising in a feed.
 //
-// Display text is converted to outlines rather than set as <text>. sharp's
-// bundled libvips resolves font families through its own fontconfig and will
-// not pick up a font directory we hand it, so live text would silently fall
-// back to a system face and lose the brand entirely. Outlines render the same
-// everywhere and need nothing installed.
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
-import opentype from 'opentype.js'
-import sharp from 'sharp'
-
-const font = (weight) =>
-  opentype.parse(
-    readFileSync(fileURLToPath(new URL(`./fonts/InstrumentSans-${weight}.ttf`, import.meta.url)))
-      .buffer,
-  )
-
-const regular = font(400)
-const semibold = font(600)
-const bold = font(700)
-
-// --- design tokens, kept in step with src/styles.css -------------------------
-const PAPER = '#f3f6f7'
-const CARD = '#ffffff'
-const INK = '#22303a'
-const SECONDARY = '#64757f'
-const FAINT = '#93a3ac'
-const HAIRLINE = '#dce4e8'
-const RULE = '#c7d2d8'
-const LEVEL = ['#a7b6be', '#7a8b94', '#3b4a54', '#c13a31'] // --l1 … --l4
-
-/**
- * Set `str` as outlines. `anchor` mirrors SVG text-anchor.
- *
- * Glyphs are walked one at a time rather than going through getPath/
- * getAdvanceWidth: those run opentype's shaping pass, which throws on this
- * font's ccmp lookup (type 6, format 2 — unimplemented upstream). Going
- * straight through the cmap sidesteps shaping we do not need for Latin text,
- * and lets us measure and kern in the same walk.
- */
-function text(face, str, x, y, size, fill, anchor = 'start') {
-  const scale = size / face.unitsPerEm
-  const glyphs = [...str].map((ch) => face.charToGlyph(ch))
-
-  let width = 0
-  glyphs.forEach((glyph, i) => {
-    if (i > 0) width += face.getKerningValue(glyphs[i - 1], glyph) * scale
-    width += glyph.advanceWidth * scale
-  })
-
-  let pen = x + (anchor === 'middle' ? -width / 2 : anchor === 'end' ? -width : 0)
-  const d = glyphs
-    .map((glyph, i) => {
-      if (i > 0) pen += face.getKerningValue(glyphs[i - 1], glyph) * scale
-      const path = glyph.getPath(pen, y, size).toPathData(2)
-      pen += glyph.advanceWidth * scale
-      return path
-    })
-    .join(' ')
-
-  return `<path d="${d}" fill="${fill}"/>`
-}
+// Tokens, the outline-setting helper and the frame/footer furniture live in
+// ./og-lib.mjs, shared with generate-content-og.mjs.
+import {
+  footer,
+  frame,
+  regular,
+  bold,
+  text,
+  write,
+  INK,
+  LEVEL,
+  RULE,
+  SECONDARY,
+} from './og-lib.mjs'
 
 const LEVELS = [
   { n: '1', label: 'Easy' },
@@ -115,8 +68,7 @@ const rail = [
 ].join('\n  ')
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="${PAPER}"/>
-  <rect x="40" y="40" width="1120" height="550" rx="22" fill="${CARD}" stroke="${HAIRLINE}" stroke-width="2"/>
+  ${frame}
 
   ${text(bold, 'Breathing Index', 104, 148, 54, INK)}
   ${text(regular, 'Per-pollutant air data and a personal 1–4 index,', 104, 206, 27, SECONDARY)}
@@ -126,9 +78,7 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" v
 
   ${rail}
 
-  <line x1="104" y1="510" x2="1096" y2="510" stroke="${HAIRLINE}" stroke-width="2"/>
-  ${text(semibold, 'breathingindex.com', 104, 552, 24, FAINT)}
+  ${footer}
 </svg>`
 
-await sharp(Buffer.from(svg)).png().toFile('public/og.png')
-console.log('wrote public/og.png')
+await write(svg, 'public/og.png')

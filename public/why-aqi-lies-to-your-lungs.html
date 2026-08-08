@@ -1,0 +1,286 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages: no bundle, no JS, no router. The
+  app's service worker is told to leave this path alone
+  (navigateFallbackDenylist in vite.config.ts) so an installed PWA gets the
+  essay and not the app shell.
+
+  The footer paragraph is a literal copy of DISCLAIMER in src/ui/labels.ts.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Why the AQI lies to your lungs — Breathing Index</title>
+    <meta
+      name="description"
+      content="AQI 70 said Moderate; I couldn't finish a walk. The composite index is a max() over sub-indices, calibrated to an average person. Here's what to read instead."
+    />
+    <meta name="theme-color" content="#F3F6F7" />
+    <meta name="author" content="Drew Hoover" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://breathingindex.com/why-aqi-lies-to-your-lungs" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/content.css" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Breathing Index" />
+    <meta property="og:title" content="Why the AQI lies to your lungs" />
+    <meta
+      property="og:description"
+      content="AQI 70 said Moderate; I couldn't finish a walk. The composite index is a max() over sub-indices, calibrated to an average person. Here's what to read instead."
+    />
+    <meta property="og:url" content="https://breathingindex.com/why-aqi-lies-to-your-lungs" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://breathingindex.com/og-why-aqi-lies.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Share card: two rows on a white card. Amsterdam, LKI 7 to 8, insufficient, walkable. Hamden, US AQI 70, Moderate, could not finish the walk."
+    />
+    <meta property="article:author" content="Drew Hoover" />
+    <meta property="article:published_time" content="2026-08-07" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Why the AQI lies to your lungs" />
+    <meta
+      name="twitter:description"
+      content="AQI 70 said Moderate; I couldn't finish a walk. The composite index is a max() over sub-indices, calibrated to an average person."
+    />
+    <meta name="twitter:image" content="https://breathingindex.com/og-why-aqi-lies.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Share card: two rows on a white card. Amsterdam, LKI 7 to 8, insufficient, walkable. Hamden, US AQI 70, Moderate, could not finish the walk."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Why the AQI lies to your lungs",
+        "description": "AQI 70 said Moderate; I couldn't finish a walk. The composite index is a max() over sub-indices, calibrated to an average person. Here's what to read instead.",
+        "datePublished": "2026-08-07",
+        "dateModified": "2026-08-07",
+        "inLanguage": "en",
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://breathingindex.com/why-aqi-lies-to-your-lungs"
+        },
+        "image": "https://breathingindex.com/og-why-aqi-lies.png",
+        "author": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/",
+          "sameAs": ["https://github.com/DrewHoo"]
+        },
+        "publisher": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/"
+        },
+        "about": ["Air quality index", "Asthma", "Particulate matter", "Ozone"]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+
+      <p class="kicker">Essay</p>
+      <h1>Why the AQI lies to your lungs</h1>
+      <p class="lede">
+        It doesn't lie, exactly. It answers a question honestly, and the question isn't yours. The
+        AQI is the worst of several sub-indices, rounded into a category that was drawn for a
+        population. You are not a population. You have one set of airways with specific opinions.
+      </p>
+      <p class="byline">Drew Hoover · 7 August 2026</p>
+
+      <h2>The two days that broke the number for me</h2>
+      <p>
+        I have asthma, and for years I have tried to make the published number and my own chest
+        agree. In August 2026 they came apart badly enough that I started building software about
+        it.
+      </p>
+
+      <div class="receipt">
+        <h3>Amsterdam, 3–4 August 2026</h3>
+        <p>
+          The Dutch index (LKI) read <span class="num">7–8</span> — the band they label
+          <em>onvoldoende</em>, insufficient. It sounds like a warning. I walked around the city for
+          hours. My lungs were working harder than usual and I noticed it, but nothing about the day
+          changed because of them.
+        </p>
+      </div>
+
+      <div class="receipt">
+        <h3>Hamden, Connecticut, 6 August 2026</h3>
+        <p>
+          The US AQI read <span class="num">70</span> — <em>Moderate</em>. It sounds like nothing.
+          I cut a walk short. That is the whole receipt: same lungs, milder-sounding label, worse
+          day.
+        </p>
+      </div>
+
+      <p class="pull">
+        The number that sounded alarming was fine to breathe. The number that sounded fine was not.
+        Twice is a coincidence; the mechanism underneath is not.
+      </p>
+
+      <p>
+        So I pulled the actual measurements for both days from Open-Meteo and AirNow rather than
+        arguing with a label. The write-up is in the repo as
+        <a href="https://github.com/DrewHoo/breathing-index/blob/main/docs/m1-findings.md"
+          >docs/m1-findings.md</a
+        >; the short version is that the two days were not the same kind of bad air at all, and
+        neither country's headline number said so.
+      </p>
+      <ul>
+        <li>
+          <strong>Amsterdam was an ozone day.</strong> Instantaneous ozone peaked around
+          <span class="num">156 µg/m³</span> on the Monday afternoon. Fine particulate sat at
+          <span class="num">10–12 µg/m³</span> through the daytime hours. One elevated thing.
+        </li>
+        <li>
+          <strong>Hamden was two things at once.</strong> Fine particulate held at
+          <span class="num">13–14 µg/m³</span> all day with a smoke-like fine fraction, while ozone
+          climbed underneath the headline all afternoon toward the Unhealthy-for-Sensitive-Groups
+          band. Two elevated things, in the same air, at the same time.
+        </li>
+      </ul>
+      <p>
+        One trigger versus two is a coherent explanation for "labored but functional" there and
+        "can't finish the walk" here. It is also exactly the distinction a single number is built
+        to destroy.
+      </p>
+
+      <h2>What the number actually is</h2>
+      <p>
+        The US AQI is not a measurement. It is a transformation, and it does three things to the
+        air on the way to your screen.
+      </p>
+
+      <h3>1. It takes the max, then throws the rest away</h3>
+      <p>
+        Each pollutant gets its own sub-index on a 0–500 scale, computed from its own concentration
+        breakpoints (40 CFR part 58, appendix G). The reported AQI is the <em>highest</em> of them,
+        and the pollutant that produced it is named the "primary pollutant". Everything else that
+        was in the air is not reduced, or averaged in, or flagged — it is simply not in the output.
+      </p>
+      <p>
+        On my Hamden afternoon, particulate won the max. The ozone ramping underneath it was
+        invisible in the composite by construction. If you are one of the people for whom the
+        combination is the problem, the index has silently answered a different question: <em>how
+        bad is the single worst thing?</em> — not <em>what is in this air?</em>
+      </p>
+
+      <h3>2. It reports an average of a window you are not standing in</h3>
+      <p>
+        The breakpoints are defined over averaging windows: 24 hours for particulate, 8 hours for
+        ozone and carbon monoxide, an hour for nitrogen dioxide and sulfur dioxide. Reporting
+        smooths further still (US PM2.5 is published through NowCast, a weighted recent average).
+      </p>
+      <p>
+        An 8-hour ozone mean cannot spike when ozone spikes. It has to drag seven other hours along
+        with it. On the Hamden day the 8-hour ozone sub-index went
+        <span class="num">50 → 72 → 113 → 133</span> across the afternoon and evening while the
+        headline stayed comfortable for hours — the number was still describing lunchtime while I
+        was outside at six.
+      </p>
+
+      <h3>3. It applies a label drawn for everybody</h3>
+      <p>
+        "Moderate" covers AQI 51–100. For PM2.5 under the 2024 table that is a concentration band
+        from <span class="num">9.1</span> to <span class="num">35.4 µg/m³</span> — the top of the
+        band is nearly four times the bottom, and both are the same word on your phone. AQI 70, the
+        number that ended my walk, works out to roughly
+        <span class="num">19 µg/m³</span> of PM2.5.
+      </p>
+      <p>
+        The categories carry a cautionary line about unusually sensitive people, and that line is
+        doing enormous work. It is where every asthmatic in the country has been filed. There is no
+        version of "Moderate" that can be true for a marathon runner and true for me on a smoke day,
+        so it is drawn for the middle and we are a footnote.
+      </p>
+      <p class="pull">
+        None of this is a scandal. It is a public-health instrument working as designed. The bug is
+        thinking it was ever about you.
+      </p>
+
+      <h2>What to look at instead</h2>
+      <p>Two things, and the second is the one that actually works.</p>
+
+      <h3>The constituents, separately</h3>
+      <p>
+        Every source that publishes an AQI has the per-pollutant numbers behind it. Look at those.
+        "PM2.5 at 19, ozone at 100 and climbing" is a completely different afternoon from "PM2.5 at
+        19, ozone at 40", and the composite renders both as 70. Once you are reading constituents,
+        the useful questions get askable: is the particulate fine-mode, which points at smoke, or
+        coarse, which points at dust and pollen? Is the ozone flat or is it on the afternoon ramp?
+        Should I go now or at seven?
+      </p>
+      <p>
+        On the Hamden day that last question had a decisive answer sitting in the hourly data. Ozone
+        was at a sub-index of 27–37 before ten in the morning and 113–159 from four until ten at
+        night. Particulate was flat all day. Walking in the morning was free, and no headline number
+        told me so.
+      </p>
+
+      <h3>Your own diary</h3>
+      <p>
+        Constituents tell you what is in the air. They do not tell you which of it gets
+        <em>you</em>, and no published index can, because nobody has ever measured your lungs. That
+        part only comes from you: a rating of your breathing, logged against the full set of
+        readings for that hour, over and over until the pattern is not deniable.
+      </p>
+      <p>
+        This is more useful than it sounds, and the surprising part is that good days carry the most
+        evidence. A day you breathed easily is a receipt that <em>everything</em> in that air was
+        tolerable for you at those levels — every pollutant, cleared at once. A bad day with five
+        elevated variables is ambiguous, and should be recorded as ambiguous rather than blamed on
+        whichever one happened to be highest. That is the mistake the composite makes, and copying
+        it into a personal tool would be a waste of a diary.
+      </p>
+      <p>
+        It is also the only method available to a person without a lab. Enough entries and you stop
+        needing the label: you know your own thresholds, in real units, for the specific things that
+        matter to you. Mine appear to be about smoke. Yours may be ozone, or humidity, or the
+        combination on a hot day. The AQI will keep on not knowing.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Build your own 1–4 →</strong>
+        <span>
+          Breathing Index shows each pollutant separately and learns your triggers from your own
+          diary. Free, no account, runs in your browser.
+        </span>
+      </a>
+
+      <div class="next">
+        <h2>Read next</h2>
+        <a href="/smoke-vs-ozone">Smoke vs ozone: same AQI, different lungs</a>
+        <p>
+          The fine-fraction fingerprint that tells smoke from dust, and why one asthmatic's ozone
+          day is another's non-event.
+        </p>
+        <a href="/what-moderate-means">What "Moderate" actually means, in µg/m³</a>
+        <p>
+          The EPA and WHO breakpoints in real units, and how they map onto a four-level behavioral
+          scale.
+        </p>
+      </div>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
