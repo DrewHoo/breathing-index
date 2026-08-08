@@ -8,6 +8,10 @@ export interface Evidence {
   aside?: string
 }
 
+/** What the Why line owes anyone whose pollen number came off a calendar. */
+const ESTIMATE_ASIDE =
+  'That pollen figure is a calendar estimate for your region, not a measurement.'
+
 const entryDate = (diary: DiaryEntry[], index: number | undefined): string =>
   index !== undefined && diary[index]
     ? new Date(diary[index].time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -33,7 +37,13 @@ export function evidence(
   prediction: Prediction,
   model: TriggerModel,
   diary: DiaryEntry[],
+  /** variables in today's vector that were estimated rather than read */
+  estimated: string[] = [],
 ): Evidence {
+  // Anything the Why line blames that was a calendar figure has to say so here
+  // too: the air table's sub-label does not travel up to this sentence.
+  const guessed = (variables: string[]): boolean => variables.some((v) => estimated.includes(v))
+
   const floorReason = prediction.reasons.find((r) => r.bound === 'floor')
   if (floorReason?.kind === 'confirmed') {
     const v = floorReason.variables[0]!
@@ -74,8 +84,11 @@ export function evidence(
           : `${counted[0]!.toUpperCase()}${counted.slice(1)} show`
       return {
         main: `${lead} ${variableName(v).toLowerCase()} alone can be enough for ${levelWord(suspect.level)}, and it is at that level now.`,
-        aside:
-          suspect.grade === 'confirmed'
+        // Where the number was a calendar figure, that outranks the n=1
+        // caveat: the day was real, the exposure behind it was not measured.
+        aside: guessed([v])
+          ? ESTIMATE_ASIDE
+          : suspect.grade === 'confirmed'
             ? 'The rest of the air is milder than it was on those days, so this is a ceiling, not a promise.'
             : 'One day is a hint, not a pattern — another like it would settle this.',
       }
@@ -92,7 +105,9 @@ export function evidence(
     const day = entryDate(diary, fromCombination.entryIndex)
     return {
       main: `${past}${also}. Together this sits near your ${day} day — you rated that one ${levelWord(suspect.level)}.`,
-      aside: `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
+      aside: guessed(suspect.variables)
+        ? ESTIMATE_ASIDE
+        : `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
     }
   }
 
@@ -103,6 +118,7 @@ export function evidence(
     )
     return {
       main: `${names.join(' and ')} ${prior.variables.length > 1 ? 'are' : 'is'} past guidance for sensitive groups — your diary has no verdict on ${prior.variables.length > 1 ? 'them' : 'it'} yet.`,
+      ...(guessed(prior.variables) ? { aside: ESTIMATE_ASIDE } : {}),
     }
   }
 

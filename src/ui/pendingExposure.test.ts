@@ -45,6 +45,16 @@ describe('resolvePending', () => {
     expect('pendingExposure' in resolved!).toBe(false)
   })
 
+  it('carries the provenance of the air it attached', () => {
+    // A vector that arrives late is still evidence, and the engine has to know
+    // which source taught it and which of its numbers were never measured.
+    const late = series()
+    late.hours[1] = { ...late.hours[1]!, estimated: ['ragweed_pollen'] }
+    const [resolved] = resolvePending([pendingEntry()], late, HAMDEN)
+    expect(resolved!.source).toBe('cams')
+    expect(resolved!.estimated).toEqual(['ragweed_pollen'])
+  })
+
   it('keeps the rating, the time and the tags', () => {
     const entry = pendingEntry({ note: 'stairs', confounders: ['sick'] })
     const [resolved] = resolvePending([entry], series(), HAMDEN)

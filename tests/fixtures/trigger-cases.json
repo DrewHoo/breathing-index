@@ -220,6 +220,76 @@
       ]
     },
     {
+      "name": "calendar pollen suspects a season and can never confirm it",
+      "$comment": "Hamden in August: the ragweed figure is a calendar estimate for the region, not a reading. It is the day's lone candidate, and nothing else was even measurably present — a clean singleton, which for measured air is the one shape that confirms on a single day. It still stops at suspected-strong, because the number was never observed. Repeating the exact day predicts [1,3], not [3,3].",
+      "diary": [
+        {
+          "rating": 3,
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 },
+          "estimated": ["ragweed_pollen"]
+        }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "ragweed_pollen": { "2": 10, "3": 10 } },
+      "predict": [
+        {
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 },
+          "expect": [1, 3],
+          "expectGrade": "provisional"
+        },
+        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 50 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 3, "o3": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "measured pollen confirms where the calendar could not",
+      "$comment": "The same day in Amsterdam, where CAMS actually measures the species. Identical vector, no estimated tag: the clean singleton confirms and the repeat day is a floor. This is the pair that makes the rule above about provenance rather than about pollen.",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 } }
+      ],
+      "expectConfirmed": { "ragweed_pollen": { "2": 10, "3": 10 } },
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "an estimate cannot carry a co-elevated day into a floor either",
+      "$comment": "Ozone and a calendar ragweed month together. The combination repeats exactly, which is normally a floor without attribution — but half of it was guessed, so the combo-repeat clause skips it and the day only raises the ceiling.",
+      "diary": [
+        {
+          "rating": 3,
+          "exposure": { "pm25": 3, "o3": 150, "ragweed_pollen": 50 },
+          "estimated": ["ragweed_pollen"]
+        }
+      ],
+      "expectCandidates": { "3": [["o3", "ragweed_pollen"]] },
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 155, "ragweed_pollen": 50 }, "expect": [1, 3] }
+      ]
+    },
+    {
+      "name": "a good day exonerates the calendar estimate that day carried",
+      "$comment": "Tolerance is not restricted to measured variables: rating the peak of the season easy has to be able to quiet it, or a calendar suspicion would alarm every August forever. September's high band (50) handled easily, then a later August day at the moderate band (10) rated limiting — 10 sits under what the peak day proved, so the season is not the suspect and the day is flagged unexplained instead.",
+      "diary": [
+        {
+          "rating": 1,
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 50 },
+          "estimated": ["ragweed_pollen"]
+        },
+        {
+          "rating": 3,
+          "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 },
+          "estimated": ["ragweed_pollen"]
+        }
+      ],
+      "expectConflicts": [{ "kind": "unmodeled-trigger", "entry": 1, "against": 0 }],
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "ragweed_pollen": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
       "name": "correlated variables (heat+ozone) stay ambiguous but the combo predicts",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }

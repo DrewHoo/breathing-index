@@ -3,13 +3,16 @@ import { Fragment, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
+import { POLLEN_VARIABLES } from '../sources/pollenCalendar'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { BackupChip } from '../ui/durabilityUi'
-import { levelWord } from '../ui/labels'
+import { VARIABLE_LABELS, levelWord, variableName } from '../ui/labels'
 import { isPending, settled } from '../ui/pendingExposure'
+import { calendarPollenPatch } from '../ui/pollenTag'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
+import { lastKnownCoords } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
 
@@ -80,7 +83,13 @@ function Diary() {
           entry={modelDiary[conflict.entryIndex]}
           onTag={(id, tag) => {
             const entry = diary.find((e) => e.id === id)
-            amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
+            // "pollen" is the one tag the app can answer instead of filing: it
+            // names a variable, and where a calendar season covers that day the
+            // entry gets it as an estimate and re-enters inference. Everywhere
+            // else — and every other tag — it stays a reason to distrust the day.
+            const patch = entry ? calendarPollenPatch(entry, lastKnownCoords()) : null
+            if (tag === 'pollen' && patch) amend(id, patch)
+            else amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
             // Which tag they picked is a symptom note; only the card kind ships.
             track('Conflict tagged', { kind: conflict.kind })
           }}
@@ -172,6 +181,13 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   ]
   const cold = summarize('cold_dry_stress', (v) => fmtTempStress('cold_dry_stress', v))
   if (cold.cls !== '') rows.splice(5, 0, { name: 'Cold, dry', ...cold })
+  // Pollen earns a line once the diary has a verdict on a species — named by
+  // species, since that is what the evidence is about. Outside Europe it is
+  // usually a calendar estimate, which can reach "suspect" and no further.
+  for (const variable of POLLEN_VARIABLES) {
+    const row = summarize(variable, bare)
+    if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
+  }
   return rows
 }
 
@@ -280,6 +296,13 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
     if (v > 0) {
       const short = key === 'pm25' ? 'smoke' : key === 'o3' ? 'ozone' : key === 'pm10' ? 'dust' : 'NO₂'
       parts.push({ ratio: v / prior, text: `${short} ${Math.round(v)}` })
+    }
+  }
+  for (const key of POLLEN_VARIABLES) {
+    const v = entry.exposure[key] ?? 0
+    const prior = PRIORS[key]?.[2] ?? 1
+    if (v > 0) {
+      parts.push({ ratio: v / prior, text: `${VARIABLE_LABELS[key]!.short} ${Math.round(v)}` })
     }
   }
   const heat = entry.exposure.heat_stress ?? 0

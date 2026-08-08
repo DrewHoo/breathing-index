@@ -24,6 +24,8 @@ interface FixtureCase {
     exposure: Exposure
     confounders?: string[]
     observations?: string[]
+    /** exposure keys this day guessed rather than read (calendar pollen) */
+    estimated?: string[]
     source?: string
   }[]
   expectCandidates?: Record<string, string[][]>
@@ -81,6 +83,7 @@ for (const fixture of fixtures.cases as FixtureCase[]) {
       exposure: d.exposure,
       confounders: d.confounders,
       observations: d.observations,
+      estimated: d.estimated,
       source: d.source,
     }))
     const model = buildModel(diary)

@@ -17,6 +17,15 @@ export interface DiaryEntry {
   observations?: string[]
   exposure: Exposure
   /**
+   * Variables in `exposure` whose values are estimates rather than readings —
+   * today, calendar-region pollen where no measured source covers the place.
+   * Orthogonal to `source`, which says *who* produced the numbers: this says
+   * that these particular ones were never measured at all. Inference lets them
+   * join candidate sets and cap out at `suspected-strong`: a guess may raise a
+   * ceiling, never guarantee a floor, however often it repeats.
+   */
+  estimated?: string[]
+  /**
    * Where the exposure numbers came from. Bounds are source-scoped: a model
    * source and a monitor source disagree by more than the numbers' meaning
    * survives, so a switch starts a fresh bound set (docs/trigger-model.md).
@@ -44,7 +53,7 @@ export interface DiaryEntry {
 /** The subset of DiaryEntry that inference reads. */
 export type InferenceEntry = Pick<
   DiaryEntry,
-  'rating' | 'exposure' | 'confounders' | 'observations' | 'source'
+  'rating' | 'exposure' | 'confounders' | 'observations' | 'estimated' | 'source'
 >
 
 /** variable -> level -> exposure at which that level is *potentially* reached (ceiling-only) */
@@ -90,6 +99,11 @@ export interface AmbiguousConstraint {
   /** variables not exonerated at this entry's exposures — one or more of these suffices */
   candidates: string[]
   exposure: Exposure
+  /**
+   * A candidate's exposure here was estimated, not measured, so repeating this
+   * combination suggests the level without guaranteeing it: ceiling, no floor.
+   */
+  estimated?: boolean
 }
 
 export type ConflictKind = 'superseded' | 'unmodeled-trigger' | 'sensitivity-shift'

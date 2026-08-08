@@ -16,6 +16,7 @@ import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
 import {
   BI_LABELS,
+  CALENDAR_ESTIMATE,
   FORECAST_MEANING,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
@@ -212,6 +213,9 @@ function Home() {
       official: current.official,
       exposureAgeMinutes: ageMinutes,
       ...(isEstimatedAge(ageMinutes) ? { exposureEstimated: true } : {}),
+      // Which of these numbers were estimated rather than read — the entry has
+      // to carry it, or the engine would later confirm a bound from a guess.
+      ...(current.estimated?.length ? { estimated: current.estimated } : {}),
     }
     updateDiary([...diary, entry])
     setJustSaved(entry)
@@ -304,6 +308,7 @@ function Home() {
         diaryCount={diary.length}
         coldStart={coldStart}
         nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
+        estimated={current.estimated ?? []}
       />
       <AirTable data={data} model={model} tempUnit={tempUnit} />
       <ByHour data={data} model={model} coldStart={coldStart} />
@@ -639,6 +644,7 @@ function WhyBlock({
   diaryCount,
   coldStart,
   nowCounting,
+  estimated,
 }: {
   prediction: Prediction
   model: TriggerModel
@@ -649,6 +655,8 @@ function WhyBlock({
   coldStart: boolean
   /** entries released from the hold-out overnight, announced once */
   nowCounting: number
+  /** today's estimated variables, so the sentence can admit to guessing */
+  estimated: string[]
 }) {
   if (coldStart) {
     return (
@@ -675,7 +683,7 @@ function WhyBlock({
       </section>
     )
   }
-  const { main, aside } = evidence(prediction, model, diary)
+  const { main, aside } = evidence(prediction, model, diary, estimated)
   return (
     <section className="section tight">
       <SectionRule label="Why" />
@@ -748,6 +756,35 @@ function buildAirRows(
       hi: Math.round(hi),
       dot: current.raw[key] ?? 0,
       tol: tolerance(key),
+    })
+  }
+
+  // One pollen row whatever the source, never three: the dominant species
+  // names itself in the sub-label, and a calendar figure says so there rather
+  // than passing for a reading. Absent on series cached before pollen shipped.
+  const pollen = current.pollen
+  if (pollen) {
+    const species = pollen.variable
+    const sub = species
+      ? `${VARIABLE_LABELS[species]!.short}${pollen.estimated ? ` · ${CALENDAR_ESTIMATE}` : ''}`
+      : pollen.estimated
+        ? CALENDAR_ESTIMATE
+        : undefined
+    // Same convention as the pollutant rows: the reading of this hour on the
+    // track, the 8-hour window feature behind the evidence glyph.
+    const [loP, hiP] = species ? range((h) => h.raw[species] ?? 0) : [0, 0]
+    rows.push({
+      key: 'pollen',
+      name: 'Pollen',
+      sub,
+      value: Math.round(species ? (current.raw[species] ?? 0) : 0),
+      unit: 'grains/m³',
+      statusVar: species ?? 'grass_pollen',
+      statusValue: species ? (current.exposure[species] ?? 0) : 0,
+      lo: Math.round(loP),
+      hi: Math.round(hiP),
+      dot: species ? (current.raw[species] ?? 0) : 0,
+      tol: species ? tolerance(species) : undefined,
     })
   }
 

@@ -61,6 +61,14 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   heat_stress: { name: 'Heat', short: 'heat', unit: '°' },
   cold_dry_stress: { name: 'Cold, dry', short: 'cold', unit: '°' },
   humidity: { name: 'Humidity', sub: '3-day', short: 'humidity', unit: '%' },
+  // The three species share one "Pollen" row; `sub` is filled in per hour with
+  // the species actually being shown, and where the figure came from.
+  grass_pollen: { name: 'Grass', short: 'grass', unit: 'grains/m³' },
+  birch_pollen: { name: 'Birch', short: 'birch', unit: 'grains/m³' },
+  ragweed_pollen: { name: 'Ragweed', short: 'ragweed', unit: 'grains/m³' },
 }
+
+/** The words the air table's pollen sub-label is built from. */
+export const CALENDAR_ESTIMATE = 'calendar estimate'
 
 export const variableName = (v: string): string => VARIABLE_LABELS[v]?.name ?? v

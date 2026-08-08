@@ -46,7 +46,7 @@ window chosen to match its mechanism of action:
 | pm25, pm10 | `max(now, max8h)` | v1 simplification; consider `mean24h` later |
 | heat_stress, cold_dry_stress | `now` | felt immediately |
 | humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
-| pollen (per species) | `max24h` when measured; calendar prior otherwise | daily cycle, seasonal |
+| pollen (per species) | `max(now, max8h)` when measured; calendar-region prior otherwise | acts within hours; `max24h` is the later refinement |
 
 Window choices are an open tuning question; feature extraction is the only place they live.
 
@@ -242,10 +242,28 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   honest v2 upgrade.
 - **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
   only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
-  prior per species (e.g. CT ragweed ≈ Aug–Oct) acting like other priors — ceiling-only, never
-  floor — with an upgrade path to a measured source (Google Pollen API, Ambee) as a user-keyed
-  plugin. A calendar prior can make a season *suspected*; only measured data or diary
-  disambiguation can confirm.
+  prior per species (e.g. CT ragweed ≈ Aug–Oct), with an upgrade path to a measured source
+  (Google Pollen API, Ambee) as a user-keyed plugin. A calendar prior can make a season
+  *suspected*; only measured data or diary disambiguation can confirm.
+
+  The mechanism is **provenance, not a special case for pollen**, and it is a third axis
+  alongside the two above: `source` says which instrument produced a number, the k-repetition
+  rule says how many days stand behind a claim, and `DiaryEntry.estimated` says that a number
+  was never observed at all (`src/sources/pollenCalendar.ts` is today's only producer).
+
+  Estimated variables are ordinary candidates — a season is a real suspect — and they take two
+  hard stops. A single-candidate day whose candidate was estimated caps at `suspected-strong`
+  *regardless of k*, including the clean-singleton case that would otherwise confirm on one day:
+  repetition is what turns observation into proof, and repeating a guess only repeats the guess.
+  And a constraint carrying an estimate never satisfies the combo-repeat floor clause. Guesses
+  raise ceilings; they never guarantee floors. Estimated days are also left out of the
+  repetition count for a *measured* claim, so a calendar day cannot promote somebody else's
+  suspicion.
+
+  Tolerance is deliberately *not* restricted this way: rating the peak of the season easy has to
+  be able to quiet it, or a calendar suspicion would alarm every August forever. When a measured
+  source replaces the calendar the variable names are unchanged and the tag simply stops being
+  written — old estimated entries keep their provenance.
 
 ## Observation tags: the opposite of confounders
 
@@ -336,3 +354,4 @@ must pass them. Prose versions:
 | 19 | Rating 1 @ (pm25 20), then **three** rating 3 @ (pm25 15) | `sensitivity-shift`: tolerance drops to 12.75, inference re-runs, pm25 confirmed at 15 → [3,3]. Not three discarded conflicts. |
 | 20 | Rating 1 @ (pm25 4, o3 180), then rating 3 @ (pm25 22, o3 150) and @ (pm25 20, o3 140) | Two days confirm θ_pm25,3 ≤ 20 — with context {o3 140}. Today at (pm25 25, o3 10) → [1,3] (ceiling, not floor); at (pm25 25, o3 150) → [3,3]. |
 | 21 | Rating 1 @ (pm25 20) on source `cams`, then rating 3 @ (pm25 15) on `airnow` | The switch starts a fresh bound set: the airnow day is not silenced by a cams tolerance → confirmed at 15. The cams bounds are kept, inert. |
+| 22 | Rating 3 @ (pm25 3, o3 10, ragweed 10) with ragweed `estimated` | A clean singleton — the one shape that confirms on one day — but the number was never measured, so it caps at `suspected-strong`: the same day repeated → [1,3]. The identical entry *without* the tag confirms θ_ragweed,3 ≤ 10 → [3,3]. |
