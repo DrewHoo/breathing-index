@@ -1,0 +1,433 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages: no bundle, no JS, no router. The
+  app's service worker is told to leave this path alone
+  (navigateFallbackDenylist in vite.config.ts) so an installed PWA gets the
+  essay and not the app shell.
+
+  The two tables are the human-readable face of scripts/derive-breakpoints.mjs,
+  which holds the published tables in their published units and emits the µg/m³
+  block that src/engine/config.ts carries verbatim (npm test fails if the two
+  drift). If a breakpoint ever changes, it changes in that script first, then
+  here.
+
+  The footer paragraph is a literal copy of DISCLAIMER in src/ui/labels.ts.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>What "Moderate" actually means, in µg/m³ — Breathing Index</title>
+    <meta
+      name="description"
+      content="AQI 51–100 is one word covering 9.1 to 35.4 µg/m³ of PM2.5. The EPA and WHO breakpoints in real units, and what they map to on a 1–4 behavioral scale."
+    />
+    <meta name="theme-color" content="#F3F6F7" />
+    <meta name="author" content="Drew Hoover" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://breathingindex.com/what-moderate-means" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/content.css" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Breathing Index" />
+    <meta property="og:title" content="What &quot;Moderate&quot; actually means, in µg/m³" />
+    <meta
+      property="og:description"
+      content="AQI 51–100 is one word covering 9.1 to 35.4 µg/m³ of PM2.5. The EPA and WHO breakpoints in real units, and what they map to on a 1–4 behavioral scale."
+    />
+    <meta property="og:url" content="https://breathingindex.com/what-moderate-means" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://breathingindex.com/og-what-moderate-means.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Share card: a bar spanning 9.1 to 35.4 micrograms per cubic meter of PM2.5, labeled Moderate end to end, over the four-level scale from 1 Easy to 4 Dangerous."
+    />
+    <meta property="article:author" content="Drew Hoover" />
+    <meta property="article:published_time" content="2026-08-07" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="What &quot;Moderate&quot; actually means, in µg/m³" />
+    <meta
+      name="twitter:description"
+      content="AQI 51–100 is one word covering 9.1 to 35.4 µg/m³ of PM2.5. The EPA and WHO breakpoints in real units, mapped onto a 1–4 behavioral scale."
+    />
+    <meta name="twitter:image" content="https://breathingindex.com/og-what-moderate-means.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Share card: a bar spanning 9.1 to 35.4 micrograms per cubic meter of PM2.5, labeled Moderate end to end, over the four-level scale from 1 Easy to 4 Dangerous."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "What \"Moderate\" actually means, in µg/m³",
+        "description": "AQI 51–100 is one word covering 9.1 to 35.4 µg/m³ of PM2.5. The EPA and WHO breakpoints in real units, and what they map to on a 1–4 behavioral scale.",
+        "datePublished": "2026-08-07",
+        "dateModified": "2026-08-07",
+        "inLanguage": "en",
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://breathingindex.com/what-moderate-means"
+        },
+        "image": "https://breathingindex.com/og-what-moderate-means.png",
+        "author": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/",
+          "sameAs": ["https://github.com/DrewHoo"]
+        },
+        "publisher": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/"
+        },
+        "citation": [
+          "US EPA, Air Quality Index breakpoints, 40 CFR part 58 appendix G (including the 2024 PM2.5 revision)",
+          "WHO global air quality guidelines, 2021",
+          "EU Directive 2008/50/EC"
+        ],
+        "about": ["Air quality index", "PM2.5", "Ozone", "Asthma"]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+
+      <p class="kicker">Essay</p>
+      <h1>What "Moderate" actually means, in µg/m³</h1>
+      <p class="lede">
+        It means the fine particulate is somewhere between 9.1 and 35.4 micrograms per cubic meter.
+        The top of that band is nearly four times the bottom, and your phone shows you the same word
+        at both ends of it.
+      </p>
+      <p class="byline">Drew Hoover · 7 August 2026</p>
+
+      <h2>The word is a bucket, and the bucket is enormous</h2>
+      <p>
+        The US AQI runs 0–500 and is cut into six named categories. "Moderate" is 51–100. For PM2.5
+        under the 2024 revision of the breakpoint table, that maps back onto concentration like
+        this:
+      </p>
+
+      <div class="scroll">
+        <table>
+          <caption class="caption" style="text-align: left">
+            PM2.5, 24-hour basis, US EPA breakpoints (2024 revision), interpolated linearly within
+            the category.
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">AQI</th>
+              <th scope="col">PM2.5, µg/m³</th>
+              <th scope="col">Reads as</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="n">51</td>
+              <td class="n">9.1</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td class="n">60</td>
+              <td class="n">13.9</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td class="n">70</td>
+              <td class="n">19.3</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td class="n">80</td>
+              <td class="n">24.7</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td class="n">90</td>
+              <td class="n">30.0</td>
+              <td>Moderate</td>
+            </tr>
+            <tr>
+              <td class="n">100</td>
+              <td class="n">35.4</td>
+              <td>Moderate</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="pull">
+        Six rows, one word. The last row is 3.9 times the first. If someone tells you the air is
+        "Moderate", they have told you almost nothing about how much of it there is.
+      </p>
+
+      <p>
+        This is not a flaw so much as a consequence. The AQI exists to be broadcast on the evening
+        news, and a scale that fits on a color swatch has to be coarse. But it means the sentence
+        "it's only Moderate" is not the reassurance it sounds like, and the AQI 70 that ended a walk
+        of mine —
+        <a href="/why-aqi-lies-to-your-lungs">the day this whole project came out of</a> — was
+        around 19 µg/m³, comfortably mid-bucket.
+      </p>
+
+      <h2>Every category onset, in real units</h2>
+      <p>
+        Here are the concentrations at which each US AQI category <em>begins</em>, per pollutant.
+        Where the EPA publishes in parts per billion or parts per million, I have converted to
+        µg/m³, because that is the unit the model data arrives in and mixing units is how people end
+        up comparing an ozone number to a particulate number and concluding something silly.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Pollutant</th>
+              <th scope="col">Window</th>
+              <th scope="col">Moderate</th>
+              <th scope="col">Sensitive groups</th>
+              <th scope="col">Unhealthy</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">PM2.5</th>
+              <td>24-h</td>
+              <td class="n">9.1</td>
+              <td class="n">35.5</td>
+              <td class="n">55.5</td>
+            </tr>
+            <tr>
+              <th scope="row">PM10</th>
+              <td>24-h</td>
+              <td class="n">55</td>
+              <td class="n">155</td>
+              <td class="n">255</td>
+            </tr>
+            <tr>
+              <th scope="row">Ozone</th>
+              <td>8-h</td>
+              <td class="n">108<br />55 ppb</td>
+              <td class="n">139<br />71 ppb</td>
+              <td class="n">169<br />86 ppb</td>
+            </tr>
+            <tr>
+              <th scope="row">NO₂</th>
+              <td>1-h</td>
+              <td class="n">102<br />54 ppb</td>
+              <td class="n">190<br />101 ppb</td>
+              <td class="n">679<br />361 ppb</td>
+            </tr>
+            <tr>
+              <th scope="row">SO₂</th>
+              <td>1-h</td>
+              <td class="n">94<br />36 ppb</td>
+              <td class="n">199<br />76 ppb</td>
+              <td class="n">487<br />186 ppb</td>
+            </tr>
+            <tr>
+              <th scope="row">CO</th>
+              <td>8-h</td>
+              <td class="n">5153<br />4.5 ppm</td>
+              <td class="n">10878<br />9.5 ppm</td>
+              <td class="n">14313<br />12.5 ppm</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="caption">
+        All figures µg/m³, with the value as the EPA publishes it underneath. Source: US EPA AQI
+        breakpoints, 40 CFR part 58 appendix G, including the 2024 PM2.5 revision. Gas conversion is
+        µg/m³ = ppb × M / 24.45 at the EPA's reference conditions of 25 °C and 1013 hPa (molar
+        volume 24.45 L/mol): ×1.96 for ozone, ×1.88 for NO₂, ×2.62 for SO₂, ×1.145 for CO. "Moderate"
+        is AQI 51; "sensitive groups" is Unhealthy for Sensitive Groups, AQI 101; "Unhealthy" is AQI
+        151. Every number is the <em>lower</em> bound — the exposure at which the category starts.
+      </p>
+
+      <p>
+        Two things fall out of that table the moment it is in one unit. Ozone's Moderate threshold
+        (108 µg/m³) is <em>above</em> the World Health Organization's 2021 8-hour guideline of 100
+        µg/m³: air the EPA has not yet called Moderate is already over the WHO's number. And NO₂'s
+        Unhealthy threshold is 679 µg/m³, against a WHO 1-hour guideline of 200. These are not
+        contradictions — a regulatory index and a health guideline are different instruments with
+        different jobs — but if you assumed the categories were health thresholds, they are not.
+      </p>
+
+      <h2>What this app does with them instead</h2>
+      <p>
+        Breathing Index does not show an AQI. It has a four-level scale defined by what the air
+        makes you <em>do</em>:
+      </p>
+      <ul>
+        <li><strong>1 Easy</strong> — the air isn't a factor. Do anything.</li>
+        <li><strong>2 Noticeable</strong> — you'll feel it, but you can carry on as planned.</li>
+        <li><strong>3 Limiting</strong> — change the plan: shorter, slower, later, or elsewhere.</li>
+        <li><strong>4 Dangerous</strong> — outside is unsafe for you. Stay in filtered air.</li>
+      </ul>
+      <p>
+        Behavioral definitions, because they make a diary entry self-validating: you are reporting
+        what you actually had to do, not scoring a vibe. And four levels with no midpoint force a
+        lean.
+      </p>
+      <p>
+        On day one, before there is any diary to learn from, the app has to start somewhere. It
+        starts with these — one ceiling per variable per level, meaning "at this exposure a sensitive
+        person is <em>potentially</em> at this level":
+      </p>
+
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Variable</th>
+              <th scope="col">2 Noticeable</th>
+              <th scope="col">3 Limiting</th>
+              <th scope="col">4 Dangerous</th>
+              <th scope="col">Where from</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">PM2.5</th>
+              <td class="n">9.1</td>
+              <td class="n">35.5</td>
+              <td class="n">55.5</td>
+              <td>EPA AQI onsets (2024 PM2.5 revision)</td>
+            </tr>
+            <tr>
+              <th scope="row">PM10</th>
+              <td class="n">55</td>
+              <td class="n">155</td>
+              <td class="n">255</td>
+              <td>EPA AQI onsets</td>
+            </tr>
+            <tr>
+              <th scope="row">Ozone</th>
+              <td class="n">100</td>
+              <td class="n">139</td>
+              <td class="n">169</td>
+              <td>WHO 2021 8-h guideline, then EPA USG / Unhealthy</td>
+            </tr>
+            <tr>
+              <th scope="row">NO₂</th>
+              <td class="n">25</td>
+              <td class="n">100</td>
+              <td class="n">200</td>
+              <td>WHO 2021 24-h guideline · hand-set step · WHO 1-h guideline</td>
+            </tr>
+            <tr>
+              <th scope="row">SO₂</th>
+              <td class="n">40</td>
+              <td class="n">125</td>
+              <td class="n">350</td>
+              <td>WHO 2021 24-h guideline · WHO 2005 interim target 1 · EU 1-h limit</td>
+            </tr>
+            <tr>
+              <th scope="row">CO</th>
+              <td class="n">4000</td>
+              <td class="n">10000</td>
+              <td class="n">15000</td>
+              <td>WHO 24-h guideline · WHO 8-h guideline · hand-set</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="caption">
+        All figures µg/m³. Generated from
+        <a
+          href="https://github.com/DrewHoo/breathing-index/blob/main/scripts/derive-breakpoints.mjs"
+          >scripts/derive-breakpoints.mjs</a
+        >, which holds the published tables in their published units and does the conversion; the
+        test suite fails if the app's constants drift from it. WHO figures are the 2021 global air
+        quality guidelines except the SO₂ level-3 row (2005 interim target 1); the SO₂ level-4 row is
+        the EU 1-hour limit value, Directive 2008/50/EC.
+      </p>
+
+      <p>Four honesty notes about that table, since it is the app's own guts:</p>
+      <ul>
+        <li>
+          <strong>The gas rows are not EPA.</strong> For ozone, NO₂, SO₂ and CO the app uses WHO (and
+          one EU) guideline values, which are stricter than the EPA breakpoints — a sensitive-user
+          ceiling should be. The one exception is CO level 4, which is hand-set and sits just above
+          EPA's Unhealthy threshold.
+        </li>
+        <li>
+          <strong>Two of the numbers are mine, not anyone's.</strong> NO₂ level 3 and CO level 4 are
+          hand-set steps between published values. They are labeled that way in the source, and
+          they should be the first ones a real diary overrules.
+        </li>
+        <li>
+          <strong>The windows do not line up.</strong> The published breakpoints are averages — 24
+          hours, 8 hours, 1 hour — and the app compares them against the current hour and an 8-hour
+          running maximum. One bad hour can therefore cross a 24-hour threshold that a real 24-hour
+          mean would not. That bias warns early, which is the right direction for a ceiling, but it
+          means these are <em>not</em> AQI categories and nothing in the app calls them that.
+        </li>
+        <li>
+          <strong>They are ceilings, and they are temporary.</strong> A prior can only ever raise a
+          prediction, never lower one, and your own diary supersedes it. The whole point is to stop
+          needing this table.
+        </li>
+      </ul>
+
+      <h2>The part the table cannot do</h2>
+      <p>
+        Every number above is a population number. Not one of them was derived from anybody's actual
+        lungs — they are thresholds chosen so that a large group of people, on average, is mostly
+        fine, with a sentence appended about sensitive individuals. If you are the sensitive
+        individual, the sentence is where you live and the number is somebody else's.
+      </p>
+      <p>
+        The replacement is embarrassingly simple and it is the reason this app exists. Rate your
+        breathing, 1 to 4, when you think of it. The rating gets stored with every reading for that
+        hour. After a few weeks you have your own breakpoints — real thresholds, in µg/m³, for the
+        specific things that get you — and they will not look like the table above. Mine already
+        don't.
+      </p>
+      <p>
+        Log the good days too. A 1 is a receipt that everything in that air, at those levels, was
+        fine for you — it clears every variable at once, which is more than any bad day can do.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Find your own breakpoints →</strong>
+        <span>
+          Breathing Index shows each pollutant in µg/m³, marks what your diary has established about
+          it, and predicts your day on the 1–4 scale. Free, no account, runs in your browser.
+        </span>
+      </a>
+
+      <div class="next">
+        <h2>Read next</h2>
+        <a href="/why-aqi-lies-to-your-lungs">Why the AQI lies to your lungs</a>
+        <p>
+          The max() that hides the driver, the averaging windows that lag the air, and the label
+          drawn for a population you are not in.
+        </p>
+        <a href="/smoke-vs-ozone">Smoke vs ozone: same AQI, different lungs</a>
+        <p>
+          The fine-fraction fingerprint that tells smoke from dust, and why one asthmatic's ozone day
+          is another's non-event.
+        </p>
+      </div>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

@@ -86,6 +86,9 @@ function Intro() {
       <p className="intro-privacy">Your diary never leaves this phone. No account, no cloud.</p>
       <p className="intro-privacy disclaimer">{DISCLAIMER}</p>
       <p className="intro-privacy">
+        <a href="/why-aqi-lies-to-your-lungs">Read the long version of that first line &rarr;</a>
+      </p>
+      <p className="intro-privacy">
         <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
       </p>
       <div className="intro-cta-block">

@@ -35,6 +35,8 @@ Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) a
 
 `public/privacy.html` and `public/terms.html` are prerendered documents served straight off disk at `/privacy` and `/terms` — no bundle, no router, and excluded from the service worker's navigation fallback. The privacy page enumerates every event and property the app sends; it is a contract, so any change to a `track()` call site belongs in the same commit as the change to that page.
 
+Three essays ship the same way, sharing `public/content.css`: [`/why-aqi-lies-to-your-lungs`](https://breathingindex.com/why-aqi-lies-to-your-lungs) (this README's "Why", with the receipts), [`/smoke-vs-ozone`](https://breathingindex.com/smoke-vs-ozone) (built from [docs/m1-findings.md](docs/m1-findings.md)) and [`/what-moderate-means`](https://breathingindex.com/what-moderate-means) (the breakpoint tables of `scripts/derive-breakpoints.mjs`, in µg/m³). They carry the numbers those two documents carry, so a figure that moves there moves in the essay too. Their share cards come from `scripts/generate-content-og.mjs`.
+
 ## Development
 
 ```sh

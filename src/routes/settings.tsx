@@ -248,6 +248,18 @@ function SettingsScreen() {
         <span className="settings-footer-chevron">▸</span>
       </Link>
 
+      {/* Plain anchor: the essays are prerendered documents, not app routes. */}
+      <a
+        href="/why-aqi-lies-to-your-lungs"
+        className="settings-footer"
+        style={{ textDecoration: 'none' }}
+      >
+        <span className="settings-row-label accent">
+          Why the AQI lies to your lungs — the long version
+        </span>
+        <span className="settings-footer-chevron">▸</span>
+      </a>
+
       <span className="settings-note">{DISCLAIMER}</span>
       {/* Plain anchors: these are prerendered documents, not app routes. */}
       <span className="legal-links">
