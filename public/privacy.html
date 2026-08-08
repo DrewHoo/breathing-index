@@ -1,0 +1,200 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages: no bundle, no JS, no router. The
+  app's service worker is told to leave /privacy alone (navigateFallbackDenylist
+  in vite.config.ts) so an installed PWA gets this page and not the app shell.
+
+  This page is a contract. The telemetry table below is the real list of what
+  src/ui/analytics.ts sends and what every track() call site passes. Change one,
+  change the other, in the same commit.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Privacy — Breathing Index</title>
+    <meta
+      name="description"
+      content="What Breathing Index stores and sends: the diary stays in your browser, usage pings carry no diary content, and air data is fetched straight from the sources."
+    />
+    <meta name="theme-color" content="#F3F6F7" />
+    <link rel="canonical" href="https://breathingindex.com/privacy" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/legal.css" />
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+
+      <h1>Privacy</h1>
+      <p class="updated">Last updated 7 August 2026</p>
+
+      <p class="callout">
+        There is no server. No account, no login, no database of yours anywhere. Your diary is a
+        value in your browser's storage on this device, and the only way it leaves is if you export
+        it yourself.
+      </p>
+
+      <h2>What stays on your device</h2>
+      <p>
+        Everything you type or tap. Ratings, confounder tags, notes, saved places, settings, the
+        exposure readings captured with each entry, and the last good air reading kept for offline
+        use. They live under these keys in this browser's <code>localStorage</code>, plus one
+        marker in IndexedDB used to notice that the browser wiped the rest:
+      </p>
+      <ul>
+        <li><code>breathing-index.diary.v1</code> — your entries</li>
+        <li><code>breathing-index.settings.v1</code> — places, sources, units, usage-ping opt-out</li>
+        <li><code>breathing-index.lastSeries.v1</code> — the last air reading, for offline</li>
+        <li><code>breathing-index.place.v1</code> — the place name for your coordinates</li>
+        <li>
+          <code>breathing-index.durability.v1</code>, <code>breathing-index.sentinel.v1</code>,
+          <code>breathing-index.banked-day.v1</code> — housekeeping
+        </li>
+      </ul>
+      <p>
+        Clearing site data deletes all of it, permanently, and I cannot get it back for you — I
+        never had it. Settings has an export button. Use it.
+      </p>
+      <p>No cookies. Nothing here is a cookie, and the app sets none.</p>
+
+      <h2>What gets sent, and to whom</h2>
+      <p>Four other services see a request from your browser. That is the whole list.</p>
+      <table>
+        <tr>
+          <th>Open-Meteo</th>
+          <td>
+            Air quality and weather. Sees your coordinates, rounded to three decimals (about 110 m),
+            and nothing else.
+          </td>
+        </tr>
+        <tr>
+          <th>AirNow</th>
+          <td>
+            Station measurements for comparison, US only, off unless you turn it on in Settings.
+            Sees the same rounded coordinates.
+          </td>
+        </tr>
+        <tr>
+          <th>BigDataCloud</th>
+          <td>
+            Turns those coordinates into the place name in the header. Same rounded coordinates,
+            asked once per location and then cached.
+          </td>
+        </tr>
+        <tr>
+          <th>Mixpanel</th>
+          <td>Usage pings — the table below. Off if you turn it off.</td>
+        </tr>
+      </table>
+      <p>
+        Fonts and icons are served from this domain, so opening the app is not a request to Google
+        or a CDN. There is no ad network, no tag manager, no embedded anything.
+      </p>
+
+      <h2>Usage pings, exactly</h2>
+      <p>
+        Turn them off in Settings and the analytics code is never even loaded. While they are on,
+        these are the events. No rating, tag, note, place name, coordinate, or pollutant value
+        appears in any of them.
+      </p>
+      <table>
+        <tr>
+          <th>Page view</th>
+          <td>
+            Automatic, on load and on every in-app navigation: the URL path and query string of the
+            screen (<code>/</code>, <code>/diary</code>, <code>/settings</code>…).
+          </td>
+        </tr>
+        <tr>
+          <th>Prediction viewed</th>
+          <td>
+            <span class="prop"><code>diaryEntries</code> — how many entries your diary holds</span>
+            <span class="prop"><code>stale</code> — whether the reading shown was a cached one</span>
+            <span class="prop"
+              ><code>locationSource</code> — <code>auto</code>, <code>saved</code> or
+              <code>default</code>, never which place</span
+            >
+          </td>
+        </tr>
+        <tr>
+          <th>Diary entry saved</th>
+          <td>
+            <span class="prop"
+              ><code>coldStart</code> — whether the forecast was still unpersonalized</span
+            >
+            <span class="prop"><code>saveMs</code> — how long the save took</span>
+            <span class="prop"><code>totalEntries</code> — how many entries after it</span>
+            <span class="prop">Not the rating.</span>
+          </td>
+        </tr>
+        <tr>
+          <th>Conflict tagged</th>
+          <td>
+            <code>kind</code> — <code>superseded</code> or <code>unmodeled-trigger</code>, the type
+            of card, not the tag you chose
+          </td>
+        </tr>
+        <tr>
+          <th>Intro dismissed</th>
+          <td><code>choice</code> — <code>location</code> or <code>manual</code></td>
+        </tr>
+        <tr>
+          <th>Diary eviction seen</th>
+          <td>No properties. Records that a browser wiped somebody's diary.</td>
+        </tr>
+        <tr>
+          <th>Diary restored</th>
+          <td><code>entries</code> — how many entries the backup you loaded added</td>
+        </tr>
+        <tr>
+          <th>Persistence requested</th>
+          <td>
+            <code>granted</code> — whether the browser agreed to stop treating your diary as
+            disposable cache
+          </td>
+        </tr>
+      </table>
+      <p>
+        Mixpanel attaches its own defaults to every event: a random device id (not an account),
+        browser and operating system name and version, screen size, referrer, and the current URL.
+        IP geolocation is switched off and the city, region and country properties are blocked, so
+        no location is derived from the request. Mixpanel's servers still receive your IP address at
+        the network level, the way every server you contact does; it simply is not turned into a
+        place and stored.
+      </p>
+      <p>
+        What the pings are for: knowing whether people can log an entry and whether anything is
+        broken. Nothing is sold, shared, or joined to anything else. There is nobody to sell it to;
+        this is one person's side project.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        Not directed at children under 13, and since nothing identifying is collected, there is
+        nothing of theirs for me to hold.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If the app ever sends something new, this page changes in the same commit — that is a rule I
+        hold myself to, not a promise in the abstract. The date at the top is the last time it did.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Drew Hoover — <a href="https://drewhoover.com/">drewhoover.com</a>. The code is public at
+        <a href="https://github.com/DrewHoo/breathing-index">github.com/DrewHoo/breathing-index</a>,
+        so you can check any of this rather than take my word for it.
+      </p>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

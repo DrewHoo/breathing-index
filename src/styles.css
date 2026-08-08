@@ -411,6 +411,13 @@ main {
   color: var(--faint);
 }
 
+/* Under a *predicted* 4 only. Small, but the one alarm color, because it is
+   the one line on the screen that outranks the screen. */
+.rescue-note {
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--alarm);
+}
+
 /* what the diary is doing for you: banked today, counting from tomorrow */
 .banked-note,
 .why-new {
@@ -950,6 +957,27 @@ main {
   font: 400 12px/1.5 var(--sans);
   color: var(--faint);
   margin: 0;
+}
+
+/* Small print, but a notch darker than the rest of it: this is the one
+   sentence someone is worse off for having skimmed. */
+.intro-privacy.disclaimer {
+  color: var(--secondary);
+}
+
+/* /privacy and /terms are real documents, not routes, so they are plain
+   anchors and need the house link colour rather than the browser's blue. */
+.intro-privacy a,
+.legal-links a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.legal-links {
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+  display: flex;
+  gap: 6px;
 }
 
 .intro-cta-block {
