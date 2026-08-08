@@ -2,7 +2,9 @@
  * AirNow measured stations via the keyless reporting-area widget endpoint.
  * Unofficial/undocumented — treat as best-effort: US-only, may vanish.
  * Returns per-pollutant *AQI values* (not concentrations), so it feeds the
- * measured-vs-model comparison display, never the inference engine.
+ * measured-vs-model comparison display, never the inference engine. `aqi.ts`
+ * walks those points back to µg/m³ for the strip, so the two halves of the
+ * screen can be read against each other.
  */
 
 export interface AirNowReading {

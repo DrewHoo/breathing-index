@@ -62,8 +62,8 @@ function Intro() {
   }
 
   return (
-    <div className="intro">
-      <span className="wordmark">Breathing Index 🫁</span>
+    <main className="intro">
+      <h1 className="wordmark">Breathing Index 🫁</h1>
       <div className="intro-headline">The AQI isn&rsquo;t calibrated for your lungs.</div>
       <p className="intro-body">
         It&rsquo;s an average of averages, tuned to an average person — it can&rsquo;t know that
@@ -96,7 +96,7 @@ function Intro() {
           or pick a place by hand →
         </button>
       </div>
-    </div>
+    </main>
   )
 }
 
@@ -131,8 +131,8 @@ function Restore({
   }
 
   return (
-    <div className="intro">
-      <span className="wordmark">Breathing Index 🫁</span>
+    <main className="intro">
+      <h1 className="wordmark">Breathing Index 🫁</h1>
       <div className="intro-headline">
         Your diary is gone from this browser — restore from a backup?
       </div>
@@ -167,6 +167,6 @@ function Restore({
           or start over with an empty diary →
         </button>
       </div>
-    </div>
+    </main>
   )
 }

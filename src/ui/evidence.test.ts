@@ -42,3 +42,24 @@ describe('the Why line on an estimated variable', () => {
     expect(evidence(prediction, fresh, []).aside).toBeUndefined()
   })
 })
+
+describe('the Why line agrees with its subject', () => {
+  it('gives the particulate rows a plural verb and a pollen species a singular one', () => {
+    // "Fine particles" is a plural name and "Ragweed" is not, and both reach
+    // the same sentence — so the verb comes from the label, not the count.
+    expect(evidence(predict(fresh, { pm25: 60 }, PRIORS), fresh, []).main).toContain(
+      'Fine particles are past guidance',
+    )
+    expect(evidence(predict(fresh, { pm10: 300 }, PRIORS), fresh, []).main).toContain(
+      'Coarse particles are past guidance',
+    )
+    expect(evidence(predict(fresh, { ragweed_pollen: 50 }, PRIORS), fresh, []).main).toContain(
+      'Ragweed is past guidance',
+    )
+  })
+
+  it('still counts heads when several variables share the sentence', () => {
+    const main = evidence(predict(fresh, { pm25: 60, o3: 200 }, PRIORS), fresh, []).main
+    expect(main).toContain('are past guidance')
+  })
+})

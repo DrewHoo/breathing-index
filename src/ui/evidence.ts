@@ -1,5 +1,5 @@
 import type { DiaryEntry, Prediction, TriggerModel } from '../engine/types'
-import { VARIABLE_LABELS, levelWord, variableName } from './labels'
+import { VARIABLE_LABELS, levelWord, variableName, variableVerb } from './labels'
 
 export interface Evidence {
   /** the Why sentence — diary evidence, never mechanism */
@@ -54,7 +54,7 @@ export function evidence(
     )
     const backing = days(behind?.entryIndices.length ?? 1)
     return {
-      main: `${variableName(v)} is past a level ${backing} ${backing === 'one day' ? 'showed' : 'show'} is enough on its own for ${levelWord(floorReason.level)}${bound !== undefined ? ` (${withUnit(v, bound)})` : ''}.`,
+      main: `${variableName(v)} ${variableVerb(v)} past a level ${backing} ${backing === 'one day' ? 'showed' : 'show'} is enough on its own for ${levelWord(floorReason.level)}${bound !== undefined ? ` (${withUnit(v, bound)})` : ''}.`,
     }
   }
   if (floorReason?.kind === 'combo-repeat') {
@@ -97,17 +97,17 @@ export function evidence(
     const tolerated = model.tolerance[first!]?.[2]
     const past =
       tolerated !== undefined
-        ? `${variableName(first!)} is past what you have handled well (${withUnit(first!, tolerated)})`
-        : `${variableName(first!)} is at a level your diary has not cleared`
+        ? `${variableName(first!)} ${variableVerb(first!)} past what you have handled well (${withUnit(first!, tolerated)})`
+        : `${variableName(first!)} ${variableVerb(first!)} at a level your diary has not cleared`
     const also = rest.length
-      ? `, and ${rest.map((v) => variableName(v).toLowerCase()).join(' and ')} ${rest.length > 1 ? 'are' : 'is'} high too`
+      ? `, and ${rest.map((v) => variableName(v).toLowerCase()).join(' and ')} ${rest.length > 1 ? 'are' : variableVerb(rest[0]!)} high too`
       : ''
     const day = entryDate(diary, fromCombination.entryIndex)
     return {
       main: `${past}${also}. Together this sits near your ${day} day — you rated that one ${levelWord(suspect.level)}.`,
       aside: guessed(suspect.variables)
         ? ESTIMATE_ASIDE
-        : `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone affects you.`,
+        : `Still untangling whether ${variableName((rest[0] ?? first)!).toLowerCase()} alone ${variableVerb((rest[0] ?? first)!) === 'are' ? 'affect' : 'affects'} you.`,
     }
   }
 
@@ -117,7 +117,7 @@ export function evidence(
       i === 0 ? variableName(v) : variableName(v).toLowerCase(),
     )
     return {
-      main: `${names.join(' and ')} ${prior.variables.length > 1 ? 'are' : 'is'} past guidance for sensitive groups — your diary has no verdict on ${prior.variables.length > 1 ? 'them' : 'it'} yet.`,
+      main: `${names.join(' and ')} ${prior.variables.length > 1 ? 'are' : variableVerb(prior.variables[0]!)} past guidance for sensitive groups — your diary has no verdict on ${prior.variables.length > 1 ? 'them' : 'it'} yet.`,
       ...(guessed(prior.variables) ? { aside: ESTIMATE_ASIDE } : {}),
     }
   }

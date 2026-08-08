@@ -133,7 +133,33 @@ Intro:
 
 ### 13. AirNow measured-strip caption
 
-> Station measurements from AirNow, reported as a US AQI value per pollutant. Disagreement with the model above usually means a local source, such as smoke, that the model missed.
+Three lines, because one caption was doing two jobs badly. The first says what the numbers on
+the chips are; each chip also carries its AQI value read back through the EPA table
+("station ≈ 112 µg/m³"), so the strip and the model rows above it are in the same unit:
+
+> Station readings from AirNow, reported as AQI points; the µg/m³ beside each is that value read back through the EPA table, for comparison with the rows above.
+
+Then the disagreement line, which is *per pollutant*, because the two disagreements do not mean
+the same thing. Particles: the station reads a hyperlocal source the model could not see.
+
+> Particles: disagreement usually means a local source, such as smoke, that the model missed.
+
+Ozone has no hyperlocal source, so a model running high against a monitor — the observed Hamden
+case, CAMS 166 against a station near 82 µg/m³-equivalent — is the model being wrong:
+
+> Ozone: when these disagree, trust the station.
+
+### 13a. The particulate row names
+
+> Fine particles · PM2.5
+> Coarse particles · PM10
+
+"Smoke" and "Dust" asserted causes the data cannot support — most metro PM2.5 is traffic and
+industry, and the app's first rule is to describe the air without inventing a reason for it. The
+one exception is earned: when PM2.5 is past the level-2 breakpoint *and* PM2.5/PM10 ≥ 0.85, the
+particulate is fine-mode dominated (docs/m1-findings.md), and the row carries a sub-label:
+
+> likely smoke
 
 ### 14. Settings diary-data note
 
