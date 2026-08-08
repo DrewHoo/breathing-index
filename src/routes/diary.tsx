@@ -8,6 +8,7 @@ import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { BackupChip } from '../ui/durabilityUi'
 import { levelWord } from '../ui/labels'
+import { isPending, settled } from '../ui/pendingExposure'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
@@ -19,7 +20,10 @@ function Diary() {
   const [leftAlone, setLeftAlone] = useState<Set<number>>(new Set())
   const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
-  const model = useMemo(() => buildModel(diary), [diary])
+  // Entries still waiting on their air have no vector to reason about, so the
+  // model — and every index into it — is built on the settled ones alone.
+  const modelDiary = useMemo(() => settled(diary), [diary])
+  const model = useMemo(() => buildModel(modelDiary), [modelDiary])
 
   const update = (next: DiaryEntry[]) => {
     setDiary(next)
@@ -32,7 +36,7 @@ function Diary() {
 
   const conflicts = model.conflicts.filter((c) => !leftAlone.has(c.entryIndex))
   const conflictByEntryId = new Map(
-    conflicts.map((c) => [diary[c.entryIndex]?.id, c.entryIndex] as const),
+    conflicts.map((c) => [modelDiary[c.entryIndex]?.id, c.entryIndex] as const),
   )
 
   return (
@@ -73,7 +77,7 @@ function Diary() {
         <ConflictCard
           key={conflict.entryIndex}
           conflict={conflict}
-          entry={diary[conflict.entryIndex]}
+          entry={modelDiary[conflict.entryIndex]}
           onTag={(id, tag) => {
             const entry = diary.find((e) => e.id === id)
             amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
@@ -249,6 +253,10 @@ const OBSERVATION_LABELS: Record<string, string> = { 'worse-outdoors': 'worse ou
 
 /** "smoke 38 · ozone 165 — “walk cut short at the park”" */
 function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
+  if (isPending(entry)) {
+    const waiting = 'air readings still to come'
+    return entry.note ? `${waiting} — “${entry.note}”` : waiting
+  }
   const parts: { ratio: number; text: string }[] = []
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
     const v = entry.exposure[key] ?? 0

@@ -35,6 +35,15 @@ describe('parseDiaryImport', () => {
     expect(entries(json([full, entry({ id: 'a2' })]))).toEqual([full, entry({ id: 'a2' })])
   })
 
+  it('accepts an entry still waiting on its air, empty vector and all', () => {
+    const waiting = entry({ exposure: {}, pendingExposure: { lat: 41.396, lon: -72.897 } })
+    expect(entries(json([waiting]))).toEqual([waiting])
+  })
+
+  it('rejects an empty vector on an entry that is not waiting on anything', () => {
+    expect(rejection(json([entry({ exposure: {} })]))).toBe(MALFORMED_ENTRIES)
+  })
+
   it('accepts an empty diary', () => {
     expect(entries('[]')).toEqual([])
   })

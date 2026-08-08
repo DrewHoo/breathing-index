@@ -13,6 +13,7 @@ import { sentinelInLocalStorage } from '../ui/durability'
 import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
+import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
 import {
   BI_LABELS,
   FORECAST_MEANING,
@@ -21,6 +22,7 @@ import {
   levelWord,
 } from '../ui/labels'
 import { LocationNeededCard } from '../ui/locationUi'
+import { backfillPending, settled } from '../ui/pendingExposure'
 import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
@@ -62,7 +64,8 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, source, gap, retryLocation, series: data, error, stale } = useExposureSeries()
+  const { location, source, gap, retryLocation, series: data, error, stale, retry } =
+    useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const navigate = useNavigate()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
@@ -82,27 +85,78 @@ function Home() {
   )
   const modelDiary = useMemo(() => {
     const held = new Set(heldOut.map((e) => e.id))
-    return diary.filter((e) => !held.has(e.id))
+    return settled(diary).filter((e) => !held.has(e.id))
   }, [diary, heldOut])
   const model = useMemo(() => buildModel(modelDiary), [modelDiary])
   const coldStart = modelDiary.filter((e) => !e.confounders?.length).length === 0
 
   const prediction = current ? predict(model, current.exposure, PRIORS) : null
 
+  const updateDiary = (next: DiaryEntry[]) => {
+    setDiary(next)
+    setSaveFailed(!saveDiary(next))
+  }
+
+  // Session-scoped on purpose: undo takes back a tap you just made, and is not
+  // a delete button for this morning's entry. That lives in the diary.
+  const undo = () => {
+    if (!justSaved) return
+    updateDiary(diary.filter((e) => e.id !== justSaved.id))
+    setJustSaved(null)
+  }
+
+  // No air to attach, so the entry keeps the coordinates instead and the vector
+  // is fetched for that hour later. Only reachable from the error screen, which
+  // renders after the null-location guard — the check is for the compiler.
+  const logPending = (rating: Rating) => {
+    if (!location) return
+    const entry: DiaryEntry = {
+      id: newEntryId(),
+      time: new Date().toISOString(),
+      rating,
+      exposure: {},
+      pendingExposure: { lat: location.lat, lon: location.lon },
+    }
+    updateDiary([...diary, entry])
+    setJustSaved(entry)
+    if (coldStart) markBankedToday()
+    track('Diary entry saved', { coldStart, pending: true, totalEntries: diary.length + 1 })
+  }
+
   useEffect(() => {
-    if (!prediction) return
+    if (!prediction || !data) return
     track('Prediction viewed', {
       // The predicted band and the variables behind it are this person's air
       // and lungs, so only the shape of the evidence goes out: how many
       // entries the model had, and whether the reading was stale.
       diaryEntries: diary.length,
-      stale,
+      // Staleness as the payload reports it, not as the fetch does — a cached
+      // response arrives "fresh" and can be hours old.
+      stale: isStale(data),
+      offline: stale,
       // How the location was chosen, never which one — location.label is now
       // the user's actual town.
       locationSource: source,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
+
+  // Entries logged in a dead zone get their air the moment there is air to be
+  // had — from the series already on screen where it reaches their hour.
+  useEffect(() => {
+    let cancelled = false
+    void backfillPending(diary, data, location).then((next) => {
+      if (cancelled || !next) return
+      updateDiary(next)
+      // The card echoing a just-logged entry holds its own copy, and amending
+      // writes that copy back — it has to be the one that now has air in it.
+      setJustSaved((cur) => (cur ? (next.find((e) => e.id === cur.id) ?? cur) : cur))
+    })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, diary])
 
   // No place, no air — the whole screen is the ask, since a forecast under it
   // would be a forecast for somewhere else.
@@ -116,14 +170,28 @@ function Home() {
       </>
     )
   }
-  if (error) return <p className="status-line error">Couldn&rsquo;t reach Open-Meteo: {error}</p>
-  if (!location || !data || !current || !prediction)
-    return <p className="status-line">Reading the air…</p>
+  if (!location) return <p className="status-line">Reading the air…</p>
 
-  const updateDiary = (next: DiaryEntry[]) => {
-    setDiary(next)
-    setSaveFailed(!saveDiary(next))
+  // The air is unreachable and there is nothing cached to fall back on. The
+  // rating still has to be catchable: it is the half of an entry that can't be
+  // reconstructed later.
+  if (error) {
+    return (
+      <>
+        <Header place={location.label} />
+        <OfflineLog saved={justSaved} onLog={logPending} onUndo={undo} />
+        <p className="status-line error">
+          I can&rsquo;t reach the air readings from here — no forecast until I can.
+        </p>
+        <div className="retry-row">
+          <button type="button" className="dismiss-button" onClick={retry}>
+            Retry
+          </button>
+        </div>
+      </>
+    )
   }
+  if (!data || !current || !prediction) return <p className="status-line">Reading the air…</p>
 
   // The echo comes from the diary, not from this session: a 4 logged at
   // breakfast is still the answer to "how is your breathing?" after a reload.
@@ -131,12 +199,17 @@ function Home() {
 
   const logNow = (rating: Rating) => {
     const tapped = performance.now()
+    // How far behind the air was when the rating was made. Hours-old air makes
+    // the vector an estimate of that hour, and the entry says so.
+    const ageMinutes = exposureAgeMinutes(data)
     const entry: DiaryEntry = {
       id: newEntryId(),
       time: new Date().toISOString(),
       rating,
       exposure: current.exposure,
       official: current.official,
+      exposureAgeMinutes: ageMinutes,
+      ...(isEstimatedAge(ageMinutes) ? { exposureEstimated: true } : {}),
     }
     updateDiary([...diary, entry])
     setJustSaved(entry)
@@ -165,24 +238,16 @@ function Home() {
     updateDiary(diary.map((e) => (e.id === savedEntry.id ? amended : e)))
   }
 
-  // Session-scoped on purpose: undo takes back a tap you just made, and is not
-  // a delete button for this morning's entry. That lives in the diary.
-  const undo = () => {
-    if (!justSaved) return
-    updateDiary(diary.filter((e) => e.id !== justSaved.id))
-    setJustSaved(null)
-  }
-
   const logAgain = () => {
     setJustSaved(null)
     setDismissed(false)
     navigate({ to: '/', search: { log: true } })
   }
 
-  const fetchedTime = new Date(data.fetchedAt).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  // The hour on screen is the payload's own newest hour, never the clock: the
+  // service worker can hand back a six-hour-old response that parses as new.
+  const dataHour = fmtHour(hourNum(current.time), true)
+  const showStale = stale || isStale(data)
   // "log again" reopens the ask over an existing answer; a fresh tap closes it.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
@@ -193,13 +258,12 @@ function Home() {
 
   return (
     <>
-      <header className="screen-header">
-        <span className="wordmark">Breathing Index 🫁</span>
-        <span className="header-meta">
-          {location.label} · {fetchedTime}
-        </span>
-      </header>
-      {stale && <p className="stale-banner">Offline — showing air fetched {fetchedTime}.</p>}
+      <Header place={location.label} hour={dataHour} />
+      {showStale && (
+        <p className="stale-banner">
+          {stale ? 'Offline — the' : 'The'} newest air I have is from {dataHour}.
+        </p>
+      )}
 
       {!chosenPlace && <LocationNeededCard gap="no-answer" onRetry={retryLocation} />}
 
@@ -243,6 +307,23 @@ function Home() {
       <ByHour data={data} model={model} coldStart={coldStart} />
       <MeasuredStrip lat={location.lat} lon={location.lon} />
     </>
+  )
+}
+
+/**
+ * The meta line names the hour of the air below it. Without air to name — the
+ * offline screen — it names the place alone rather than a time that would be
+ * the clock's rather than the data's.
+ */
+function Header({ place, hour }: { place: string; hour?: string }) {
+  return (
+    <header className="screen-header">
+      <span className="wordmark">Breathing Index 🫁</span>
+      <span className="header-meta">
+        {place.replace(' (default)', '')}
+        {hour ? ` · ${hour}` : ''}
+      </span>
+    </header>
   )
 }
 
@@ -371,14 +452,63 @@ function QuickLogCard({
           <span className="quicklog-hint">one tap saves this air</span>
         </div>
       )}
-      <div className="quicklog-buttons">
-        {RATINGS.map((r) => (
-          <button key={r} type="button" className="quicklog-button" onClick={() => onLog(r)}>
-            <span className={`quicklog-digit d${r}`}>{r}</span>
-            <span className="quicklog-word">{BI_LABELS[r].label}</span>
+      <RatingRow onLog={onLog} />
+    </section>
+  )
+}
+
+function RatingRow({ onLog }: { onLog: (rating: Rating) => void }) {
+  return (
+    <div className="quicklog-buttons">
+      {RATINGS.map((r) => (
+        <button key={r} type="button" className="quicklog-button" onClick={() => onLog(r)}>
+          <span className={`quicklog-digit d${r}`}>{r}</span>
+          <span className="quicklog-word">{BI_LABELS[r].label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The quick log with the air missing. Rating and time are the half of an entry
+ * that only exists at the moment it happens; the readings for that hour are
+ * still there to be fetched afterwards.
+ */
+function OfflineLog({
+  saved,
+  onLog,
+  onUndo,
+}: {
+  saved: DiaryEntry | null
+  onLog: (rating: Rating) => void
+  onUndo: () => void
+}) {
+  if (saved) {
+    return (
+      <section className="card quicklog" key="saved-offline">
+        <div className="quicklog-saved-row">
+          <LevelPill level={saved.rating} variant="inline" />
+          <div className="quicklog-saved-text">
+            <span className="quicklog-saved-when">You rated it {levelWord(saved.rating)}</span>
+            <span className="quicklog-saved-sub">
+              Saved — I&rsquo;ll attach the air readings when I&rsquo;m back online.
+            </span>
+          </div>
+          <button type="button" className="quicklog-undo" onClick={onUndo}>
+            undo
           </button>
-        ))}
+        </div>
+      </section>
+    )
+  }
+  return (
+    <section className="card quicklog" key="asking-offline">
+      <div className="quicklog-ask-row">
+        <span className="quicklog-question">How is your breathing?</span>
+        <span className="quicklog-hint">the air catches up later</span>
       </div>
+      <RatingRow onLog={onLog} />
     </section>
   )
 }

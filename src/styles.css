@@ -378,6 +378,16 @@ main {
   color: var(--ink-2);
 }
 
+.retry-row {
+  display: flex;
+  justify-content: center;
+}
+
+.retry-row .dismiss-button {
+  width: auto;
+  padding: 0 20px;
+}
+
 .note-input {
   font: 400 12px var(--sans);
   padding: 7px 10px;

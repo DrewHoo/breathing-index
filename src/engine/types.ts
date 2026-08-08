@@ -18,6 +18,21 @@ export interface DiaryEntry {
   exposure: Exposure
   /** official composite indices at log time — scoreboard receipts, never used by inference */
   official?: { usAqi: number | null; eaqi: number | null }
+  /** minutes between the log and the newest hour of air attached to it */
+  exposureAgeMinutes?: number
+  /**
+   * The air was hours old when this was logged, so the vector is an estimate of
+   * that hour rather than a reading of it. Recorded for the engine's future
+   * estimated-evidence tier; today it is metadata the UI can show.
+   */
+  exposureEstimated?: boolean
+  /**
+   * Logged with no air to attach — the coordinates it was logged at, so the
+   * vector can be backfilled from that place's hourly history. Callers must
+   * keep these entries out of inference: an empty vector is unknown air, not
+   * clean air, and would read as tolerance for everything.
+   */
+  pendingExposure?: { lat: number; lon: number }
 }
 
 /** The subset of DiaryEntry that inference reads. */

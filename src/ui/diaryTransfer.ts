@@ -23,10 +23,18 @@ function isStringList(value: unknown): boolean {
   return value === undefined || (Array.isArray(value) && value.every((v) => typeof v === 'string'))
 }
 
-function isExposure(value: unknown): boolean {
+function isExposure(value: unknown, allowEmpty: boolean): boolean {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
   const values = Object.values(value as Record<string, unknown>)
-  return values.length > 0 && values.every((v) => typeof v === 'number' && Number.isFinite(v))
+  if (values.length === 0) return allowEmpty
+  return values.every((v) => typeof v === 'number' && Number.isFinite(v))
+}
+
+/** An entry logged offline carries coordinates instead of air, and no vector yet. */
+function isPendingExposure(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const place = value as Record<string, unknown>
+  return Number.isFinite(place.lat) && Number.isFinite(place.lon)
 }
 
 function isDiaryEntry(value: unknown): value is DiaryEntry {
@@ -35,7 +43,8 @@ function isDiaryEntry(value: unknown): value is DiaryEntry {
   if (typeof entry.id !== 'string' || entry.id === '') return false
   if (typeof entry.time !== 'string' || Number.isNaN(Date.parse(entry.time))) return false
   if (typeof entry.rating !== 'number' || !RATINGS.includes(entry.rating)) return false
-  if (!isExposure(entry.exposure)) return false
+  // An entry still waiting on its air is allowed an empty vector, and only then.
+  if (!isExposure(entry.exposure, isPendingExposure(entry.pendingExposure))) return false
   if (entry.note !== undefined && typeof entry.note !== 'string') return false
   return isStringList(entry.confounders) && isStringList(entry.observations)
 }
