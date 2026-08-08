@@ -4,6 +4,7 @@ import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
+import { bridgeableParameter, concentrationLabel } from '../sources/aqi'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
@@ -25,6 +26,7 @@ import { LocationNeededCard } from '../ui/locationUi'
 import { backfillPending, settled } from '../ui/pendingExposure'
 import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
+import { smokeFingerprint } from '../ui/smoke'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
@@ -44,16 +46,20 @@ export const Route = createFileRoute('/')({
 
 const RATINGS: Rating[] = [1, 2, 3, 4]
 
-/** Numeral/dot ink per level (the "ink + one alarm" ramp). */
+/**
+ * Numeral/dot ink per level (the "ink + one alarm" ramp). Named colours rather
+ * than literals so the dark-mode block in styles.css can re-point the whole
+ * ramp — an SVG with #22303A baked in is invisible on a dark ground.
+ */
 const LEVEL_INK: Record<Rating, string> = {
-  1: '#A7B6BE',
-  2: '#7A8B94',
-  3: '#3B4A54',
-  4: '#C13A31',
+  1: 'var(--l1)',
+  2: 'var(--l2)',
+  3: 'var(--l3)',
+  4: 'var(--l4)',
 }
 
 /** Sparkline run ink per level — level 1 sits a shade lighter. */
-const SPARK_INK: Record<Rating, string> = { ...LEVEL_INK, 1: '#B9C6CC' }
+const SPARK_INK: Record<Rating, string> = { ...LEVEL_INK, 1: 'var(--l1-soft)' }
 
 const hourNum = (iso: string): number => Number.parseInt(iso.slice(11, 13), 10)
 
@@ -164,7 +170,7 @@ function Home() {
     return (
       <>
         <header className="screen-header">
-          <span className="wordmark">Breathing Index 🫁</span>
+          <h1 className="wordmark">Breathing Index 🫁</h1>
         </header>
         <LocationNeededCard gap={gap} onRetry={retryLocation} />
       </>
@@ -318,7 +324,7 @@ function Home() {
 function Header({ place, hour }: { place: string; hour?: string }) {
   return (
     <header className="screen-header">
-      <span className="wordmark">Breathing Index 🫁</span>
+      <h1 className="wordmark">Breathing Index 🫁</h1>
       <span className="header-meta">
         {place.replace(' (default)', '')}
         {hour ? ` · ${hour}` : ''}
@@ -461,7 +467,15 @@ function RatingRow({ onLog }: { onLog: (rating: Rating) => void }) {
   return (
     <div className="quicklog-buttons">
       {RATINGS.map((r) => (
-        <button key={r} type="button" className="quicklog-button" onClick={() => onLog(r)}>
+        <button
+          key={r}
+          type="button"
+          className="quicklog-button"
+          // The numeral and the word are two spans, and a screen reader running
+          // them together reads "1 Easy" as one token. The name says the scale.
+          aria-label={`${r} — ${BI_LABELS[r].label}`}
+          onClick={() => onLog(r)}
+        >
           <span className={`quicklog-digit d${r}`}>{r}</span>
           <span className="quicklog-word">{BI_LABELS[r].label}</span>
         </button>
@@ -575,14 +589,25 @@ function NumberLine({
       ? `M${x(lo)},19 V12 H${x(ceiling)} V19`
       : `M${x(ceiling) - 12},19 V12 H${x(ceiling) + 12} V19`
   return (
-    <svg className="forecast-svg" viewBox="0 0 340 50" role="img" aria-label={`Forecast ${floor} to ${ceiling}`}>
-      <line x1={10} y1={28} x2={330} y2={28} stroke="#C7D2D8" strokeWidth={1.5} />
-      <line x1={10} y1={24} x2={10} y2={32} stroke="#C7D2D8" strokeWidth={1.5} />
-      <line x1={330} y1={24} x2={330} y2={32} stroke="#C7D2D8" strokeWidth={1.5} />
+    <svg
+      className="forecast-svg"
+      viewBox="0 0 340 50"
+      role="img"
+      aria-label={
+        coldStart
+          ? `Forecast: up to ${ceiling}, ${levelWord(ceiling)}, on a 1 to 4 scale.`
+          : floor === ceiling
+            ? `Forecast: ${floor}, ${levelWord(floor)}, on a 1 to 4 scale.`
+            : `Forecast: ${floor} to ${ceiling}, ${levelWord(floor)} to ${levelWord(ceiling)}, on a 1 to 4 scale.`
+      }
+    >
+      <line x1={10} y1={28} x2={330} y2={28} stroke="var(--rule)" strokeWidth={1.5} />
+      <line x1={10} y1={24} x2={10} y2={32} stroke="var(--rule)" strokeWidth={1.5} />
+      <line x1={330} y1={24} x2={330} y2={32} stroke="var(--rule)" strokeWidth={1.5} />
       <path
         d={bracket}
         fill="none"
-        stroke={coldStart ? '#7A8B94' : '#22303A'}
+        stroke={coldStart ? 'var(--l2)' : 'var(--ink)'}
         strokeWidth={1.3}
         strokeDasharray={coldStart ? '3 3' : undefined}
       />
@@ -593,12 +618,19 @@ function NumberLine({
         fontFamily="Instrument Sans, sans-serif"
         fontStyle="italic"
         fontSize={10}
-        fill={coldStart ? '#64757F' : '#3B4A54'}
+        fill={coldStart ? 'var(--secondary)' : 'var(--ink-2)'}
       >
         {coldStart ? 'at most' : 'likely'}
       </text>
       {coldStart ? (
-        <circle cx={x(ceiling)} cy={28} r={5} fill="#F3F6F7" stroke="#7A8B94" strokeWidth={1.5} />
+        <circle
+          cx={x(ceiling)}
+          cy={28}
+          r={5}
+          fill="var(--paper)"
+          stroke="var(--l2)"
+          strokeWidth={1.5}
+        />
       ) : (
         inRange.map((level) => (
           <circle key={level} cx={x(level)} cy={28} r={5} fill={LEVEL_INK[level]} />
@@ -617,7 +649,11 @@ function NumberLine({
             fontSize={11}
             fontWeight={emphasized ? 600 : 400}
             fill={
-              !within ? '#A7B6BE' : !coldStart && level === ceiling ? '#22303A' : '#5F707A'
+              !within
+                ? 'var(--l1)'
+                : !coldStart && level === ceiling
+                  ? 'var(--ink)'
+                  : 'var(--secondary)'
             }
           >
             {level}
@@ -706,6 +742,8 @@ interface AirRow {
   tol?: number
   /** shaded stress zones (temperature row), as [start, end] in display space */
   zones?: [number, number][]
+  /** the fine-fraction fingerprint fired — this row may name a source */
+  smoke?: boolean
 }
 
 function pct(value: number, lo: number, hi: number): number {
@@ -730,6 +768,8 @@ function buildAirRows(
     return tol !== undefined && tol > negligibleFor(variable) ? tol : undefined
   }
 
+  const likelySmoke = smokeFingerprint(current.exposure)
+
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
     const [lo, hi] = range((h) => h.raw[key] ?? 0)
@@ -738,6 +778,7 @@ function buildAirRows(
       key,
       name: meta.name,
       sub: meta.sub,
+      smoke: key === 'pm25' && likelySmoke,
       value: Math.round(current.raw[key] ?? 0),
       unit: meta.unit ?? '',
       statusVar: key,
@@ -845,6 +886,10 @@ function AirTable({
                 </span>
                 <span className={`air-status ${status.cls}`}>{status.text}</span>
               </div>
+              {/* Its own line, not a third item in the name row: the fingerprint
+                  is a claim about the reading, and it should not be competing
+                  for width with the reading itself. */}
+              {row.smoke && <span className="air-smoke">likely smoke — nearly all of it fine-mode</span>}
               <div className="air-range-row">
                 <span className="air-endpoint lo">{row.lo}</span>
                 <div className="air-track">
@@ -914,6 +959,16 @@ function ByHour({
     return fmtHour(hourNum(hours[index]!.time), false)
   })
 
+  // The curve in words. A shape nobody can see is not a chart, and this one
+  // carries the only "when" on the screen: read the runs out in order.
+  const alt = `Ceiling by hour: ${runs
+    .map((run, i) => {
+      const next = runs[i + 1]
+      const until = next ? ` until ${fmtHour(hourNum(hours[next.from]!.time), true)}` : ' after that'
+      return `${i === 0 ? '' : 'then '}${run.level}, ${levelWord(run.level)}${until}`
+    })
+    .join(', ')}.`
+
   return (
     <section className="section tight">
       <SectionRule
@@ -927,16 +982,24 @@ function ByHour({
         viewBox="0 0 320 48"
         preserveAspectRatio="none"
         role="img"
-        aria-label="Forecast level by hour"
+        aria-label={alt}
       >
         {([1, 2, 3] as Rating[]).map((level) => (
-          <line key={level} x1={0} y1={y(level)} x2={320} y2={y(level)} stroke="#E3EAED" strokeWidth={1} />
+          <line
+            key={level}
+            x1={0}
+            y1={y(level)}
+            x2={320}
+            y2={y(level)}
+            stroke="var(--track)"
+            strokeWidth={1}
+          />
         ))}
         {runs.slice(1).map((run, i) => (
           <path
             key={`v${i}`}
             d={`M${run.from * step},${y(runs[i]!.level)} V${y(run.level)}`}
-            stroke="#C7D2D8"
+            stroke="var(--rule)"
             strokeWidth={1.5}
             fill="none"
           />
@@ -981,6 +1044,10 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
 
   if (!enabled || !report || report.observations.length === 0) return null
 
+  const measured = report.observations.map((o) => bridgeableParameter(o.parameter))
+  const particles = measured.some((v) => v === 'pm25' || v === 'pm10')
+  const ozone = measured.includes('o3')
+
   return (
     <section className="section">
       <SectionRule
@@ -990,16 +1057,35 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
       />
       {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
       <div className="measured-row">
-        {report.observations.map((o) => (
-          <span key={o.parameter} className={`measured-item${o.isPrimary ? ' primary' : ''}`}>
-            {o.parameter} <strong>{o.aqi}</strong> {o.category}
-          </span>
-        ))}
+        {report.observations.map((o) => {
+          const bridged = concentrationLabel(o.parameter, o.aqi)
+          return (
+            <span key={o.parameter} className={`measured-item${o.isPrimary ? ' primary' : ''}`}>
+              {o.parameter} <strong>{o.aqi}</strong> {o.category}
+              {bridged && <span className="measured-bridge">station {bridged}</span>}
+            </span>
+          )
+        })}
       </div>
       <span className="settings-note">
-        Station readings from AirNow. Disagreement with the model usually means a local source,
-        such as smoke, that the model missed.
+        Station readings from AirNow, reported as AQI points; the µg/m³ beside each is that value
+        read back through the EPA table, for comparison with the rows above.
       </span>
+      {/* The two disagreements do not mean the same thing, so they do not share
+          a caption. A station reading high on particles is a source the model
+          could not see; ozone has no hyperlocal source, so a model running high
+          against a monitor is just the model being wrong. */}
+      {particles && (
+        <span className="settings-note">
+          Particles: disagreement usually means a local source, such as smoke, that the model
+          missed.
+        </span>
+      )}
+      {ozone && (
+        <span className="settings-note">
+          Ozone: when these disagree, trust the station.
+        </span>
+      )}
     </section>
   )
 }

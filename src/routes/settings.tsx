@@ -90,17 +90,22 @@ function SettingsScreen() {
 
   return (
     <>
-      <span className="page-title">Settings</span>
+      <h1 className="page-title">Settings</h1>
 
       <section className="section">
         <SectionRule label="Location" />
-        <div className="row-card">
+        {/* Buttons with a drawn dot, so the chosen-ness has to be said out
+            loud: without role and aria-checked a screen reader hears three
+            plain buttons and no answer to "which place am I on?". */}
+        <div className="row-card" role="radiogroup" aria-label="Location">
           <button
             type="button"
             className="settings-row"
+            role="radio"
+            aria-checked={settings.activeLocation === 'auto'}
             onClick={() => update({ ...settings, activeLocation: 'auto' })}
           >
-            <span className={`radio${settings.activeLocation === 'auto' ? ' on' : ''}`} />
+            <span className={`radio${settings.activeLocation === 'auto' ? ' on' : ''}`} aria-hidden />
             <span className="settings-row-label">Follow my location</span>
             {settings.activeLocation === 'auto' && (
               <span className="settings-row-hint">
@@ -112,13 +117,20 @@ function SettingsScreen() {
             <div key={`${loc.label}-${i}`} className="settings-row">
               <button
                 type="button"
-                style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minHeight: 42 }}
+                role="radio"
+                aria-checked={settings.activeLocation === i}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minHeight: 44 }}
                 onClick={() => update({ ...settings, activeLocation: i })}
               >
-                <span className={`radio${settings.activeLocation === i ? ' on' : ''}`} />
+                <span className={`radio${settings.activeLocation === i ? ' on' : ''}`} aria-hidden />
                 <span className="settings-row-label">{loc.label}</span>
               </button>
-              <button type="button" className="row-action" onClick={() => removeLocation(i)}>
+              <button
+                type="button"
+                className="row-action"
+                aria-label={`Remove ${loc.label}`}
+                onClick={() => removeLocation(i)}
+              >
                 remove
               </button>
             </div>
@@ -148,7 +160,7 @@ function SettingsScreen() {
             <div className="settings-row-sub">
               <span className="settings-row-label">AirNow station comparison</span>
               <span className="settings-row-hint">
-                US only · disagreement often means local smoke
+                US only · station AQI, converted for comparison
               </span>
             </div>
             <button
@@ -173,6 +185,9 @@ function SettingsScreen() {
               key={opt.value}
               type="button"
               className={`segment${settings.units === opt.value ? ' on' : ''}`}
+              // The lit segment is a background colour and nothing else; pressed
+              // state is the only way it reaches anyone not looking at it.
+              aria-pressed={settings.units === opt.value}
               onClick={() => update({ ...settings, units: opt.value })}
             >
               {opt.label}

@@ -6,8 +6,9 @@ import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
+import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismissed'
 import { BackupChip } from '../ui/durabilityUi'
-import { levelWord } from '../ui/labels'
+import { VARIABLE_LABELS, levelWord, variableName } from '../ui/labels'
 import { isPending, settled } from '../ui/pendingExposure'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 
@@ -17,7 +18,10 @@ const CONFLICT_TAGS = ['pollen', 'sick', 'indoors all day']
 
 function Diary() {
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
-  const [leftAlone, setLeftAlone] = useState<Set<number>>(new Set())
+  // Keyed by entry id and card kind, not by index into the model diary: indexes
+  // shift as entries arrive, and a card left alone was left alone about a
+  // particular day. Read from storage, so the answer survives the visit.
+  const [leftAlone, setLeftAlone] = useState<Set<string>>(dismissedConflicts)
   const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
   // Entries still waiting on their air have no vector to reason about, so the
@@ -34,7 +38,10 @@ function Diary() {
     update(diary.map((e) => (e.id === entryId ? { ...e, ...patch } : e)))
   }
 
-  const conflicts = model.conflicts.filter((c) => !leftAlone.has(c.entryIndex))
+  const conflicts = model.conflicts.filter((c) => {
+    const id = modelDiary[c.entryIndex]?.id
+    return id === undefined || !leftAlone.has(conflictKey(id, c.kind))
+  })
   const conflictByEntryId = new Map(
     conflicts.map((c) => [modelDiary[c.entryIndex]?.id, c.entryIndex] as const),
   )
@@ -43,7 +50,7 @@ function Diary() {
     <>
       <div className="page-title-row">
         <div className="page-title-group">
-          <span className="page-title">Diary</span>
+          <h1 className="page-title">Diary</h1>
           <span className="page-title-count">
             {diary.length} {diary.length === 1 ? 'entry' : 'entries'}
           </span>
@@ -85,7 +92,7 @@ function Diary() {
             track('Conflict tagged', { kind: conflict.kind })
           }}
           onNote={(id, note) => amend(id, { note })}
-          onLeave={() => setLeftAlone((cur) => new Set(cur).add(conflict.entryIndex))}
+          onLeave={(id) => setLeftAlone(dismissConflict(id, conflict.kind))}
         />
       ))}
 
@@ -151,10 +158,10 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
 
   const bare = (v: number) => `${Math.round(v)}`
   const rows: EvidenceRowData[] = [
-    { name: 'Smoke', ...summarize('pm25', bare) },
-    { name: 'Ozone', ...summarize('o3', bare) },
-    { name: 'Dust', ...summarize('pm10', bare) },
-    { name: 'NO₂', ...summarize('no2', bare) },
+    { name: variableName('pm25'), ...summarize('pm25', bare) },
+    { name: variableName('o3'), ...summarize('o3', bare) },
+    { name: variableName('pm10'), ...summarize('pm10', bare) },
+    { name: variableName('no2'), ...summarize('no2', bare) },
     { name: 'Heat', ...summarize('heat_stress', (v) => fmtTempStress('heat_stress', v)) },
     { name: 'Humidity', ...summarize('humidity', (v) => `${Math.round(v)}%`) },
   ]
@@ -176,7 +183,7 @@ function ConflictCard({
   entry: DiaryEntry | undefined
   onTag: (entryId: string, tag: string) => void
   onNote: (entryId: string, note: string) => void
-  onLeave: () => void
+  onLeave: (entryId: string) => void
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
   const [note, setNote] = useState(entry?.note ?? '')
@@ -199,7 +206,7 @@ function ConflictCard({
             {tag}
           </button>
         ))}
-        <button type="button" className="chip" onClick={onLeave}>
+        <button type="button" className="chip" onClick={() => onLeave(entry.id)}>
           leave it
         </button>
         <button type="button" className="chip" onClick={() => setNoteOpen((v) => !v)}>
@@ -251,7 +258,7 @@ function groupByDay(diary: DiaryEntry[]): { label: string; entries: DiaryEntry[]
 
 const OBSERVATION_LABELS: Record<string, string> = { 'worse-outdoors': 'worse outdoors' }
 
-/** "smoke 38 · ozone 165 — “walk cut short at the park”" */
+/** "PM2.5 38 · ozone 165 — “walk cut short at the park”" */
 function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
   if (isPending(entry)) {
     const waiting = 'air readings still to come'
@@ -262,7 +269,7 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
     const v = entry.exposure[key] ?? 0
     const prior = PRIORS[key]?.[2] ?? 1
     if (v > 0) {
-      const short = key === 'pm25' ? 'smoke' : key === 'o3' ? 'ozone' : key === 'pm10' ? 'dust' : 'NO₂'
+      const short = VARIABLE_LABELS[key]?.short ?? key
       parts.push({ ratio: v / prior, text: `${short} ${Math.round(v)}` })
     }
   }

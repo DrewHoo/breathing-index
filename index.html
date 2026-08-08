@@ -17,7 +17,14 @@
       name="disclaimer"
       content="Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen."
     />
-    <meta name="theme-color" content="#F3F6F7" />
+    <!--
+      Two theme colours, because the app follows prefers-color-scheme (the dark
+      block in src/styles.css). A single light theme-color leaves an installed
+      PWA with a white status bar over a dark screen at 4 AM. Browsers that do
+      not understand the media attribute fall through to the light one.
+    -->
+    <meta name="theme-color" content="#F3F6F7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#11181D" media="(prefers-color-scheme: dark)" />
     <meta name="author" content="Drew Hoover" />
     <meta name="application-name" content="Breathing Index" />
     <!-- max-image-preview:large is what lets the share card run full width in results. -->
@@ -119,8 +126,8 @@
         <h1>Breathing Index</h1>
         <p>
           A personal air quality index. The composite AQI reduces every pollutant to one number.
-          Breathing Index shows each exposure variable — smoke, dust, ozone, NO₂, heat, humidity —
-          separately, learns which ones actually affect you from your own symptom diary, and
+          Breathing Index shows each exposure variable — fine and coarse particles, ozone, NO₂,
+          heat, humidity — separately, learns which ones actually affect you from your own symptom diary, and
           predicts your day on a four-level scale: 1 Easy, 2 Noticeable, 3 Limiting, 4 Dangerous.
         </p>
         <p>It needs JavaScript to run. Data comes from Open-Meteo, with AirNow station comparison in the US.</p>

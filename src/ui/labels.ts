@@ -42,18 +42,27 @@ export const FORECAST_MEANING: Record<Rating, string> = {
 export const levelWord = (r: Rating): string => BI_LABELS[r].label.toLowerCase()
 
 export interface VariableLabel {
-  /** display name ("Smoke") */
+  /** display name ("Fine particles") */
   name: string
   /** tiny sublabel next to the name ("PM2.5"), if any */
   sub?: string
-  /** lowercase short name for diary exposure lines ("smoke") */
+  /** short name for diary exposure lines ("PM2.5") */
   short: string
   unit: string
+  /** the name takes a plural verb: "fine particles *are* past…" */
+  plural?: boolean
 }
 
+/**
+ * Particulate rows are named by size, not by source. "Smoke" and "Dust" were
+ * causes the data cannot support — most metro PM2.5 is traffic and industry —
+ * and the app's first rule is to describe the air without inventing a reason
+ * for it. The one exception is the fine-fraction fingerprint in `ui/smoke.ts`,
+ * which earns a row the sub-label "likely smoke" for as long as it holds.
+ */
 export const VARIABLE_LABELS: Record<string, VariableLabel> = {
-  pm25: { name: 'Smoke', sub: 'PM2.5', short: 'smoke', unit: 'µg/m³' },
-  pm10: { name: 'Dust', sub: 'PM10', short: 'dust', unit: 'µg/m³' },
+  pm25: { name: 'Fine particles', sub: 'PM2.5', short: 'PM2.5', unit: 'µg/m³', plural: true },
+  pm10: { name: 'Coarse particles', sub: 'PM10', short: 'PM10', unit: 'µg/m³', plural: true },
   o3: { name: 'Ozone', sub: 'O₃', short: 'ozone', unit: 'µg/m³' },
   no2: { name: 'NO₂', short: 'NO₂', unit: 'µg/m³' },
   so2: { name: 'SO₂', short: 'SO₂', unit: 'µg/m³' },
@@ -64,3 +73,6 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
 }
 
 export const variableName = (v: string): string => VARIABLE_LABELS[v]?.name ?? v
+
+/** "is" or "are" for a sentence about one variable — "Fine particles are…". */
+export const variableVerb = (v: string): string => (VARIABLE_LABELS[v]?.plural ? 'are' : 'is')
