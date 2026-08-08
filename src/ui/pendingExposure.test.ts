@@ -21,6 +21,7 @@ const series = (): ExposureSeries => ({
   hours: [hour('2026-08-07T08:00', 5), hour('2026-08-07T09:00', 31), hour('2026-08-07T10:00', 12)],
   currentIndex: 2,
   fetchedAt: '2026-08-07T14:05:00.000Z',
+  source: 'cams',
   utcOffsetSeconds: -4 * 3600,
 })
 
@@ -42,6 +43,16 @@ describe('resolvePending', () => {
     expect(resolved!.exposureAgeMinutes).toBe(40)
     expect(isPending(resolved!)).toBe(false)
     expect('pendingExposure' in resolved!).toBe(false)
+  })
+
+  it('carries the provenance of the air it attached', () => {
+    // A vector that arrives late is still evidence, and the engine has to know
+    // which source taught it and which of its numbers were never measured.
+    const late = series()
+    late.hours[1] = { ...late.hours[1]!, estimated: ['ragweed_pollen'] }
+    const [resolved] = resolvePending([pendingEntry()], late, HAMDEN)
+    expect(resolved!.source).toBe('cams')
+    expect(resolved!.estimated).toEqual(['ragweed_pollen'])
   })
 
   it('keeps the rating, the time and the tags', () => {

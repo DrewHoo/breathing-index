@@ -85,7 +85,7 @@ pass: `tests/fixtures/trigger-cases.json`. The short version:
 | **AirNow API** (EPA) | Station measurements | free API key | key exposed client-side (acceptable: free tier, user-owned key) | Ground truth for US. User pastes their own key in settings → localStorage. |
 | **PurpleAir** | Crowdsourced sensors | API key | ✅ with key header | Densest hyper-local coverage; famously reads high without correction (apply EPA conversion). Optional, user-keyed. |
 | **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Temperature, humidity, dew point — feeds the heat/cold-dry/humidity exposure variables. Free, global. |
-| **Pollen** | CAMS model (EU) / calendar prior (US) | none | ✅ yes | Open-Meteo serves per-species pollen for **Europe only** (verified `null` for US). US fallback: calendar-region priors (e.g. CT ragweed ≈ Aug–Oct); upgrade path: Google Pollen API or Ambee as user-keyed plugins. |
+| **Pollen** | CAMS model (EU) / calendar prior (US) | none | ✅ yes | Open-Meteo serves per-species pollen for **Europe only** (verified `null` for US). US fallback: calendar-region priors in `src/sources/pollenCalendar.ts` (NOAA climate region × month × species, at NAB band low edges — e.g. CT ragweed ≈ Aug–Oct), recorded as `estimated` so they can suspect but never confirm. Upgrade path: Google Pollen API or Ambee as user-keyed plugins, same variable names. |
 
 Architecture treats sources as plugins behind one interface: `fetch(lat, lon) → { pollutant: {value, unit, time} }`. The UI can display sources side-by-side ("model says 18 µg/m³, nearest sensor says 34") — disagreement is itself signal that smoke is hyper-local.
 

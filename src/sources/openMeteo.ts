@@ -1,4 +1,21 @@
 import type { Exposure } from '../engine/types'
+import {
+  POLLEN_VARIABLES,
+  calendarPollen,
+  dominantPollen,
+  monthOf,
+  pollenRegion,
+  type PollenVariable,
+} from './pollenCalendar'
+
+/** What the single pollen row shows for an hour — see `Hour.pollen`. */
+export interface PollenSummary {
+  /** the species the row names, null when nothing is in season */
+  variable: PollenVariable | null
+  value: number
+  /** a calendar estimate for the region rather than a reading */
+  estimated: boolean
+}
 
 export interface Hour {
   time: string
@@ -7,6 +24,18 @@ export interface Hour {
   raw: Record<string, number>
   /** official composite indices, for scoreboard receipts only */
   official: { usAqi: number | null; eaqi: number | null }
+  /**
+   * The dominant pollen species for the one "Pollen" row, or null where no
+   * source covers this place at all. Optional because series cached by earlier
+   * versions are re-read from localStorage and predate the field.
+   */
+  pollen?: PollenSummary | null
+  /**
+   * Exposure keys whose values are estimates rather than readings — the
+   * calendar species, where no measured pollen exists. Copied onto diary
+   * entries, where it stops the engine confirming a bound from a guess.
+   */
+  estimated?: string[]
 }
 
 export interface ExposureSeries {
@@ -20,10 +49,27 @@ export interface ExposureSeries {
    */
   fetchedAt: string
   utcOffsetSeconds: number
+  /** which source these numbers are: learned bounds are scoped to it */
+  source: string
 }
 
+/**
+ * Open-Meteo's air-quality endpoint serves the CAMS model, not monitors. The
+ * name is on every entry logged against it, because a bound learned here does
+ * not transfer to a station feed reading the same air differently.
+ */
+export const EXPOSURE_SOURCE = 'cams'
+
+/**
+ * The pollen fields are CAMS *Europe* only: outside that domain Open-Meteo
+ * answers with a full column of nulls rather than an error (verified: real
+ * values for Amsterdam, nulls for Hamden — SPEC.md's source table), which is
+ * how `fetchExposureSeries` knows to fall back to the calendar.
+ */
+const POLLEN_VARS = 'grass_pollen,birch_pollen,ragweed_pollen'
+
 const AIR_VARS =
-  'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
+  `pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi,${POLLEN_VARS}`
 const WEATHER_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m'
 
 interface HourlyBlock {
@@ -49,16 +95,22 @@ export function findCurrentIndex(times: string[], utcOffsetSeconds: number): num
   return index === -1 ? times.length - 1 : index
 }
 
-function windowMax(values: (number | null)[], i: number, span: number): number {
-  let max = 0
+/**
+ * Window features return null, not 0, when the window holds no data. A gap in
+ * the feed is not a clean reading: recorded as 0 it would drop the variable
+ * below its background floor and quietly disqualify the real trigger from
+ * candidacy. Absent, it simply proves nothing either way.
+ */
+function windowMax(values: (number | null)[], i: number, span: number): number | null {
+  let max: number | null = null
   for (let j = Math.max(0, i - span + 1); j <= i; j++) {
     const v = values[j]
-    if (v != null && v > max) max = v
+    if (v != null && (max === null || v > max)) max = v
   }
   return max
 }
 
-function windowMean(values: (number | null)[], i: number, span: number): number {
+function windowMean(values: (number | null)[], i: number, span: number): number | null {
   let sum = 0
   let n = 0
   for (let j = Math.max(0, i - span + 1); j <= i; j++) {
@@ -68,13 +120,29 @@ function windowMean(values: (number | null)[], i: number, span: number): number 
       n++
     }
   }
-  return n === 0 ? 0 : sum / n
+  return n === 0 ? null : sum / n
+}
+
+/**
+ * One row's worth of pollen. `covered: false` means no source reaches this
+ * place — no row rather than a zero, since "no data" is not "no pollen".
+ */
+export function summarizePollen(
+  exposure: Exposure,
+  estimated: boolean,
+  covered: boolean,
+): PollenSummary | null {
+  if (!covered) return null
+  const dominant = dominantPollen(exposure)
+  if (!dominant || dominant.value === 0) return { variable: null, value: 0, estimated }
+  return { ...dominant, estimated }
 }
 
 /**
  * Fetch air quality + weather and derive per-hour exposure vectors using the
- * per-variable windows from docs/trigger-model.md (o3/no2/pm: max8h; heat/cold:
- * instantaneous; humidity: mean72h). CAMS model data — can miss hyper-local smoke.
+ * per-variable windows from docs/trigger-model.md (o3/no2/pm/pollen: max8h;
+ * heat/cold: instantaneous; humidity: mean72h). CAMS model data — can miss
+ * hyper-local smoke, and carries no pollen outside Europe (calendar there).
  */
 export async function fetchExposureSeries(lat: number, lon: number): Promise<ExposureSeries> {
   const common = `latitude=${lat}&longitude=${lon}&past_days=3&forecast_days=2&timezone=auto`
@@ -103,34 +171,65 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
   const rh = series(weather.hourly, 'relative_humidity_2m')
   const dew = series(weather.hourly, 'dew_point_2m')
 
+  // Pollen: measured where CAMS covers the place, calendar where it does not,
+  // nothing where neither has anything to say. One number appearing under one
+  // name either way — see pollenCalendar.ts for what the estimate claims.
+  const pollenSeries = POLLEN_VARIABLES.map((v) => [v, series(air.hourly, v)] as const)
+  const measuredPollen = pollenSeries.some(([, values]) => values.some((v) => v != null))
+  const covered = measuredPollen || pollenRegion(lat, lon) !== null
+
   const hours: Hour[] = times.map((time, i) => {
     const wi = weatherTimeIndex.get(time) ?? i
     const t = temp[wi] ?? null
     const d = dew[wi] ?? null
-    const heatStress = t != null ? Math.max(0, t - 25) : 0
-    const coldDryStress = t != null && t < 10 && d != null && d < 2 ? 10 - t : 0
+    const heatStress = t != null ? Math.max(0, t - 25) : null
+    const coldDryStress = t == null ? null : t < 10 && d != null && d < 2 ? 10 - t : 0
+    // The engine may only reason about variables the app can show the user, so
+    // so2 and co stay out of the exposure vector until the air table has rows
+    // for them: an evidence line must never cite a number nobody can check.
+    const exposure: Exposure = {}
+    const put = (variable: string, x: number | null): void => {
+      if (x !== null) exposure[variable] = x
+    }
+    put('pm25', windowMax(pm25, i, 8))
+    put('pm10', windowMax(pm10, i, 8))
+    put('o3', windowMax(o3, i, 8))
+    put('no2', windowMax(no2, i, 8))
+    put('heat_stress', heatStress)
+    put('cold_dry_stress', coldDryStress)
+    put('humidity', windowMean(rh, wi, 72))
+    // Pollen acts within hours, so it takes the same max(now, max8h) window as
+    // the acute pollutants — and the same null discipline: an hour the model
+    // skipped is no data, not clean air. A calendar month is flat across the
+    // window and carries only the species actually in season.
+    const pollen: Exposure = measuredPollen ? {} : calendarPollen(lat, lon, monthOf(time))
+    if (measuredPollen) {
+      for (const [variable, values] of pollenSeries) {
+        const x = windowMax(values, i, 8)
+        if (x !== null) pollen[variable] = x
+      }
+    }
+    for (const [variable, x] of Object.entries(pollen)) put(variable, x)
+    const pollenRaw: Exposure = measuredPollen
+      ? Object.fromEntries(pollenSeries.map(([v, values]) => [v, values[i] ?? 0]))
+      : pollen
     return {
       time,
-      exposure: {
-        pm25: windowMax(pm25, i, 8),
-        pm10: windowMax(pm10, i, 8),
-        o3: windowMax(o3, i, 8),
-        no2: windowMax(no2, i, 8),
-        so2: windowMax(so2, i, 8),
-        co: windowMax(co, i, 8),
-        heat_stress: heatStress,
-        cold_dry_stress: coldDryStress,
-        humidity: windowMean(rh, wi, 72),
-      },
+      pollen: summarizePollen(pollen, !measuredPollen, covered),
+      ...(!measuredPollen && Object.keys(pollen).length > 0
+        ? { estimated: Object.keys(pollen) }
+        : {}),
+      exposure,
       raw: {
+        ...pollenRaw,
         pm25: pm25[i] ?? 0,
         pm10: pm10[i] ?? 0,
         o3: o3[i] ?? 0,
         no2: no2[i] ?? 0,
         so2: so2[i] ?? 0,
         co: co[i] ?? 0,
-        heat_stress: heatStress,
-        cold_dry_stress: coldDryStress,
+        heat_stress: heatStress ?? 0,
+        cold_dry_stress: coldDryStress ?? 0,
         humidity: rh[wi] ?? 0,
         temp: t ?? 0,
       },
@@ -145,5 +244,6 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     currentIndex,
     fetchedAt: new Date().toISOString(),
     utcOffsetSeconds: air.utc_offset_seconds,
+    source: EXPOSURE_SOURCE,
   }
 }

@@ -58,6 +58,26 @@ function loadLastGood(key: string): ExposureSeries | null {
 }
 
 /**
+ * The coordinates the app last read the air for: the saved place if there is
+ * one, otherwise whatever the cached series belongs to. For screens that need
+ * a place but have no business reopening the location prompt — the diary,
+ * attaching a calendar estimate to a day already logged.
+ */
+export function lastKnownCoords(): { lat: number; lon: number } | null {
+  const chosen = chosenLocation()
+  if (chosen) return { lat: chosen.lat, lon: chosen.lon }
+  try {
+    const raw = localStorage.getItem(LAST_GOOD_KEY)
+    if (!raw) return null
+    const [lat, lon] = (JSON.parse(raw) as { key: string }).key.split(',').map(Number)
+    if (lat === undefined || lon === undefined) return null
+    return Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Where the active coordinates came from. Reported to analytics in place of the
  * location itself: now that the header names a real town, the label is the
  * user's actual city and must not leave the device.
@@ -80,6 +100,8 @@ export function useExposureSeries(): {
   source: LocationSource
   /** set when the browser will not say where we are and no place is saved */
   gap: LocationGap | null
+  /** true while a position request is in flight — the retry button's feedback */
+  asking: boolean
   /** ask the browser again, after the user has had a word with it */
   retryLocation: () => void
   series: ExposureSeries | null
@@ -92,6 +114,7 @@ export function useExposureSeries(): {
   const [location, setLocation] = useState<Location | null>(chosenLocation)
   const [source, setSource] = useState<LocationSource>(() => (chosenLocation() ? 'saved' : 'auto'))
   const [gap, setGap] = useState<LocationGap | null>(null)
+  const [asking, setAsking] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [series, setSeries] = useState<ExposureSeries | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -115,11 +138,15 @@ export function useExposureSeries(): {
       setGap('unsupported')
       return
     }
-    setGap(null)
+    // The gap stays up while we ask again: clearing it here made a re-denied
+    // retry resolve to the exact same screen in one frame — the button that
+    // "did nothing". `asking` is the visible proof the tap was heard.
+    setAsking(true)
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         if (cancelled) return
+        setAsking(false)
         const lat = Math.round(pos.coords.latitude * 1000) / 1000
         const lon = Math.round(pos.coords.longitude * 1000) / 1000
 
@@ -139,6 +166,7 @@ export function useExposureSeries(): {
       },
       (err) => {
         if (cancelled) return
+        setAsking(false)
         // A refusal is an answer: say so and ask for a place, rather than
         // loading a town the user has never breathed in. A timeout is not a
         // refusal — the permission dialog may still be up — so it reads as
@@ -179,5 +207,5 @@ export function useExposureSeries(): {
     }
   }, [location, attempt])
 
-  return { location, source, gap, retryLocation, series, error, stale, retry }
+  return { location, source, gap, asking, retryLocation, series, error, stale, retry }
 }

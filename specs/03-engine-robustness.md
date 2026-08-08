@@ -54,9 +54,14 @@ The theme: **evidence gets weight, weight decays, and claims carry their context
    derived bound moves. This is the v1 answer to threshold drift; time-decayed weighting stays
    a v2 question.
 4. **Confirmations keep their context.** A confirmation extracted under co-exposure stores the
-   background vector it was observed against. It acts as a floor only when current background is
-   ≤ that context (per-variable, with margin); otherwise it acts as ceiling evidence. A
+   background vector it was observed against. It acts as a floor only when current background
+   **reproduces** that context — every context variable at or above its observed level
+   (per-variable, with margin); on cleaner background it acts as ceiling evidence. A
    confirmation from a genuinely-singleton day has empty context and behaves as today.
+   *(Corrected during implementation: the original sentence said "≤ that context", which
+   inverted the rule and contradicted this spec's own acceptance fixture — a floor firing on
+   background cleaner than observed is precisely the n=1 over-warning this rule exists to
+   prevent.)*
 5. **Trim the candidate-set bloat.** Raise negligible floors to sit above routine background
    (humidity → 65 %RH-72h; co → 500; heat_stress epsilon so 25.1 °C isn't a candidate), and
    drop a variable from an entry — rather than recording 0 — when its window has no data.

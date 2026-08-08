@@ -616,9 +616,17 @@ h1 {
   color: var(--secondary);
 }
 
-/* The one place the app names a source, so it is not 10 px grey filigree. */
-.air-smoke {
-  font: 600 12px var(--sans);
+/* What a row says about its own number: where it came from ("calendar
+   estimate"), or what it looks like ("likely smoke"). A line of its own, and
+   never below 12 px — the caveat is the point. */
+.air-note {
+  font: 400 12px var(--sans);
+  color: var(--secondary);
+}
+
+/* The claim variant: the one place in the app allowed to name a source. */
+.air-note.claim {
+  font-weight: 600;
   color: var(--ink-2);
 }
 

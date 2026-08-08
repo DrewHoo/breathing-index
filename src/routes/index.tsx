@@ -17,6 +17,7 @@ import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
 import {
   BI_LABELS,
+  CALENDAR_ESTIMATE,
   FORECAST_MEANING,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
@@ -70,7 +71,7 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, source, gap, retryLocation, series: data, error, stale, retry } =
+  const { location, source, gap, asking, retryLocation, series: data, error, stale, retry } =
     useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const navigate = useNavigate()
@@ -172,7 +173,7 @@ function Home() {
         <header className="screen-header">
           <h1 className="wordmark">Breathing Index 🫁</h1>
         </header>
-        <LocationNeededCard gap={gap} onRetry={retryLocation} />
+        <LocationNeededCard gap={gap} asking={asking} onRetry={retryLocation} />
       </>
     )
   }
@@ -213,9 +214,14 @@ function Home() {
       time: new Date().toISOString(),
       rating,
       exposure: current.exposure,
+      // Bounds are scoped to the source that taught them (engine config).
+      source: data.source,
       official: current.official,
       exposureAgeMinutes: ageMinutes,
       ...(isEstimatedAge(ageMinutes) ? { exposureEstimated: true } : {}),
+      // Which of these numbers were estimated rather than read — the entry has
+      // to carry it, or the engine would later confirm a bound from a guess.
+      ...(current.estimated?.length ? { estimated: current.estimated } : {}),
     }
     updateDiary([...diary, entry])
     setJustSaved(entry)
@@ -271,7 +277,7 @@ function Home() {
         </p>
       )}
 
-      {!chosenPlace && <LocationNeededCard gap="no-answer" onRetry={retryLocation} />}
+      {!chosenPlace && <LocationNeededCard gap="no-answer" asking={asking} onRetry={retryLocation} />}
 
       {showCard && chosenPlace && (
         <QuickLogCard
@@ -308,6 +314,7 @@ function Home() {
         diaryCount={diary.length}
         coldStart={coldStart}
         nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
+        estimated={current.estimated ?? []}
       />
       <AirTable data={data} model={model} tempUnit={tempUnit} />
       <ByHour data={data} model={model} coldStart={coldStart} />
@@ -673,6 +680,7 @@ function WhyBlock({
   diaryCount,
   coldStart,
   nowCounting,
+  estimated,
 }: {
   prediction: Prediction
   model: TriggerModel
@@ -683,6 +691,8 @@ function WhyBlock({
   coldStart: boolean
   /** entries released from the hold-out overnight, announced once */
   nowCounting: number
+  /** today's estimated variables, so the sentence can admit to guessing */
+  estimated: string[]
 }) {
   if (coldStart) {
     return (
@@ -709,7 +719,7 @@ function WhyBlock({
       </section>
     )
   }
-  const { main, aside } = evidence(prediction, model, diary)
+  const { main, aside } = evidence(prediction, model, diary, estimated)
   return (
     <section className="section tight">
       <SectionRule label="Why" />
@@ -742,8 +752,15 @@ interface AirRow {
   tol?: number
   /** shaded stress zones (temperature row), as [start, end] in display space */
   zones?: [number, number][]
-  /** the fine-fraction fingerprint fired — this row may name a source */
-  smoke?: boolean
+  /**
+   * A line under the row about the *reading* rather than in it: where the
+   * number came from, or what the particulate looks like. Its own line
+   * because the name row is already carrying a name, a unit and a verdict,
+   * and neither of these is allowed to squeeze the number off a phone.
+   * `claim` marks the one that asserts something — the smoke fingerprint;
+   * the provenance caveats stay quiet.
+   */
+  note?: { text: string; claim?: boolean }
 }
 
 function pct(value: number, lo: number, hi: number): number {
@@ -778,7 +795,9 @@ function buildAirRows(
       key,
       name: meta.name,
       sub: meta.sub,
-      smoke: key === 'pm25' && likelySmoke,
+      ...(key === 'pm25' && likelySmoke
+        ? { note: { text: 'likely smoke — nearly all of it fine-mode', claim: true } }
+        : {}),
       value: Math.round(current.raw[key] ?? 0),
       unit: meta.unit ?? '',
       statusVar: key,
@@ -787,6 +806,35 @@ function buildAirRows(
       hi: Math.round(hi),
       dot: current.raw[key] ?? 0,
       tol: tolerance(key),
+    })
+  }
+
+  // One pollen row whatever the source, never three: the dominant species
+  // names itself in the sub-label, and a calendar figure says so on the note
+  // line rather than passing for a reading — same line the fine-fraction
+  // fingerprint uses, since both are the table talking about its own numbers,
+  // and inline the two labels pushed the reading off a 390 px screen.
+  // Absent on series cached before pollen shipped.
+  const pollen = current.pollen
+  if (pollen) {
+    const species = pollen.variable
+    const sub = species ? VARIABLE_LABELS[species]!.short : undefined
+    // Same convention as the pollutant rows: the reading of this hour on the
+    // track, the 8-hour window feature behind the evidence glyph.
+    const [loP, hiP] = species ? range((h) => h.raw[species] ?? 0) : [0, 0]
+    rows.push({
+      key: 'pollen',
+      name: 'Pollen',
+      sub,
+      ...(pollen.estimated ? { note: { text: CALENDAR_ESTIMATE } } : {}),
+      value: Math.round(species ? (current.raw[species] ?? 0) : 0),
+      unit: 'grains/m³',
+      statusVar: species ?? 'grass_pollen',
+      statusValue: species ? (current.exposure[species] ?? 0) : 0,
+      lo: Math.round(loP),
+      hi: Math.round(hiP),
+      dot: species ? (current.raw[species] ?? 0) : 0,
+      tol: species ? tolerance(species) : undefined,
     })
   }
 
@@ -886,10 +934,9 @@ function AirTable({
                 </span>
                 <span className={`air-status ${status.cls}`}>{status.text}</span>
               </div>
-              {/* Its own line, not a third item in the name row: the fingerprint
-                  is a claim about the reading, and it should not be competing
-                  for width with the reading itself. */}
-              {row.smoke && <span className="air-smoke">likely smoke — nearly all of it fine-mode</span>}
+              {row.note && (
+                <span className={`air-note${row.note.claim ? ' claim' : ''}`}>{row.note.text}</span>
+              )}
               <div className="air-range-row">
                 <span className="air-endpoint lo">{row.lo}</span>
                 <div className="air-track">

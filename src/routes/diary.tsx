@@ -3,6 +3,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
+import { POLLEN_VARIABLES } from '../sources/pollenCalendar'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
@@ -10,7 +11,9 @@ import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismisse
 import { BackupChip } from '../ui/durabilityUi'
 import { VARIABLE_LABELS, levelWord, variableName } from '../ui/labels'
 import { isPending, settled } from '../ui/pendingExposure'
+import { calendarPollenPatch } from '../ui/pollenTag'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
+import { lastKnownCoords } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
 
@@ -87,7 +90,13 @@ function Diary() {
           entry={modelDiary[conflict.entryIndex]}
           onTag={(id, tag) => {
             const entry = diary.find((e) => e.id === id)
-            amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
+            // "pollen" is the one tag the app can answer instead of filing: it
+            // names a variable, and where a calendar season covers that day the
+            // entry gets it as an estimate and re-enters inference. Everywhere
+            // else — and every other tag — it stays a reason to distrust the day.
+            const patch = entry ? calendarPollenPatch(entry, lastKnownCoords()) : null
+            if (tag === 'pollen' && patch) amend(id, patch)
+            else amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
             // Which tag they picked is a symptom note; only the card kind ships.
             track('Conflict tagged', { kind: conflict.kind })
           }}
@@ -147,6 +156,18 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
         text: `trigger — ${levelWord(level)} near ${fmt(confirmed![level]!)}${hasTol ? `, fine up to ${fmt(tol)}` : ''}`,
       }
     }
+    // One bad day where this was the lone candidate, but other air was about:
+    // a real lead, and not yet a claim the forecast will stand on.
+    const oneDay = model.confirmations.find(
+      (c) => c.variable === variable && c.strength === 'suspected-strong',
+    )
+    if (oneDay) {
+      return {
+        glyph: '◐',
+        cls: 'suspect',
+        text: `suspect — one day points at it near ${fmt(oneDay.bound)}`,
+      }
+    }
     if (model.constraints.some((c) => c.candidates.includes(variable))) {
       return { glyph: '◐', cls: 'suspect', text: 'suspect — never seen it act alone' }
     }
@@ -167,6 +188,13 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   ]
   const cold = summarize('cold_dry_stress', (v) => fmtTempStress('cold_dry_stress', v))
   if (cold.cls !== '') rows.splice(5, 0, { name: 'Cold, dry', ...cold })
+  // Pollen earns a line once the diary has a verdict on a species — named by
+  // species, since that is what the evidence is about. Outside Europe it is
+  // usually a calendar estimate, which can reach "suspect" and no further.
+  for (const variable of POLLEN_VARIABLES) {
+    const row = summarize(variable, bare)
+    if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
+  }
   return rows
 }
 
@@ -195,10 +223,14 @@ function ConflictCard({
   return (
     <section className="conflict-card" id={`conflict-${conflict.entryIndex}`}>
       <span className="conflict-text">
-        <strong>{when} does not add up.</strong>{' '}
-        {conflict.kind === 'unmodeled-trigger'
-          ? `You rated it ${levelWord(entry.rating)}, but everything I track sat at levels you have handled fine. Was something else going on?`
-          : `You rated it ${levelWord(entry.rating)}, but you have since handled more of everything elevated that day. Newer evidence wins — if something else explains it, tag it.`}
+        <strong>
+          {when} {conflict.kind === 'sensitivity-shift' ? 'changed what I count as tolerable' : 'does not add up'}.
+        </strong>{' '}
+        {conflict.kind === 'sensitivity-shift'
+          ? `You rated it ${levelWord(entry.rating)} in air you had handled fine before, and that has now happened more than once. Your recent days win: I have lowered what counts as proven-tolerable and re-read the diary.`
+          : conflict.kind === 'unmodeled-trigger'
+            ? `You rated it ${levelWord(entry.rating)}, but everything I track sat at levels you have handled fine. Was something else going on?`
+            : `You rated it ${levelWord(entry.rating)}, but you have since handled more of everything elevated that day. Newer evidence wins — if something else explains it, tag it.`}
       </span>
       <div className="chip-row">
         {CONFLICT_TAGS.map((tag) => (
@@ -271,6 +303,13 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
     if (v > 0) {
       const short = VARIABLE_LABELS[key]?.short ?? key
       parts.push({ ratio: v / prior, text: `${short} ${Math.round(v)}` })
+    }
+  }
+  for (const key of POLLEN_VARIABLES) {
+    const v = entry.exposure[key] ?? 0
+    const prior = PRIORS[key]?.[2] ?? 1
+    if (v > 0) {
+      parts.push({ ratio: v / prior, text: `${VARIABLE_LABELS[key]!.short} ${Math.round(v)}` })
     }
   }
   const heat = entry.exposure.heat_stress ?? 0
