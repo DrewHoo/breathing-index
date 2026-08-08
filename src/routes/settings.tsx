@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { searchPlaces, type PlaceResult } from '../sources/geocodeSearch'
 import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
+import { DISCLAIMER } from '../ui/labels'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { exportDiary, mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
 import {
@@ -246,6 +247,14 @@ function SettingsScreen() {
         </span>
         <span className="settings-footer-chevron">▸</span>
       </Link>
+
+      <span className="settings-note">{DISCLAIMER}</span>
+      {/* Plain anchors: these are prerendered documents, not app routes. */}
+      <span className="legal-links">
+        <a href="/privacy">Privacy</a>
+        <span>·</span>
+        <a href="/terms">Terms</a>
+      </span>
     </>
   )
 }

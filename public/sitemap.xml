@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Only the root is listed. The other routes (/detail, /diary, /scoreboard,
-  /settings) are app state rather than content: they render from the visitor's
-  own diary, serve the same HTML through the SPA 404 shim, and GitHub Pages
-  returns them with a 404 status. They canonicalise here instead.
+  The root plus the two prerendered documents — the only URLs here that are
+  content and return 200. The app routes (/detail, /diary, /scoreboard,
+  /settings) are app state: they render from the visitor's own diary, serve the
+  same HTML through the SPA 404 shim, and GitHub Pages returns them with a 404
+  status. They canonicalise to the root instead.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -11,5 +12,17 @@
     <lastmod>2026-08-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/privacy</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/terms</loc>
+    <lastmod>2026-08-07</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

@@ -13,7 +13,13 @@ import { sentinelInLocalStorage } from '../ui/durability'
 import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
-import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
+import {
+  BI_LABELS,
+  FORECAST_MEANING,
+  RESCUE_CLAUSE,
+  VARIABLE_LABELS,
+  levelWord,
+} from '../ui/labels'
 import { LocationNeededCard } from '../ui/locationUi'
 import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
@@ -405,6 +411,8 @@ function ForecastBlock({
       <span className="forecast-meaning">
         {coldStart ? 'Averages for sensitive lungs — not you, yet.' : FORECAST_MEANING[ceiling]}
       </span>
+      {/* Only where it is predicted. A 4 the user logged is their own report. */}
+      {ceiling === 4 && <span className="rescue-note">{RESCUE_CLAUSE}</span>}
       {holdOut && (
         <span className="holdout-note">
           Your rating above isn&rsquo;t counted here — this is what your other days expect from air

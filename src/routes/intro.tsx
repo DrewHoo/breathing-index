@@ -6,7 +6,7 @@ import { LevelPill } from '../ui/bits'
 import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
 import { mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
 import { clearSentinel, sentinelInIndexedDb, sentinelInLocalStorage } from '../ui/durability'
-import { BI_LABELS } from '../ui/labels'
+import { BI_LABELS, DISCLAIMER } from '../ui/labels'
 import { loadSettings, saveSettings } from '../ui/settings'
 
 export const Route = createFileRoute('/intro')({ component: Intro })
@@ -84,6 +84,10 @@ function Intro() {
         ))}
       </div>
       <p className="intro-privacy">Your diary never leaves this phone. No account, no cloud.</p>
+      <p className="intro-privacy disclaimer">{DISCLAIMER}</p>
+      <p className="intro-privacy">
+        <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+      </p>
       <div className="intro-cta-block">
         <button type="button" className="intro-cta" onClick={() => finish('location')}>
           Use my location
