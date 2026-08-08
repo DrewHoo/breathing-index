@@ -8,7 +8,7 @@ export interface SavedLocation {
 export type UnitPreference = 'auto' | 'celsius' | 'fahrenheit'
 
 export interface Settings {
-  /** 'auto' = follow geolocation (Hamden fallback); otherwise index into locations */
+  /** 'auto' = follow geolocation (no fallback: see useExposureSeries) */
   activeLocation: 'auto' | number
   locations: SavedLocation[]
   /** show AirNow measured comparison (US only) */
@@ -25,7 +25,9 @@ const KEY = 'breathing-index.settings.v1'
 
 export const DEFAULT_SETTINGS: Settings = {
   activeLocation: 'auto',
-  locations: [{ label: 'Hamden, CT', lat: 41.396, lon: -72.897 }],
+  // Nobody starts out having chosen a place. Seeding one put my town in a
+  // stranger's list, one tap from becoming the air their diary is graded on.
+  locations: [],
   airnowEnabled: true,
   units: 'auto',
   introSeen: false,

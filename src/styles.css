@@ -887,6 +887,23 @@ main {
   color: var(--faint);
 }
 
+.place-search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 4px;
+}
+
+.place-search-actions {
+  display: flex;
+  gap: 14px;
+  padding-bottom: 4px;
+}
+
+.place-search-actions .row-action {
+  padding: 6px 0;
+}
+
 .location-form {
   display: flex;
   gap: 6px;
@@ -1024,6 +1041,15 @@ main {
   font: 400 11px var(--sans);
   color: var(--faint);
   padding: 6px 0 6px 6px;
+}
+
+/* --- location needed: the card shown in place of air we cannot honestly show --- */
+
+.locneed-link {
+  margin-left: auto;
+  font: 500 11.5px var(--sans);
+  color: var(--accent);
+  text-decoration: none;
 }
 
 .backup-chip-row {

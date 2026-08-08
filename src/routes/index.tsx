@@ -14,6 +14,7 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { BI_LABELS, FORECAST_MEANING, VARIABLE_LABELS, levelWord } from '../ui/labels'
+import { LocationNeededCard } from '../ui/locationUi'
 import { todaysSimilarEntries } from '../ui/recentEntry'
 import { loadSettings } from '../ui/settings'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
@@ -55,7 +56,7 @@ function fmtHour(h: number, spaced: boolean): string {
 }
 
 function Home() {
-  const { location, source, series: data, error, stale } = useExposureSeries()
+  const { location, source, gap, retryLocation, series: data, error, stale } = useExposureSeries()
   const { log: forceLog } = Route.useSearch()
   const navigate = useNavigate()
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)
@@ -97,8 +98,21 @@ function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
+  // No place, no air — the whole screen is the ask, since a forecast under it
+  // would be a forecast for somewhere else.
+  if (gap) {
+    return (
+      <>
+        <header className="screen-header">
+          <span className="wordmark">Breathing Index 🫁</span>
+        </header>
+        <LocationNeededCard gap={gap} onRetry={retryLocation} />
+      </>
+    )
+  }
   if (error) return <p className="status-line error">Couldn&rsquo;t reach Open-Meteo: {error}</p>
-  if (!data || !current || !prediction) return <p className="status-line">Reading the air…</p>
+  if (!location || !data || !current || !prediction)
+    return <p className="status-line">Reading the air…</p>
 
   const updateDiary = (next: DiaryEntry[]) => {
     setDiary(next)
@@ -166,18 +180,24 @@ function Home() {
   // "log again" reopens the ask over an existing answer; a fresh tap closes it.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
+  // A rating binds to the air in `current` forever, so the ask only appears
+  // over air from a place the user chose or the device reported. The hook no
+  // longer serves the sample place; this is what keeps it that way.
+  const chosenPlace = source !== 'default'
 
   return (
     <>
       <header className="screen-header">
         <span className="wordmark">Breathing Index 🫁</span>
         <span className="header-meta">
-          {location.label.replace(' (default)', '')} · {fetchedTime}
+          {location.label} · {fetchedTime}
         </span>
       </header>
       {stale && <p className="stale-banner">Offline — showing air fetched {fetchedTime}.</p>}
 
-      {showCard && (
+      {!chosenPlace && <LocationNeededCard gap="no-answer" onRetry={retryLocation} />}
+
+      {showCard && chosenPlace && (
         <QuickLogCard
           coldStart={coldStart}
           saved={echo}
@@ -202,7 +222,7 @@ function Home() {
       <ForecastBlock
         prediction={prediction}
         coldStart={coldStart}
-        holdOut={showCard && echo !== null}
+        holdOut={showCard && chosenPlace && echo !== null}
         banked={coldStart ? heldOut.length : 0}
       />
       <WhyBlock

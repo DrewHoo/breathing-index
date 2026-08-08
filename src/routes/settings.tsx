@@ -1,10 +1,17 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { searchPlaces, type PlaceResult } from '../sources/geocodeSearch'
 import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { exportDiary, mergeDiary, parseDiaryImport } from '../ui/diaryTransfer'
-import { loadSettings, saveSettings, type Settings, type UnitPreference } from '../ui/settings'
+import {
+  loadSettings,
+  saveSettings,
+  type SavedLocation,
+  type Settings,
+  type UnitPreference,
+} from '../ui/settings'
 import { detectTemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
 
@@ -23,14 +30,14 @@ function SettingsScreen() {
     saveSettings(next)
   }
 
-  const addLocation = (form: HTMLFormElement) => {
-    const data = new FormData(form)
-    const label = String(data.get('label') ?? '').trim()
-    const lat = Number(data.get('lat'))
-    const lon = Number(data.get('lon'))
-    if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) return
-    update({ ...settings, locations: [...settings.locations, { label, lat, lon }] })
-    form.reset()
+  // One tap adds the place and starts reading its air — nobody searches for
+  // somewhere they did not want to look at.
+  const addLocation = (place: SavedLocation) => {
+    update({
+      ...settings,
+      locations: [...settings.locations, { label: place.label, lat: place.lat, lon: place.lon }],
+      activeLocation: settings.locations.length,
+    })
     setAdding(false)
   }
 
@@ -96,7 +103,7 @@ function SettingsScreen() {
             <span className="settings-row-label">Follow my location</span>
             {settings.activeLocation === 'auto' && (
               <span className="settings-row-hint">
-                {location.label.replace(' (default)', '')} now
+                {location ? `${location.label} now` : 'no fix yet'}
               </span>
             )}
           </button>
@@ -116,20 +123,7 @@ function SettingsScreen() {
             </div>
           ))}
           {adding ? (
-            <form
-              className="location-form"
-              onSubmit={(e) => {
-                e.preventDefault()
-                addLocation(e.currentTarget)
-              }}
-            >
-              <input name="label" placeholder="name" className="note-input" />
-              <input name="lat" placeholder="lat" inputMode="decimal" className="note-input" />
-              <input name="lon" placeholder="lon" inputMode="decimal" className="note-input" />
-              <button type="submit" className="location-form-add">
-                add
-              </button>
-            </form>
+            <PlaceSearch onPick={addLocation} onCancel={() => setAdding(false)} />
           ) : (
             <button type="button" className="settings-row" onClick={() => setAdding(true)}>
               <span className="radio-plus">+</span>
@@ -253,5 +247,109 @@ function SettingsScreen() {
         <span className="settings-footer-chevron">▸</span>
       </Link>
     </>
+  )
+}
+
+/**
+ * Type a name, tap a result. Latitude and longitude are still reachable, one
+ * disclosure down, because a trailhead has coordinates and no name — but nobody
+ * should have to prove they know where Denver is to three decimal places.
+ */
+function PlaceSearch({
+  onPick,
+  onCancel,
+}: {
+  onPick: (place: SavedLocation) => void
+  onCancel: () => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PlaceResult[]>([])
+  const [note, setNote] = useState<string | null>(null)
+  const [coordinates, setCoordinates] = useState(false)
+
+  useEffect(() => {
+    const name = query.trim()
+    if (name.length < 2) {
+      setResults([])
+      setNote(null)
+      return
+    }
+    let cancelled = false
+    // Typing is a stream of half-written names; only the pause is a question.
+    const timer = setTimeout(() => {
+      void searchPlaces(name).then((found) => {
+        if (cancelled) return
+        if (!found) {
+          setResults([])
+          setNote('Could not reach the place index. Try again, or enter coordinates.')
+          return
+        }
+        setResults(found)
+        setNote(found.length ? null : `Nothing called “${name}”.`)
+      })
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [query])
+
+  const addCoordinates = (form: HTMLFormElement) => {
+    const data = new FormData(form)
+    const label = String(data.get('label') ?? '').trim()
+    const lat = Number(data.get('lat'))
+    const lon = Number(data.get('lon'))
+    if (!label || !Number.isFinite(lat) || !Number.isFinite(lon)) return
+    onPick({ label, lat, lon })
+  }
+
+  return (
+    <div className="place-search">
+      <input
+        className="note-input"
+        placeholder="search for a place"
+        autoFocus
+        autoComplete="off"
+        enterKeyHint="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {results.map((place) => (
+        <button
+          key={`${place.label}-${place.lat},${place.lon}`}
+          type="button"
+          className="settings-row"
+          onClick={() => onPick(place)}
+        >
+          <span className="settings-row-label">{place.label}</span>
+          {place.detail && <span className="settings-row-hint">{place.detail}</span>}
+        </button>
+      ))}
+      {note && <span className="settings-note">{note}</span>}
+      <div className="place-search-actions">
+        <button type="button" className="row-action" onClick={() => setCoordinates((v) => !v)}>
+          enter coordinates
+        </button>
+        <button type="button" className="row-action" onClick={onCancel}>
+          cancel
+        </button>
+      </div>
+      {coordinates && (
+        <form
+          className="location-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            addCoordinates(e.currentTarget)
+          }}
+        >
+          <input name="label" placeholder="name" className="note-input" />
+          <input name="lat" placeholder="lat" inputMode="decimal" className="note-input" />
+          <input name="lon" placeholder="lon" inputMode="decimal" className="note-input" />
+          <button type="submit" className="location-form-add">
+            add
+          </button>
+        </form>
+      )}
+    </div>
   )
 }
