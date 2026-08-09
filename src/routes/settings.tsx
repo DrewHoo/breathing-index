@@ -251,8 +251,9 @@ function SettingsScreen() {
           </div>
         </div>
         <span className="settings-note">
-          Anonymous usage pings (screen views, taps — never ratings, notes, or location) help me see
-          what&rsquo;s broken.
+          Anonymous usage pings (screen views, taps — never ratings, notes, or your precise
+          location; they do carry the rough city read off your network address) help me see
+          what&rsquo;s broken and whether anyone is out there.
         </span>
       </section>
 
