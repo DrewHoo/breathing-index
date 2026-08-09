@@ -1291,18 +1291,11 @@ h1 {
   padding: 3px 9px;
 }
 
+/* The value is an AQI point read back into µg/m³ — a conversion, not a
+   measurement, which is why it always wears its ≈. */
 .measured-item strong {
   font-weight: 600;
   color: var(--ink);
-}
-
-/* The AQI points read back into µg/m³, so the chip and the rows above it are
-   in the same unit. Set apart, because it is a conversion, not a measurement. */
-.measured-bridge {
-  color: var(--secondary);
-  font-size: 11.5px;
-  margin-left: 5px;
-  white-space: nowrap;
 }
 
 .measured-item.primary {

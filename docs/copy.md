@@ -133,11 +133,16 @@ Intro:
 
 ### 13. AirNow measured-strip caption
 
-Three lines, because one caption was doing two jobs badly. The first says what the numbers on
-the chips are; each chip also carries its AQI value read back through the EPA table
-("station ≈ 112 µg/m³"), so the strip and the model rows above it are in the same unit:
+Three lines, because one caption was doing two jobs badly. The chips show *only* a
+concentration ("OZONE ≈ 87 µg/m³") — the AQI point AirNow actually reports is walked back
+through the EPA table before display and never reaches the screen. Two numbers both labelled
+"Ozone" in different unit systems read as a disagreement when the air agrees (an AQI 41 beside
+a model 99 µg/m³ looks 2× apart; the concentrations were 12% apart), and every AQI point shown
+re-anchors the reader on the population scale the diary exists to replace. Official indices
+appear on the scoreboard (§12) and nowhere else. The first caption line says where the numbers
+come from and why they can lag:
 
-> Station readings from AirNow, reported as AQI points; the µg/m³ beside each is that value read back through the EPA table, for comparison with the rows above.
+> Nearby monitor readings from AirNow, in the same µg/m³ as the rows above. Stations report averages — 24 h for particles, 8 h for ozone — so a chip can lag a sharp change.
 
 Then the disagreement line, which is *per pollutant*, because the two disagreements do not mean
 the same thing. Particles: the station reads a hyperlocal source the model could not see.

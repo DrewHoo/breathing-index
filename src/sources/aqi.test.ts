@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PRIORS } from '../engine/config'
-import { bridgeableParameter, concentrationFromAqi, concentrationLabel } from './aqi'
+import { bridgeableParameter, concentrationFromAqi } from './aqi'
 
 const at = (parameter: string, aqi: number): number => {
   const value = concentrationFromAqi(parameter, aqi)
@@ -48,10 +48,5 @@ describe('concentrationFromAqi', () => {
     expect(concentrationFromAqi('PM2.5', 501)).toBeNull()
     expect(concentrationFromAqi('PM2.5', -1)).toBeNull()
     expect(concentrationFromAqi('PM2.5', Number.NaN)).toBeNull()
-  })
-
-  it('labels in the same unit the model rows use', () => {
-    expect(concentrationLabel('PM2.5', 101)).toBe('≈ 36 µg/m³')
-    expect(concentrationLabel('NO2', 101)).toBeNull()
   })
 })
