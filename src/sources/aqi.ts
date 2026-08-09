@@ -6,7 +6,8 @@
  * position on a piecewise index, not a number of micrograms, and sitting it
  * under "Ozone 180 µg/m³" invited a comparison that was never true. The EPA
  * mapping is piecewise-linear and invertible inside a category, so the points
- * can be walked back to the concentration that produced them.
+ * can be walked back to the concentration that produced them — which is the
+ * only number the strip shows: the points themselves never reach the screen.
  *
  * The tables are the ones `scripts/derive-breakpoints.mjs` documents, extended
  * to the full ladder (that script only needs each category's lower bound; an
@@ -105,10 +106,4 @@ export function concentrationFromAqi(parameter: string, aqi: number): number | n
   const [cLo, cHi] = band
   const value = cLo + ((aqi - iLo) * (cHi - cLo)) / (iHi - iLo)
   return table.unit === 'ppb' ? value * UG_M3_PER_PPB.o3 : value
-}
-
-/** "≈ 112 µg/m³", or null when there is nothing honest to print. */
-export function concentrationLabel(parameter: string, aqi: number): string | null {
-  const value = concentrationFromAqi(parameter, aqi)
-  return value === null ? null : `≈ ${Math.round(value)} µg/m³`
 }

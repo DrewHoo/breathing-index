@@ -4,7 +4,7 @@ import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
-import { bridgeableParameter, concentrationLabel } from '../sources/aqi'
+import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
@@ -1089,11 +1089,23 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
     }
   }, [enabled, lat, lon])
 
-  if (!enabled || !report || report.observations.length === 0) return null
+  if (!enabled || !report) return null
 
-  const measured = report.observations.map((o) => bridgeableParameter(o.parameter))
-  const particles = measured.some((v) => v === 'pm25' || v === 'pm10')
-  const ozone = measured.includes('o3')
+  // AQI points are population vocabulary, and this screen speaks µg/m³. Two
+  // numbers both labelled "Ozone" in different unit systems read as a 2×
+  // disagreement when the air actually agrees, so a chip only appears when the
+  // EPA table can walk its points back to a concentration; anything it cannot
+  // (rare gases, off-table values) stays off the screen rather than showing a
+  // number the rows above cannot answer. The points themselves live on only in
+  // the diary scoreboard, the one screen official indices are for.
+  const chips = report.observations.flatMap((o) => {
+    const value = concentrationFromAqi(o.parameter, o.aqi)
+    return value === null ? [] : [{ ...o, value, variable: bridgeableParameter(o.parameter)! }]
+  })
+  if (chips.length === 0 && !report.actionDay) return null
+
+  const particles = chips.some((c) => c.variable === 'pm25' || c.variable === 'pm10')
+  const ozone = chips.some((c) => c.variable === 'o3')
 
   return (
     <section className="section">
@@ -1104,20 +1116,18 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
       />
       {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
       <div className="measured-row">
-        {report.observations.map((o) => {
-          const bridged = concentrationLabel(o.parameter, o.aqi)
-          return (
-            <span key={o.parameter} className={`measured-item${o.isPrimary ? ' primary' : ''}`}>
-              {o.parameter} <strong>{o.aqi}</strong> {o.category}
-              {bridged && <span className="measured-bridge">station {bridged}</span>}
-            </span>
-          )
-        })}
+        {chips.map((c) => (
+          <span key={c.parameter} className={`measured-item${c.isPrimary ? ' primary' : ''}`}>
+            {c.parameter} <strong>≈ {Math.round(c.value)}</strong> µg/m³
+          </span>
+        ))}
       </div>
-      <span className="settings-note">
-        Station readings from AirNow, reported as AQI points; the µg/m³ beside each is that value
-        read back through the EPA table, for comparison with the rows above.
-      </span>
+      {chips.length > 0 && (
+        <span className="settings-note">
+          Nearby monitor readings from AirNow, in the same µg/m³ as the rows above. Stations
+          report averages — 24 h for particles, 8 h for ozone — so a chip can lag a sharp change.
+        </span>
+      )}
       {/* The two disagreements do not mean the same thing, so they do not share
           a caption. A station reading high on particles is a source the model
           could not see; ozone has no hyperlocal source, so a model running high
