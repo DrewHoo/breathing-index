@@ -1,0 +1,314 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages: no bundle, no JS, no router. The
+  app's service worker is told to leave this path alone
+  (navigateFallbackDenylist in vite.config.ts) so an installed PWA gets the
+  essay and not the app shell.
+
+  Every number in this page comes from docs/m1-findings.md in the repo. If that
+  spike is ever re-run and the figures move, they move here too.
+
+  The footer paragraph is a literal copy of DISCLAIMER in src/ui/labels.ts.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <title>Smoke vs ozone: same AQI, different lungs — Breathing Index</title>
+    <meta
+      name="description"
+      content="Two days with comparable ozone that felt nothing alike. The PM2.5/PM10 fine fraction hit 0.93 on the smoke day — a fingerprint the composite AQI never shows."
+    />
+    <meta name="theme-color" content="#F3F6F7" />
+    <meta name="author" content="Drew Hoover" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://breathingindex.com/smoke-vs-ozone" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/content.css" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Breathing Index" />
+    <meta property="og:title" content="Smoke vs ozone: same AQI, different lungs" />
+    <meta
+      property="og:description"
+      content="Two days with comparable ozone that felt nothing alike. The PM2.5/PM10 fine fraction hit 0.93 on the smoke day — a fingerprint the composite AQI never shows."
+    />
+    <meta property="og:url" content="https://breathingindex.com/smoke-vs-ozone" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:image" content="https://breathingindex.com/og-smoke-vs-ozone.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Share card: two pairs of bars comparing PM2.5 against PM10. The smoke day's bars are nearly equal height, a fine fraction of 0.93; the dust day's fine bar is a fraction of the coarse one."
+    />
+    <meta property="article:author" content="Drew Hoover" />
+    <meta property="article:published_time" content="2026-08-07" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Smoke vs ozone: same AQI, different lungs" />
+    <meta
+      name="twitter:description"
+      content="Two days with comparable ozone that felt nothing alike. The PM2.5/PM10 fine fraction hit 0.93 on the smoke day — a fingerprint the composite AQI never shows."
+    />
+    <meta name="twitter:image" content="https://breathingindex.com/og-smoke-vs-ozone.png" />
+    <meta
+      name="twitter:image:alt"
+      content="Share card: two pairs of bars comparing PM2.5 against PM10. The smoke day's bars are nearly equal height, a fine fraction of 0.93; the dust day's fine bar is a fraction of the coarse one."
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": "Smoke vs ozone: same AQI, different lungs",
+        "description": "Two days with comparable ozone that felt nothing alike. The PM2.5/PM10 fine fraction hit 0.93 on the smoke day — a fingerprint the composite AQI never shows.",
+        "datePublished": "2026-08-07",
+        "dateModified": "2026-08-07",
+        "inLanguage": "en",
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": "https://breathingindex.com/smoke-vs-ozone"
+        },
+        "image": "https://breathingindex.com/og-smoke-vs-ozone.png",
+        "author": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/",
+          "sameAs": ["https://github.com/DrewHoo"]
+        },
+        "publisher": {
+          "@type": "Person",
+          "name": "Drew Hoover",
+          "url": "https://drewhoover.com/"
+        },
+        "about": ["Wildfire smoke", "Ozone", "PM2.5", "Asthma", "Air quality index"]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+
+      <p class="kicker">Essay</p>
+      <h1>Smoke vs ozone: same AQI, different lungs</h1>
+      <p class="lede">
+        Two afternoons, three days apart, with ozone peaks within about eight percent of each other.
+        One of them I walked through. The other one ended my walk. The difference was in the
+        particulate, and there is a cheap way to see it that no headline number reports.
+      </p>
+      <p class="byline">Drew Hoover · 7 August 2026</p>
+
+      <h2>The two afternoons</h2>
+      <p>
+        These are model and station numbers I pulled for both locations on 6 August 2026, written up
+        in
+        <a href="https://github.com/DrewHoo/breathing-index/blob/main/docs/m1-findings.md"
+          >docs/m1-findings.md</a
+        >. Nothing here is remembered; it is all in the spike output.
+      </p>
+
+      <div class="receipt">
+        <h3>Amsterdam, 3–4 August — one elevated thing</h3>
+        <ul>
+          <li>Ozone peaked at <span class="num">156 µg/m³</span> (Monday, 17:00).</li>
+          <li>PM2.5 sat at <span class="num">10–12 µg/m³</span> through daytime hours.</li>
+          <li>Official label: Dutch LKI <span class="num">7–8</span>, <em>onvoldoende</em>.</li>
+          <li>Felt like: lungs working harder. Plans unchanged.</li>
+        </ul>
+      </div>
+
+      <div class="receipt">
+        <h3>Hamden, Connecticut, 6 August — two elevated things</h3>
+        <ul>
+          <li>
+            Ozone climbed <span class="num">59 → 168 µg/m³</span> across the afternoon, with the
+            8-hour sub-index going <span class="num">50 → 72 → 113 → 133</span> by 21:00.
+          </li>
+          <li>
+            PM2.5 held flat at <span class="num">13–14 µg/m³</span> all day. Measured at the New
+            Haven stations: PM2.5 AQI <span class="num">55</span>, the day's primary pollutant.
+          </li>
+          <li>
+            Official label at the moment I checked: US AQI <span class="num">70</span>,
+            <em>Moderate</em>. Also, separately, an official Ozone Action Day.
+          </li>
+          <li>Felt like: cut the walk short.</li>
+        </ul>
+      </div>
+
+      <p class="pull">
+        Comparable ozone, wildly different days. The variable that changed was the one the composite
+        number had already discarded.
+      </p>
+
+      <h2>The fine-fraction fingerprint</h2>
+      <p>
+        Particulate matter is reported in two sizes, and the ratio between them is the most
+        informative free number in air quality data.
+      </p>
+      <ul>
+        <li>
+          <strong>PM10</strong> is everything under 10 micrometers. Dust, road grit, crushed
+          material, bits of pollen and mold — mechanical stuff, ground up and lofted. It is
+          <em>coarse-dominated</em>.
+        </li>
+        <li>
+          <strong>PM2.5</strong> is the fraction under 2.5 micrometers, and it is a subset of PM10,
+          not a separate thing. Combustion makes it: fires, engines, and the secondary aerosol that
+          forms in the atmosphere out of gases.
+        </li>
+      </ul>
+      <p>
+        So divide one by the other. If PM2.5/PM10 is low — say 0.3 — most of the mass is coarse, and
+        you are in dust, or agriculture, or a windy dry spell. If it is high, nearly all the mass is
+        fine-mode, and something burned.
+      </p>
+
+      <div class="receipt">
+        <h3>Hamden, 6 August, ~15:00 EDT</h3>
+        <p>
+          Model: PM2.5 <span class="num">14.0</span>, PM10 <span class="num">15.0 µg/m³</span>. Fine
+          fraction <span class="num">0.93</span>.
+        </p>
+        <p>
+          Measured, same hour: PM2.5 sub-index <span class="num">55</span>, PM10 sub-index
+          <span class="num">18</span>. Two instruments, same story.
+        </p>
+        <p>
+          Ninety-three percent of the particulate mass was fine. There is essentially no dust in
+          that air. It is smoke, or something else that burned and drifted.
+        </p>
+      </div>
+
+      <p>
+        That single ratio is the difference between "there's grit in the air today" and "there is a
+        fire upwind of me", and it takes one division on numbers both major data sources already
+        hand out for free. The composite AQI does not report it, because the composite AQI reports
+        the maximum sub-index and the name of the pollutant that produced it, and nothing else about
+        what is in the air.
+      </p>
+
+      <h2>Why the two do different things to asthmatic airways</h2>
+      <p>
+        Careful here: I am an asthmatic with a data spike, not a pulmonologist, and this app is
+        deliberately built to reason from your diary rather than from mechanism. But the general
+        physiology is well documented — the EPA's Integrated Science Assessments for ozone and for
+        particulate matter are the umbrella reviews — and it explains why "the same AQI" is a
+        meaningless unit of comparison between them.
+      </p>
+
+      <h3>Ozone is a gas, and your effort is the dose</h3>
+      <p>
+        Ozone is a strong oxidant. It is only sparingly soluble, so it does not get scrubbed out in
+        the nose and upper airway the way more soluble gases do — it travels down and reacts where
+        it lands. The consequence that matters practically is that <em>the harder you breathe, the
+        more you get</em>. Same concentration, twice the ventilation, roughly twice the dose. An
+        ozone afternoon punishes exercise specifically, which is why the advice is always about
+        moving your run rather than about staying in.
+      </p>
+      <p>
+        It also has a shape. Ozone is photochemical — it is built by sunlight out of precursor
+        pollution — so it ramps through the day and collapses overnight, every time. On the Hamden
+        day the 8-hour sub-index was <span class="num">27–37</span> before ten in the morning and
+        <span class="num">113–159</span> from four in the afternoon until ten at night. That is not
+        a bad day. That is a bad half-day with a free half-day attached, and knowing which half you
+        are in is worth more than any label.
+      </p>
+
+      <h3>Smoke is particles, and they do not keep hours</h3>
+      <p>
+        Fine particulate is small enough to reach the deep lung rather than deposit in the upper
+        airways, and wildfire smoke in particular is not inert dust: it carries an oxidative,
+        chemically active organic load along with the carbon. For a lot of asthmatics — me, on this
+        evidence — it produces the tight, unproductive, hours-later kind of bad rather than the
+        sharp catch-your-breath kind.
+      </p>
+      <p>
+        And it has no diurnal escape hatch. A plume sits where the weather puts it. On the Hamden
+        day PM2.5 was flat from morning to night: there was no hour of that day when the smoke was
+        not there. That is why the timing advice on a smoke day is different from the timing advice
+        on an ozone day, and why a tool that tells you "AQI 70" on both is not a tool.
+      </p>
+
+      <h3>Together, they are not an average</h3>
+      <p>
+        The Hamden afternoon was both at once — moderate smoke-like particulate the whole time,
+        <em>and</em> ozone climbing into Unhealthy-for-Sensitive-Groups territory underneath it.
+        Asthma research generally treats simultaneous oxidant gas and fine particulate exposure as
+        compounding rather than as one substituting for the other, and a person standing outside at
+        six in the evening got the whole combination.
+      </p>
+      <p class="pull alarm">
+        A composite index cannot express "two things at once". <code>max()</code> has exactly one
+        output, and it had already spent it on the particulate.
+      </p>
+      <p>
+        This is the finding that changed the design of my app. The first version scored days with a
+        weighted maximum over sub-indices, which is a defensible thing to build right up until you
+        meet a day like this one, where any composite either hides a trigger or invents an
+        attribution. The engine now keeps ambiguity as ambiguity — several elevated variables
+        produce a candidate <em>set</em>, and later diary entries confirm or exonerate the members —
+        rather than picking a winner it has not earned.
+      </p>
+
+      <h2>How to tell which kind of day you are in</h2>
+      <p>None of this needs a subscription. It needs three numbers you can already get.</p>
+      <ol>
+        <li>
+          <strong>Fine fraction.</strong> PM2.5 divided by PM10. High means smoke or combustion
+          aerosol; low means dust, and possibly a pollen day wearing a particulate costume.
+        </li>
+        <li>
+          <strong>The ozone curve, not the ozone number.</strong> Look at the hourly forecast, find
+          the ramp, and pick your hour. If your only free hour is in the ramp, that is useful to know
+          in advance too.
+        </li>
+        <li>
+          <strong>Whether more than one thing is elevated.</strong> Two moderate things is not a
+          moderate day. If the composite is the only number you have, you cannot see this at all.
+        </li>
+      </ol>
+      <p>
+        And then the part no dataset can do: write down how you actually felt, with the readings
+        attached. Three smoke days that went badly and three ozone days that went fine is worth
+        more, for you specifically, than every published breakpoint combined — because the
+        breakpoints were never about you and your six entries are about nothing else.
+      </p>
+
+      <a class="cta" href="/">
+        <strong>Find out which one gets you →</strong>
+        <span>
+          Breathing Index shows PM2.5, PM10, ozone and the rest separately, and learns from a 1–4
+          rating you tap when you think of it. Free, no account, runs in your browser.
+        </span>
+      </a>
+
+      <div class="next">
+        <h2>Read next</h2>
+        <a href="/why-aqi-lies-to-your-lungs">Why the AQI lies to your lungs</a>
+        <p>
+          The max() that hides the driver, the averaging windows that lag the air, and the label
+          drawn for a population you are not in.
+        </p>
+        <a href="/what-moderate-means">What "Moderate" actually means, in µg/m³</a>
+        <p>
+          The EPA and WHO breakpoints in real units, and how they map onto a four-level behavioral
+          scale.
+        </p>
+      </div>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>
