@@ -295,7 +295,7 @@ function Home() {
       {saveFailed ? (
         <p className="save-error">
           Couldn&rsquo;t save that — this browser is out of room.{' '}
-          <Link to="/settings">Export your diary now.</Link>
+          <Link to="/settings">Export your logs now.</Link>
         </p>
       ) : (
         <InstallNudge entryCount={diary.length} />
@@ -711,7 +711,7 @@ function WhyBlock({
             </>
           ) : (
             <>
-              No diary yet, so this ceiling comes from population breakpoints for sensitive groups.
+              No logs yet, so this ceiling comes from population breakpoints for sensitive groups.
               Every entry you log replaces a piece of it with <em>you</em>.
             </>
           )}

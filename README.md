@@ -12,9 +12,9 @@ Instead of a uselessly granular 1-500 AQI index, your BQI has four ratings:
 3. Limiting -- when you have to cut your walk short or use the peloton instead.  
 4. Dangerous -- when you're worried about your ability to keep breathing.  
 
-Each diary entry is a 1–4 rating plus the full exposure vector at log time. A good entry is tolerance evidence for everything in that entry's measured air; a bad entry with several elevated variables produces an ambiguous candidate set, which the model keeps as-is until later entries confirm one candidate or exonerate another. The full model, with worked examples, is in [docs/trigger-model.md](docs/trigger-model.md); product spec and milestones are in [SPEC.md](SPEC.md).
+Each log entry is a 1–4 rating plus the full exposure vector at log time. A good entry is tolerance evidence for everything in that entry's measured air; a bad entry with several elevated variables produces an ambiguous candidate set, which the model keeps as-is until later entries confirm one candidate or exonerate another. The full model, with worked examples, is in [docs/trigger-model.md](docs/trigger-model.md); product spec and milestones are in [SPEC.md](SPEC.md).
 
-Official composite indices (US AQI, EU EAQI) are captured on each diary entry for possible later comparison, but never appear in the UI and are never used by inference.
+Official composite indices (US AQI, EU EAQI) are captured on each log entry for possible later comparison, but never appear in the UI and are never used by inference.
 
 ## Stack
 
@@ -25,13 +25,13 @@ TypeScript, React, Vite, TanStack Router (file-based routes), vite-plugin-pwa. T
 - **Open-Meteo** air quality + weather APIs — model data, no key required, worldwide.
 - **AirNow** keyless widget endpoint — station measurements for comparison, US only, unofficial.
 
-All fetching is client-side; there is no backend. The diary lives in `localStorage` — export and import are in Settings.
+All fetching is client-side; there is no backend. Logs live in `localStorage` — export and import are in Settings.
 
 Freshness comes from the payload's own newest hour rather than from when the response arrived: the service worker serves Open-Meteo network-first with a six-hour cache, so a cache hit is indistinguishable from a live fetch at arrival time. With no readings at all the quick log still works — the rating saves at once and picks up the exposure vector for its hour from Open-Meteo's three-day history on the next successful fetch. Until it does, the entry stays out of inference.
 
-Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites diary history.
+Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites logged history.
 
-The palette follows `prefers-color-scheme`, with no manual toggle: a 4 AM breathing check should not be a flashlight to the face, and the four severity colours are re-pointed rather than inverted so the quiet end of the ramp stays quiet on a dark ground. Screenshots at phone size: [Today](docs/img/dark-today.png) · [Diary](docs/img/dark-diary.png) · [Settings](docs/img/dark-settings.png).
+The palette follows `prefers-color-scheme`, with no manual toggle: a 4 AM breathing check should not be a flashlight to the face, and the four severity colours are re-pointed rather than inverted so the quiet end of the ramp stays quiet on a dark ground. Screenshots at phone size: [Today](docs/img/dark-today.png) · [Log](docs/img/dark-diary.png) · [Settings](docs/img/dark-settings.png).
 
 Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) and content-free: events record that a screen was viewed or an entry saved, never what was rated, tagged, noted, or measured, and IP geolocation is off. Turn it off entirely in Settings. Fonts are self-hosted, so the app makes no third-party request for chrome either.
 

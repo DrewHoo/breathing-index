@@ -4,15 +4,16 @@ export const Route = createRootRoute({ component: Layout })
 
 const TABS = [
   { to: '/', label: 'Today', exact: true },
-  { to: '/diary', label: 'Diary', exact: false },
+  // Label says Log; the /diary path stays so installed PWAs and old links work.
+  { to: '/diary', label: 'Log', exact: false },
   { to: '/settings', label: 'Settings', exact: false },
 ] as const
 
 function Layout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  const isIntro = pathname.replace(/\/$/, '').endsWith('/intro')
-
-  if (isIntro) return <Outlet />
+  // Full-page screens: no tab bar, they own the whole viewport.
+  const bare = pathname.replace(/\/$/, '')
+  if (bare.endsWith('/intro') || bare.endsWith('/about')) return <Outlet />
 
   return (
     <>

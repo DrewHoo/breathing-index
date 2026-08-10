@@ -7,7 +7,7 @@ import type { Rating } from '../engine/types'
  * change those three too.
  */
 export const DISCLAIMER =
-  'Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.'
+  'Breathing Index is a logbook lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.'
 
 /**
  * The extra clause a *predicted* 4 carries. A logged 4 is the user reporting
@@ -18,10 +18,10 @@ export const RESCUE_CLAUSE =
   '— if breathing feels dangerous, use your rescue plan and get help, whatever this app says.'
 
 export const BI_LABELS: Record<Rating, { label: string; meaning: string }> = {
-  1: { label: 'Easy', meaning: "The air isn't a factor. Do anything." },
-  2: { label: 'Noticeable', meaning: "You'll feel it, but carry on as planned." },
-  3: { label: 'Limiting', meaning: 'Change the plan: shorter, slower, later.' },
-  4: { label: 'Dangerous', meaning: 'Outside is unsafe for you. Stay in filtered air.' },
+  1: { label: 'Easy', meaning: "You're not thinking about breathing; it's like how breathing is supposed to be" },
+  2: { label: 'Noticeable', meaning: "You feel it, but can carry on as planned." },
+  3: { label: 'Limiting', meaning: 'You\'re prevented from doing stuff you want to do.' },
+  4: { label: 'Dangerous', meaning: 'You\'re taking your inhaler and following a rescue plan.' },
 }
 
 /**

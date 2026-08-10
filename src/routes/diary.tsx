@@ -53,7 +53,7 @@ function Diary() {
     <>
       <div className="page-title-row">
         <div className="page-title-group">
-          <h1 className="page-title">Diary</h1>
+          <h1 className="page-title">Log</h1>
           <span className="page-title-count">
             {diary.length} {diary.length === 1 ? 'entry' : 'entries'}
           </span>
@@ -65,13 +65,13 @@ function Diary() {
 
       {saveFailed && (
         <p className="save-error">
-          Couldn&rsquo;t save that change — export your diary now.
+          Couldn&rsquo;t save that change — export your logs now.
         </p>
       )}
       <BackupChip entryCount={diary.length} />
 
       <section className="section">
-        <SectionRule label="What your diary shows" />
+        <SectionRule label="What your logs show" />
         <div className="row-card">
           {evidenceRows(model, tempUnit).map((row) => (
             <div key={row.name} className="evidence-row">
@@ -227,7 +227,7 @@ function ConflictCard({
           {when} {conflict.kind === 'sensitivity-shift' ? 'changed what I count as tolerable' : 'does not add up'}.
         </strong>{' '}
         {conflict.kind === 'sensitivity-shift'
-          ? `You rated it ${levelWord(entry.rating)} in air you had handled fine before, and that has now happened more than once. Your recent days win: I have lowered what counts as proven-tolerable and re-read the diary.`
+          ? `You rated it ${levelWord(entry.rating)} in air you had handled fine before, and that has now happened more than once. Your recent days win: I have lowered what counts as proven-tolerable and re-read your logs.`
           : conflict.kind === 'unmodeled-trigger'
             ? `You rated it ${levelWord(entry.rating)}, but everything I track sat at levels you have handled fine. Was something else going on?`
             : `You rated it ${levelWord(entry.rating)}, but you have since handled more of everything elevated that day. Newer evidence wins — if something else explains it, tag it.`}

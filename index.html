@@ -7,7 +7,7 @@
     <title>Breathing Index — a personal 1–4 air scale</title>
     <meta
       name="description"
-      content="Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale."
+      content="Shows each pollutant, heat, and humidity separately, learns your triggers from your own breathing logs, and predicts your day on a personal four-level scale."
     />
     <!--
       Literal copy of DISCLAIMER in src/ui/labels.ts — this page ships before
@@ -15,7 +15,7 @@
     -->
     <meta
       name="disclaimer"
-      content="Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen."
+      content="Breathing Index is a logbook lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen."
     />
     <!--
       Two theme colours, because the app follows prefers-color-scheme (the dark
@@ -66,7 +66,7 @@
     <meta property="og:title" content="Breathing Index — a personal 1–4 air scale" />
     <meta
       property="og:description"
-      content="The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and predicts your day on a 1–4 scale."
+      content="A “moderate” AQI can floor you one day and be fine the next. Breathing Index splits the AQI into the measurements it hides, learns your triggers from your own breathing logs, and predicts your day on a 1–4 scale."
     />
     <meta property="og:url" content="https://breathingindex.com/" />
     <meta property="og:locale" content="en_US" />
@@ -84,7 +84,7 @@
     <meta name="twitter:title" content="Breathing Index — a personal 1–4 air scale" />
     <meta
       name="twitter:description"
-      content="The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and predicts your day on a 1–4 scale."
+      content="A “moderate” AQI can floor you one day and be fine the next. Breathing Index splits the AQI into the measurements it hides, learns your triggers from your own breathing logs, and predicts your day on a 1–4 scale."
     />
     <meta name="twitter:image" content="https://breathingindex.com/og.png" />
     <meta
@@ -98,7 +98,7 @@
         "@type": "WebApplication",
         "name": "Breathing Index",
         "url": "https://breathingindex.com/",
-        "description": "Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale.",
+        "description": "Shows each pollutant, heat, and humidity separately, learns your triggers from your own breathing logs, and predicts your day on a personal four-level scale.",
         "applicationCategory": "HealthApplication",
         "operatingSystem": "Any",
         "browserRequirements": "Requires JavaScript.",
@@ -125,14 +125,18 @@
       <main>
         <h1>Breathing Index</h1>
         <p>
-          A personal air quality index. The composite AQI reduces every pollutant to one number.
-          Breathing Index shows each exposure variable — fine and coarse particles, ozone, NO₂,
-          heat, humidity — separately, learns which ones actually affect you from your own symptom diary, and
+          A personal air quality index. The composite AQI lumps every pollutant into one number —
+          which is how a “moderate” day can floor you while a worse-rated one is fine. Breathing
+          Index shows each measurement — fine and coarse particles, ozone, NO₂, heat, humidity —
+          separately, learns which ones actually affect you from your own breathing logs, and
           predicts your day on a four-level scale: 1 Easy, 2 Noticeable, 3 Limiting, 4 Dangerous.
         </p>
-        <p>It needs JavaScript to run. Data comes from Open-Meteo, with AirNow station comparison in the US.</p>
         <p>
-          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          It's free, and your logs live only in your browser. It needs JavaScript to run. Data
+          comes from Open-Meteo, with AirNow station comparison in the US.
+        </p>
+        <p>
+          Breathing Index is a logbook lens on public air data — not medical advice. Trust your
           symptoms and your asthma action plan over anything on this screen.
         </p>
         <p><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>

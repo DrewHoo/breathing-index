@@ -59,7 +59,7 @@ function SettingsScreen() {
   const backUp = async () => {
     const outcome = await exportDiary(loadDiary())
     if (outcome === 'copied') {
-      setMessage('Copied your diary to the clipboard — paste it somewhere safe.')
+      setMessage('Copied your logs to the clipboard — paste them somewhere safe.')
     } else if (outcome === 'failed') {
       setMessage('This browser would not hand the file over. Try again from a browser tab.')
     } else if (outcome !== 'cancelled') {
@@ -195,12 +195,12 @@ function SettingsScreen() {
           ))}
         </div>
         <span className="settings-note">
-          Display only — your diary always stores metric, so switching never rewrites history.
+          Display only — your logs always store metric, so switching never rewrites history.
         </span>
       </section>
 
       <section className="section">
-        <SectionRule label="Your diary" />
+        <SectionRule label="Your logs" />
         <div className="row-card">
           <button type="button" className="settings-row" onClick={() => void backUp()}>
             <span className="settings-row-label">Export backup</span>
@@ -232,7 +232,7 @@ function SettingsScreen() {
           <div className="settings-row tall">
             <div className="settings-row-sub">
               <span className="settings-row-label">Usage pings</span>
-              <span className="settings-row-hint">screen views and taps · no diary content</span>
+              <span className="settings-row-hint">screen views and taps · no log content</span>
             </div>
             <button
               type="button"
@@ -265,8 +265,11 @@ function SettingsScreen() {
       </Link>
 
       <span className="settings-note">{DISCLAIMER}</span>
-      {/* Plain anchors: these are prerendered documents, not app routes. */}
+      {/* About is an app route; privacy and terms are prerendered documents,
+          so those two stay plain anchors. */}
       <span className="legal-links">
+        <Link to="/about">About</Link>
+        <span>·</span>
         <a href="/privacy">Privacy</a>
         <span>·</span>
         <a href="/terms">Terms</a>

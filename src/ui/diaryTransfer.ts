@@ -11,7 +11,7 @@ import { markExported } from './durability'
 
 const RATINGS: readonly number[] = [1, 2, 3, 4]
 
-export const UNREADABLE_FILE = 'Could not read that file — expected a diary JSON export.'
+export const UNREADABLE_FILE = 'Could not read that file — expected a breathing log JSON export.'
 export const MALFORMED_ENTRIES =
   'That file has entries without a rating, a time, or the air — nothing imported.'
 
@@ -87,7 +87,7 @@ export function mergeDiary(
 export type ExportOutcome = 'shared' | 'downloaded' | 'copied' | 'cancelled' | 'failed'
 
 export function exportFilename(now: Date = new Date()): string {
-  return `breathing-index-diary-${now.toISOString().slice(0, 10)}.json`
+  return `breathing-index-logs-${now.toISOString().slice(0, 10)}.json`
 }
 
 async function shareFile(json: string, name: string): Promise<ExportOutcome | null> {

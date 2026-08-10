@@ -57,9 +57,9 @@ export function InstallNudge({ entryCount }: { entryCount: number }) {
 
   return (
     <section className="card nudge">
-      <span className="nudge-title">Keep the diary out of the browser&rsquo;s reach.</span>
+      <span className="nudge-title">Keep your logs out of the browser&rsquo;s reach.</span>
       <span className="nudge-text">
-        {entryCount} entries in. On the home screen this app is one tap away, and your diary stops
+        {entryCount} entries in. On the home screen this app is one tap away, and your logs stop
         looking like cache the browser can clear.
       </span>
       <div className="nudge-actions">
@@ -100,7 +100,7 @@ export function BackupChip({ entryCount }: { entryCount: number }) {
         return
       }
       if (outcome === 'copied') {
-        setNote('Copied your diary to the clipboard — paste it somewhere safe.')
+        setNote('Copied your logs to the clipboard — paste them somewhere safe.')
         return
       }
       setGone(true)

@@ -15,7 +15,7 @@
     <title>Privacy — Breathing Index</title>
     <meta
       name="description"
-      content="What Breathing Index stores and sends: the diary stays in your browser, usage pings carry no diary content, and air data is fetched straight from the sources."
+      content="What Breathing Index stores and sends: your logs stay in your browser, usage pings carry no log content, and air data is fetched straight from the sources."
     />
     <meta name="theme-color" content="#F3F6F7" />
     <link rel="canonical" href="https://breathingindex.com/privacy" />
@@ -27,12 +27,13 @@
       <a class="wordmark" href="/">Breathing Index 🫁</a>
 
       <h1>Privacy</h1>
-      <p class="updated">Last updated 8 August 2026</p>
+      <p class="updated">Last updated 10 August 2026</p>
 
       <p class="callout">
-        There is no server. No account, no login, no database of yours anywhere. Your diary is a
-        value in your browser's storage on this device, and the only way it leaves is if you export
-        it yourself.
+        There is no server. No account, no login, no database of yours anywhere. Your logs are a
+        value in your browser's storage on this device, and the only way they leave is if you
+        export them yourself. Opt-in accounts with encrypted sync are on the roadmap — when they
+        ship, this page changes first, and local-only stays the default.
       </p>
 
       <h2>What stays on your device</h2>
@@ -109,7 +110,7 @@
         <tr>
           <th>Prediction viewed</th>
           <td>
-            <span class="prop"><code>diaryEntries</code> — how many entries your diary holds</span>
+            <span class="prop"><code>diaryEntries</code> — how many entries your log holds</span>
             <span class="prop"><code>stale</code> — whether the reading shown was a cached one</span>
             <span class="prop"
               ><code>locationSource</code> — <code>auto</code>, <code>saved</code> or
@@ -141,7 +142,7 @@
         </tr>
         <tr>
           <th>Diary eviction seen</th>
-          <td>No properties. Records that a browser wiped somebody's diary.</td>
+          <td>No properties. Records that a browser wiped somebody's logs.</td>
         </tr>
         <tr>
           <th>Diary restored</th>
@@ -150,7 +151,7 @@
         <tr>
           <th>Persistence requested</th>
           <td>
-            <code>granted</code> — whether the browser agreed to stop treating your diary as
+            <code>granted</code> — whether the browser agreed to stop treating your logs as
             disposable cache
           </td>
         </tr>
@@ -192,7 +193,7 @@
       <footer>
         <a href="/">Breathing Index</a><a href="/terms">Terms</a>
         <p>
-          Breathing Index is a diary lens on public air data — not medical advice. Trust your
+          Breathing Index is a logbook lens on public air data — not medical advice. Trust your
           symptoms and your asthma action plan over anything on this screen.
         </p>
       </footer>

@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import type { Rating } from '../engine/types'
 import { track } from '../ui/analytics'
@@ -67,12 +67,11 @@ function Intro() {
       <div className="intro-headline">The AQI isn&rsquo;t calibrated for your lungs.</div>
       <p className="intro-body">
         It&rsquo;s an average of averages, tuned to an average person — it can&rsquo;t know that
-        smoke gets you and ozone doesn&rsquo;t, or the other way round. Your lungs know; they just
-        don&rsquo;t publish.
+        smoke gets you and ozone doesn&rsquo;t, or the other way round. Your lungs sure do though!
       </p>
       <p className="intro-body">
-        This app takes their side of the story. Rate your breathing when you think of it, 1 to 4,
-        and it learns your triggers from what you tap — then starts telling you what tomorrow will
+        This app cares about what your lungs think. Rate your breathing when you think of it, 1 to 4,
+        and it learns your triggers. Once it has a decent baseline, it'll start telling you what tomorrow will
         feel like:
       </p>
       <div className="intro-levels">
@@ -83,10 +82,11 @@ function Intro() {
           </div>
         ))}
       </div>
-      <p className="intro-privacy">Your diary never leaves this phone. No account, no cloud.</p>
+      <p className="intro-privacy">Your logs never leave this phone. We'll eventually have accounts that you can opt-in to.</p>
       <p className="intro-privacy disclaimer">{DISCLAIMER}</p>
       <p className="intro-privacy">
-        <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+        <Link to="/about">About</Link> · <a href="/privacy">Privacy</a> ·{' '}
+        <a href="/terms">Terms</a>
       </p>
       <div className="intro-cta-block">
         <button type="button" className="intro-cta" onClick={() => finish('location')}>
@@ -134,7 +134,7 @@ function Restore({
     <main className="intro">
       <h1 className="wordmark">Breathing Index 🫁</h1>
       <div className="intro-headline">
-        Your diary is gone from this browser — restore from a backup?
+        Your logs are gone from this browser — restore from a backup?
       </div>
       <p className="intro-body">
         You logged entries here before; this browser cleared them. Safari wipes stored data for
@@ -164,7 +164,7 @@ function Restore({
           Restore from a backup
         </button>
         <button type="button" className="intro-alt" onClick={onStartOver}>
-          or start over with an empty diary →
+          or start over with an empty log →
         </button>
       </div>
     </main>
