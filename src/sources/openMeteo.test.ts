@@ -22,9 +22,10 @@ const pollenPayload = (date: string, weedValue: number) => ({
       ],
       plantInfo: [
         {
+          code: 'RAGWEED',
           displayName: 'Ragweed',
           inSeason: true,
-          plantDescription: { type: 'WEED' },
+          indexInfo: { value: weedValue },
         },
       ],
     },
@@ -67,17 +68,20 @@ describe('measured pollen', () => {
     stubSources('2026-08-11', pollenPayload('2026-08-11', 4))
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
     const noon = series.hours[12]!
-    expect(noon.exposure.pollen_weed).toBe(4)
-    expect(series.hours[23]!.exposure.pollen_weed).toBe(4)
-    expect(noon.pollenPlants).toEqual({ pollen_weed: ['ragweed'] })
+    expect(noon.exposure.pollen_ragweed).toBe(4)
+    expect(series.hours[23]!.exposure.pollen_ragweed).toBe(4)
+    expect(noon.pollenDisplay).toEqual({
+      weed: { value: 4, plants: [{ variable: 'pollen_ragweed', name: 'Ragweed', value: 4 }] },
+    })
     // Nothing estimated: an entry logged here confirms bounds like any other.
     expect(noon.estimated).toBeUndefined()
   })
 
-  it('leaves a type Google omitted out of the vector — no data is not zero', async () => {
+  it('leaves a plant Google omitted out of the vector — no data is not zero', async () => {
     stubSources('2026-08-11', pollenPayload('2026-08-11', 4))
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
-    expect(series.hours[12]!.exposure.pollen_grass).toBeUndefined()
+    expect(series.hours[12]!.exposure.pollen_graminales).toBeUndefined()
+    expect(series.hours[12]!.exposure.pollen_oak).toBeUndefined()
   })
 })
 
@@ -87,19 +91,27 @@ describe('the calendar fallback', () => {
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
     const noon = series.hours[12]!
     // August in the northeast: ragweed at the calendar's "med", index 3.
-    expect(noon.exposure.pollen_weed).toBe(3)
-    expect(noon.estimated).toEqual(['pollen_weed'])
-    expect(noon.pollenPlants).toEqual({ pollen_weed: ['ragweed'] })
+    expect(noon.exposure.pollen_ragweed).toBe(3)
+    expect(noon.estimated).toEqual(['pollen_ragweed'])
+    expect(noon.pollenDisplay).toEqual({
+      weed: { value: 3, plants: [{ variable: 'pollen_ragweed', name: 'Ragweed', value: 3 }] },
+    })
   })
 
   it('covers dates before the measured feed begins', () => {
     const measured = new Map<string, PollenDay>([
-      ['2026-08-11', { pollen_weed: { value: 4, plants: ['ragweed'] } }],
+      [
+        '2026-08-11',
+        {
+          types: { weed: { value: 4, plants: [{ variable: 'pollen_ragweed', name: 'Ragweed', value: 4 }] } },
+          exposure: { pollen_ragweed: 4 },
+        },
+      ],
     ])
     // Yesterday is not in the forecast: the calendar answers, estimated.
     const yesterday = pollenForHour(measured, HAMDEN.lat, HAMDEN.lon, '2026-08-10T09:00')
     expect(yesterday.estimated).toBe(true)
-    expect(yesterday.day.pollen_weed?.value).toBe(3)
+    expect(yesterday.day.exposure.pollen_ragweed).toBe(3)
     const today = pollenForHour(measured, HAMDEN.lat, HAMDEN.lon, '2026-08-11T09:00')
     expect(today).toEqual({ day: measured.get('2026-08-11'), estimated: false })
   })
@@ -108,7 +120,7 @@ describe('the calendar fallback', () => {
     stubSources('2026-01-07', null)
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
     const noon = series.hours[12]!
-    expect(noon.exposure.pollen_weed).toBeUndefined()
+    expect(noon.exposure.pollen_ragweed).toBeUndefined()
     expect(noon.estimated).toBeUndefined()
   })
 

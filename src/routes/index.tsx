@@ -5,8 +5,9 @@ import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
-import { POLLEN_TYPES } from '../sources/googlePollen'
-import type { ExposureSeries } from '../sources/openMeteo'
+import { POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
+
+const POLLEN_ROW_NAMES = { tree: 'Tree pollen', grass: 'Grass pollen', weed: 'Weed pollen' } as const
 import { track } from '../ui/analytics'
 import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
 import { LevelPill, SectionRule } from '../ui/bits'
@@ -810,31 +811,32 @@ function buildAirRows(
     })
   }
 
-  // One row per pollen type in today's air (specs/18-measured-pollen.md,
-  // superseding spec 05's single row by owner decision): the sub-label names
-  // the plants in season, and a calendar figure says so on the note line
-  // rather than passing for a reading. A type at zero or unreported has no
-  // row — out of season is not a reading, and three zeros all winter is
-  // noise. The 0–5 index is the table's one deliberate exception to the
-  // real-units rule; pollen has no unit a user could check.
-  for (const key of POLLEN_TYPES) {
-    const value = current.exposure[key]
-    if (!value) continue
-    const plants = current.pollenPlants?.[key]
-    const [loP, hiP] = range((h) => h.raw[key] ?? 0)
+  // Three pollen rows, display at type level, evidence at plant level
+  // (specs/18-measured-pollen.md): the headline is the source's type index,
+  // the sub-label carries every plant reading the engine reasons about
+  // ("birch 4 · oak 2") so any number an evidence line cites is on the
+  // screen, and the row's verdict tracks its highest plant. A type with no
+  // reporting plant has no row — out of season is not a reading, and three
+  // zeros all winter is noise. The 0–5 index is the table's one deliberate
+  // exception to the real-units rule; pollen has no unit a user could check.
+  for (const type of POLLEN_TYPE_ORDER) {
+    const display = current.pollenDisplay?.[type]
+    const top = display?.plants[0]
+    if (!display || !top) continue
+    const [loP, hiP] = range((h) => h.pollenDisplay?.[type]?.value ?? 0)
     rows.push({
-      key,
-      name: VARIABLE_LABELS[key]!.name,
-      ...(plants?.length ? { sub: plants.join(' · ') } : {}),
-      ...(current.estimated?.includes(key) ? { note: { text: CALENDAR_ESTIMATE } } : {}),
-      value: Math.round(value),
+      key: `pollen_${type}`,
+      name: POLLEN_ROW_NAMES[type],
+      sub: display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
+      ...(current.estimated?.includes(top.variable) ? { note: { text: CALENDAR_ESTIMATE } } : {}),
+      value: display.value,
       unit: 'of 5',
-      statusVar: key,
-      statusValue: value,
+      statusVar: top.variable,
+      statusValue: current.exposure[top.variable] ?? top.value,
       lo: Math.round(loP),
       hi: Math.round(hiP),
-      dot: current.raw[key] ?? 0,
-      tol: tolerance(key),
+      dot: display.value,
+      tol: tolerance(top.variable),
     })
   }
 

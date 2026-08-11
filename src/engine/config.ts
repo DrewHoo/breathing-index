@@ -1,3 +1,4 @@
+import { POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
 import type { Priors } from './types'
 
 /**
@@ -23,9 +24,9 @@ const NEGLIGIBLE: Record<string, number> = {
   grass_pollen: 2, // grains/m³ — retired scale, see the pollen note on PRIORS
   ragweed_pollen: 1,
   birch_pollen: 2,
-  pollen_tree: 1, // index points (0–5): Very Low is present, never a suspect
-  pollen_grass: 1,
-  pollen_weed: 1,
+  // Every measured pollen plant (index points, 0–5): Very Low is present,
+  // never a suspect.
+  ...Object.fromEntries(POLLEN_PLANT_VARIABLES.map((v) => [v, 1])),
 }
 
 export function negligibleFor(variable: string): number {
@@ -153,11 +154,10 @@ export const PRIORS: Priors = {
   ragweed_pollen: { 2: 10, 3: 50 }, // grains/m³
   grass_pollen: { 2: 20, 3: 100 },
   birch_pollen: { 2: 30, 3: 90 },
-  // Pollen types on the 0–5 index scale every current source speaks
-  // (specs/18-measured-pollen.md): Moderate is potentially a 2 for a
-  // sensitive person, High potentially a 3, Very High potentially a 4.
-  // Heuristic starts, same epistemic status as the weather rows.
-  pollen_tree: { 2: 3, 3: 4, 4: 5 }, // index points, 0–5
-  pollen_grass: { 2: 3, 3: 4, 4: 5 },
-  pollen_weed: { 2: 3, 3: 4, 4: 5 },
+  // Every measured pollen plant, on the 0–5 index scale every current source
+  // speaks (specs/18-measured-pollen.md): Moderate is potentially a 2 for a
+  // sensitive person, High potentially a 3, Very High potentially a 4. One
+  // shared heuristic start — the diary is what makes birch and oak diverge,
+  // not the prior; same epistemic status as the weather rows.
+  ...Object.fromEntries(POLLEN_PLANT_VARIABLES.map((v) => [v, { 2: 3, 3: 4, 4: 5 }])),
 }

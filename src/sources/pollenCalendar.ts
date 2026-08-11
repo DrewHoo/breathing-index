@@ -1,4 +1,5 @@
-import type { PollenDay, PollenType } from './googlePollen'
+import type { PollenDay } from './googlePollen'
+import { POLLEN_PLANTS } from './pollenPlants'
 
 /**
  * The fallback pollen source: a season calendar, for the hours and places the
@@ -23,15 +24,16 @@ const BAND_INDEX: Record<Band, number> = { low: 1, med: 3, high: 4 }
 
 /**
  * The calendar reasons in the species the AAAAI/NAB season picture is written
- * in, then reports as the type that species belongs to — birch is the tree
- * season, ragweed the weed season. The species name rides along for the row's
- * sub-label, so a fallback row still says what plant the season is about.
+ * in, which are already three of the measured feed's plants — birch carries
+ * the tree season, graminales the grass season, ragweed the weed season. So a
+ * fallback day speaks the same plant variables a measured day does, just
+ * fewer of them and estimated.
  */
-const SPECIES: Record<string, { type: PollenType; plant: string }> = {
-  birch: { type: 'pollen_tree', plant: 'birch' },
-  grass: { type: 'pollen_grass', plant: 'grass' },
-  ragweed: { type: 'pollen_weed', plant: 'ragweed' },
-}
+const SPECIES = {
+  birch: POLLEN_PLANTS.BIRCH!,
+  grass: POLLEN_PLANTS.GRAMINALES!,
+  ragweed: POLLEN_PLANTS.RAGWEED!,
+} as const
 
 /** month number (1–12) -> band; months absent are out of season */
 type MonthBands = Partial<Record<number, Band>>
@@ -143,12 +145,18 @@ export function pollenRegion(lat: number, lon: number): RegionId | null {
  */
 export function calendarPollen(lat: number, lon: number, month: number): PollenDay {
   const region = pollenRegion(lat, lon)
-  if (!region) return {}
+  const day: PollenDay = { types: {}, exposure: {} }
+  if (!region) return day
   const seasons = REGION_SEASONS[region]
-  const day: PollenDay = {}
-  for (const [species, { type, plant }] of Object.entries(SPECIES)) {
+  for (const [species, plant] of Object.entries(SPECIES)) {
     const band = seasons[species as keyof typeof SPECIES]?.[month]
-    if (band) day[type] = { value: BAND_INDEX[band], plants: [plant] }
+    if (!band) continue
+    const value = BAND_INDEX[band]
+    day.exposure[plant.variable] = value
+    day.types[plant.type] = {
+      value,
+      plants: [{ variable: plant.variable, name: plant.name, value }],
+    }
   }
   return day
 }

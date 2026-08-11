@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PRIORS, negligibleFor } from '../engine/config'
-import { POLLEN_TYPES } from './googlePollen'
+import { POLLEN_PLANT_VARIABLES } from './pollenPlants'
 import { calendarPollen, monthOf, pollenRegion } from './pollenCalendar'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
@@ -26,7 +26,7 @@ describe('region lookup', () => {
 
   it('claims nothing outside the table — abroad, the measured feed is the only source', () => {
     expect(pollenRegion(AMSTERDAM.lat, AMSTERDAM.lon)).toBeNull()
-    expect(calendarPollen(AMSTERDAM.lat, AMSTERDAM.lon, 8)).toEqual({})
+    expect(calendarPollen(AMSTERDAM.lat, AMSTERDAM.lon, 8)).toEqual({ types: {}, exposure: {} })
   })
 
   it('claims nothing for places the boxes do not reach', () => {
@@ -38,29 +38,33 @@ describe('region lookup', () => {
 describe('the calendar itself', () => {
   it('has ragweed running in Hamden in August, on the index scale', () => {
     const august = calendarPollen(HAMDEN.lat, HAMDEN.lon, 8)
-    expect(august.pollen_weed).toEqual({ value: 3, plants: ['ragweed'] })
-    expect(august.pollen_grass).toBeUndefined()
-    expect(august.pollen_tree).toBeUndefined()
+    expect(august.exposure).toEqual({ pollen_ragweed: 3 })
+    expect(august.types.weed).toEqual({
+      value: 3,
+      plants: [{ variable: 'pollen_ragweed', name: 'Ragweed', value: 3 }],
+    })
+    expect(august.types.grass).toBeUndefined()
+    expect(august.types.tree).toBeUndefined()
   })
 
   it('peaks that ragweed season in September and ends it after October', () => {
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 9).pollen_weed?.value).toBe(4)
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 11).pollen_weed).toBeUndefined()
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 9).exposure.pollen_ragweed).toBe(4)
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 11).exposure.pollen_ragweed).toBeUndefined()
   })
 
   it('leaves winter empty rather than writing zeros', () => {
     // "Nothing is in season" and "we measured zero" are different claims, and
     // only the first one is ours to make.
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 1)).toEqual({})
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 1)).toEqual({ types: {}, exposure: {} })
   })
 
   it('never claims Very High — a peak is a measurement to make', () => {
     for (const place of REGIONS) {
       for (let month = 1; month <= 12; month++) {
-        for (const [variable, reading] of Object.entries(
-          calendarPollen(place.lat, place.lon, month),
+        for (const [variable, value] of Object.entries(
+          calendarPollen(place.lat, place.lon, month).exposure,
         )) {
-          expect(reading.value, `${place.region} ${variable} in month ${month}`).toBeLessThanOrEqual(
+          expect(value, `${place.region} ${variable} in month ${month}`).toBeLessThanOrEqual(
             PRIORS[variable]?.[3] ?? Infinity,
           )
         }
@@ -71,10 +75,10 @@ describe('the calendar itself', () => {
   it('keeps a low season under the floor that makes a variable a suspect', () => {
     // A "low" month is information, not an accusation: index 1 (Very Low)
     // sits at every negligible floor, so it can never enter a candidate set.
-    for (const variable of POLLEN_TYPES) {
+    for (const variable of POLLEN_PLANT_VARIABLES) {
       expect(negligibleFor(variable)).toBeGreaterThanOrEqual(1)
     }
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 10).pollen_weed?.value).toBe(1)
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 10).exposure.pollen_ragweed).toBe(1)
   })
 
   it('reads the month off a local API timestamp', () => {

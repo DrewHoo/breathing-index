@@ -23,14 +23,11 @@ export function calendarPollenPatch(
   if (!coords || isPending(entry)) return null
   // The month the user lived, in their own timezone.
   const month = new Date(entry.time).getMonth() + 1
-  const estimate = calendarPollen(coords.lat, coords.lon, month)
+  const estimate = calendarPollen(coords.lat, coords.lon, month).exposure
   const added = Object.entries(estimate).filter(([v]) => entry.exposure[v] === undefined)
   if (added.length === 0) return null
   return {
-    exposure: {
-      ...entry.exposure,
-      ...Object.fromEntries(added.map(([v, reading]) => [v, reading.value])),
-    },
+    exposure: { ...entry.exposure, ...Object.fromEntries(added) },
     estimated: [...new Set([...(entry.estimated ?? []), ...added.map(([v]) => v)])],
   }
 }

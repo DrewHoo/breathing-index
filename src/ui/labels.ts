@@ -1,4 +1,5 @@
 import type { Rating } from '../engine/types'
+import { POLLEN_PLANTS } from '../sources/pollenPlants'
 
 /**
  * The one sentence. Written here, reused verbatim by every surface that runs
@@ -74,13 +75,17 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   grass_pollen: { name: 'Grass', short: 'grass', unit: 'grains/m³' },
   birch_pollen: { name: 'Birch', short: 'birch', unit: 'grains/m³' },
   ragweed_pollen: { name: 'Ragweed', short: 'ragweed', unit: 'grains/m³' },
-  // One row per pollen type; the sub-label names the plants in season. The
-  // unit is an index (0–5) because no consumer pollen source publishes a
-  // count a user could check — the one deliberate exception to the air
-  // table's real-units rule, argued in specs/18-measured-pollen.md.
-  pollen_tree: { name: 'Tree pollen', short: 'tree pollen', unit: 'of 5' },
-  pollen_grass: { name: 'Grass pollen', short: 'grass pollen', unit: 'of 5' },
-  pollen_weed: { name: 'Weed pollen', short: 'weed pollen', unit: 'of 5' },
+  // Every measured pollen plant (the engine's pollen variables — the type
+  // rows are display only). The unit is an index (0–5) because no consumer
+  // pollen source publishes a count a user could check — the one deliberate
+  // exception to the air table's real-units rule, argued in
+  // specs/18-measured-pollen.md.
+  ...Object.fromEntries(
+    Object.values(POLLEN_PLANTS).map((p) => [
+      p.variable,
+      { name: `${p.name} pollen`, short: `${p.name.toLowerCase()} pollen`, unit: 'of 5' },
+    ]),
+  ),
 }
 
 /** The words the air table's pollen sub-label is built from. */

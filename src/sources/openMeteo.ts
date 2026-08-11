@@ -2,6 +2,9 @@ import type { Exposure } from '../engine/types'
 import { type PollenDay, fetchPollen } from './googlePollen'
 import { calendarPollen, monthOf } from './pollenCalendar'
 
+/** The display order of the three pollen rows. */
+export const POLLEN_TYPE_ORDER = ['tree', 'grass', 'weed'] as const
+
 export interface Hour {
   time: string
   exposure: Exposure
@@ -10,11 +13,13 @@ export interface Hour {
   /** official composite indices, for scoreboard receipts only */
   official: { usAqi: number | null; eaqi: number | null }
   /**
-   * In-season plant names per pollen type, for the pollen rows' sub-labels
-   * ("ragweed · nettle"). Optional because series cached by earlier versions
-   * are re-read from localStorage and predate the field.
+   * The three pollen rows' display: per type, Google's own type index as the
+   * headline and the per-plant readings ("birch 4 · oak 2") as the sub-label
+   * — every number the engine can cite, visible on the row. Optional because
+   * series cached by earlier versions are re-read from localStorage and
+   * predate the field.
    */
-  pollenPlants?: Partial<Record<string, string[]>>
+  pollenDisplay?: PollenDay['types']
   /**
    * Exposure keys whose values are estimates rather than readings — the
    * calendar pollen types, on hours the measured feed does not cover. Copied
@@ -177,25 +182,20 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     put('humidity', windowMean(rh, wi, 72))
     // Pollen resolves by local day, not hour, so the day's index stands in for
     // every hour of it — no running window, the same number smeared through a
-    // max is just the same number. The null discipline holds: a type the
-    // source omitted is absent from the vector, not zero.
+    // max is just the same number. Plants, not types, enter the vector: only
+    // plant-level numbers can ever answer "birch and not oak". The null
+    // discipline holds: a plant the source omitted is absent, not zero.
     const { day: pollenDay, estimated: pollenEstimated } = pollenForHour(pollenDays, lat, lon, time)
-    const pollenRaw: Exposure = {}
-    const pollenPlants: Partial<Record<string, string[]>> = {}
-    for (const [variable, reading] of Object.entries(pollenDay)) {
-      put(variable, reading.value)
-      pollenRaw[variable] = reading.value
-      if (reading.plants.length > 0) pollenPlants[variable] = reading.plants
-    }
+    for (const [variable, value] of Object.entries(pollenDay.exposure)) put(variable, value)
     return {
       time,
-      ...(Object.keys(pollenPlants).length > 0 ? { pollenPlants } : {}),
-      ...(pollenEstimated && Object.keys(pollenDay).length > 0
-        ? { estimated: Object.keys(pollenDay) }
+      ...(Object.keys(pollenDay.types).length > 0 ? { pollenDisplay: pollenDay.types } : {}),
+      ...(pollenEstimated && Object.keys(pollenDay.exposure).length > 0
+        ? { estimated: Object.keys(pollenDay.exposure) }
         : {}),
       exposure,
       raw: {
-        ...pollenRaw,
+        ...pollenDay.exposure,
         pm25: pm25[i] ?? 0,
         pm10: pm10[i] ?? 0,
         o3: o3[i] ?? 0,

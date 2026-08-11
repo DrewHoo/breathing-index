@@ -2,50 +2,56 @@
  * Measured pollen via the Google Pollen API, reached through the relay
  * (worker/), which holds the key, caps the spend, and caches by grid cell.
  *
- * Google reports a Universal Pollen Index (integer 0–5) per pollen type per
- * local day — an index, not a count. Spec 11 removed index vocabulary from the
- * air table, but pollen is the different case (specs/18-measured-pollen.md):
- * no consumer source publishes a concentration a user could independently
- * check, so 0–5 with its category word is the honest ceiling of what can be
- * shown. A type Google omits `indexInfo` for is absent here, not zero — "no
- * data" and "measured none" stay different claims.
+ * Google reports a Universal Pollen Index (integer 0–5) per local day at two
+ * grains: per *type* (tree/grass/weed) and per *plant* (birch, oak, ragweed…).
+ * The plants are the engine's variables and the types are only display
+ * (specs/18-measured-pollen.md): only plant-level numbers can ever answer
+ * "birch and not oak", and a type is roughly the max of its plants — two
+ * numbers that co-move by construction must not both be candidates.
+ *
+ * The index is not a count, but no consumer pollen source publishes a count a
+ * user could check; 0–5 with its category word is the honest ceiling. A type
+ * or plant Google omits an index for is absent here, not zero — "no data" and
+ * "measured none" stay different claims.
  */
+import { POLLEN_PLANTS, type PollenTypeKey } from './pollenPlants'
 import { RELAY_BASE, coarse } from './relay'
 
-export const POLLEN_TYPES = ['pollen_tree', 'pollen_grass', 'pollen_weed'] as const
-export type PollenType = (typeof POLLEN_TYPES)[number]
-
-const TYPE_CODES: Record<string, PollenType> = {
-  TREE: 'pollen_tree',
-  GRASS: 'pollen_grass',
-  WEED: 'pollen_weed',
-}
-
-export interface PollenDayReading {
-  /** Universal Pollen Index, 0–5 */
+export interface PlantReading {
+  variable: string
+  name: string
   value: number
-  /** in-season plants Google names for this type — the row's sub-label */
-  plants: string[]
 }
 
-/** One local date's readings, keyed like the exposure vector. */
-export type PollenDay = Partial<Record<PollenType, PollenDayReading>>
+export interface PollenTypeDisplay {
+  /** the row's headline: Google's own type index */
+  value: number
+  /** the row's sub-label and verdict source, highest first */
+  plants: PlantReading[]
+}
 
-interface RawTypeInfo {
+export interface PollenDay {
+  /** per-type display for the three rows */
+  types: Partial<Record<PollenTypeKey, PollenTypeDisplay>>
+  /** the engine's half: plant variable -> index value */
+  exposure: Record<string, number>
+}
+
+const TYPE_CODES: Record<string, PollenTypeKey> = {
+  TREE: 'tree',
+  GRASS: 'grass',
+  WEED: 'weed',
+}
+
+interface RawIndexed {
   code?: string
   indexInfo?: { value?: number }
 }
 
-interface RawPlantInfo {
-  displayName?: string
-  inSeason?: boolean
-  plantDescription?: { type?: string }
-}
-
 interface RawDay {
   date?: { year?: number; month?: number; day?: number }
-  pollenTypeInfo?: RawTypeInfo[]
-  plantInfo?: RawPlantInfo[]
+  pollenTypeInfo?: RawIndexed[]
+  plantInfo?: RawIndexed[]
 }
 
 export interface PollenPayload {
@@ -60,29 +66,43 @@ function dateKey(date: RawDay['date']): string | null {
 }
 
 /**
- * Local date -> readings. Only fully-reported types survive: an entry without
- * a numeric index is Google saying "nothing to report", and a plant is named
- * only when Google marks it in season and types it (bare name-only plant rows
- * carry no season claim to repeat).
+ * Local date -> readings. Zero-index plants are dropped on both sides: a
+ * measured zero adds nothing an absence doesn't, and it would only pad
+ * candidate sets and sub-labels with silence. A plant code the catalog does
+ * not know is skipped entirely — the engine may only reason about numbers the
+ * app can show and name. A type row survives only if at least one of its
+ * plants reported: a headline with no plant behind it would be a number the
+ * engine can neither cite nor learn from.
  */
 export function parsePollen(payload: PollenPayload): Map<string, PollenDay> {
   const days = new Map<string, PollenDay>()
   for (const raw of payload.dailyInfo ?? []) {
     const key = dateKey(raw.date)
     if (!key) continue
-    const day: PollenDay = {}
-    for (const info of raw.pollenTypeInfo ?? []) {
-      const variable = TYPE_CODES[info.code ?? '']
+    const plantsByType: Partial<Record<PollenTypeKey, PlantReading[]>> = {}
+    for (const info of raw.plantInfo ?? []) {
+      const plant = POLLEN_PLANTS[info.code ?? '']
       const value = info.indexInfo?.value
-      if (!variable || typeof value !== 'number') continue
-      const plants = (raw.plantInfo ?? [])
-        .filter((p) => p.inSeason === true && TYPE_CODES[p.plantDescription?.type ?? ''] === variable)
-        .map((p) => p.displayName ?? '')
-        .filter(Boolean)
-        .map((name) => name.toLowerCase())
-      day[variable] = { value, plants }
+      if (!plant || typeof value !== 'number' || value <= 0) continue
+      ;(plantsByType[plant.type] ??= []).push({
+        variable: plant.variable,
+        name: plant.name,
+        value,
+      })
     }
-    if (Object.keys(day).length > 0) days.set(key, day)
+    const types: PollenDay['types'] = {}
+    // Exposure carries exactly the plants that made it onto a row — a plant
+    // whose type row was dropped would be a number nobody can see.
+    const exposure: Record<string, number> = {}
+    for (const info of raw.pollenTypeInfo ?? []) {
+      const type = TYPE_CODES[info.code ?? '']
+      const value = info.indexInfo?.value
+      const plants = type ? plantsByType[type] : undefined
+      if (!type || typeof value !== 'number' || !plants?.length) continue
+      types[type] = { value, plants: plants.sort((a, b) => b.value - a.value) }
+      for (const plant of plants) exposure[plant.variable] = plant.value
+    }
+    if (Object.keys(types).length > 0) days.set(key, { types, exposure })
   }
   return days
 }

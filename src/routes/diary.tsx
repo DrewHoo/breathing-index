@@ -3,7 +3,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
-import { POLLEN_TYPES } from '../sources/googlePollen'
+import { POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
@@ -21,11 +21,11 @@ const CONFLICT_TAGS = ['pollen', 'sick', 'indoors all day']
 
 /**
  * Both generations of pollen variable: entries logged before spec 18 carry
- * the grains-scale species, everything since carries the index-scale types.
+ * the grains-scale species, everything since carries the index-scale plants.
  * Each is judged against its own prior; they never mix scales.
  */
 const POLLEN_VARIABLES = [
-  ...POLLEN_TYPES,
+  ...POLLEN_PLANT_VARIABLES,
   'grass_pollen',
   'birch_pollen',
   'ragweed_pollen',
