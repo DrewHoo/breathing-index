@@ -40,6 +40,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | # | Spec | Effort | One line |
 |---|------|--------|----------|
 | 17 | [Content pages](17-content-pages.md) | M | Three prerendered essays so the domain can rank for "AQI moderate but hard to breathe" |
+| 19 | [Pollen content pages](19-pollen-content-pages.md) | M | The first content wave, reshaped: per-plant pages + the region×month calendar, generated from the app's own data |
 
 ## Dependency sketch
 

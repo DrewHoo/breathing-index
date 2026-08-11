@@ -1,6 +1,6 @@
 # Content pages — give the domain something to rank
 
-**Status:** proposed · **Effort:** M (writing-bound) · **Deps:** none · **Priority:** the only growth spec; start with one page
+**Status:** proposed; first wave reshaped as pollen pages — see [19-pollen-content-pages.md](19-pollen-content-pages.md), which takes precedence for the opening content · **Effort:** M (writing-bound) · **Deps:** none · **Priority:** the only growth spec; start with one page
 
 ## Problem
 
