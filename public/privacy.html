@@ -27,13 +27,17 @@
       <a class="wordmark" href="/">Breathing Index 🫁</a>
 
       <h1>Privacy</h1>
-      <p class="updated">Last updated 10 August 2026</p>
+      <p class="updated">Last updated 11 August 2026</p>
 
       <p class="callout">
-        There is no server. No account, no login, no database of yours anywhere. Your logs are a
-        value in your browser's storage on this device, and the only way they leave is if you
-        export them yourself. Opt-in accounts with encrypted sync are on the roadmap — when they
-        ship, this page changes first, and local-only stays the default.
+        There is no server that knows you. No account, no login, no database of yours anywhere.
+        Your logs are a value in your browser's storage on this device, and the only way they
+        leave is if you export them yourself. The one server this app runs is a stateless relay
+        for data sources that need an API key — it receives your coordinates rounded to about
+        11&nbsp;km (anything sharper is refused, in code), holds no state, keeps no logs, and its
+        <a href="https://github.com/DrewHoo/breathing-index/tree/main/worker">source is public</a>.
+        Opt-in accounts with encrypted sync are on the roadmap — when they ship, this page changes
+        first, and local-only stays the default.
       </p>
 
       <h2>What stays on your device</h2>
@@ -70,10 +74,12 @@
           </td>
         </tr>
         <tr>
-          <th>AirNow</th>
+          <th>The relay</th>
           <td>
-            Station measurements for comparison, US only, off unless you turn it on in Settings.
-            Sees the same rounded coordinates.
+            Pollen forecasts (Google) and station measurements (AirNow, US only, off unless you
+            turn it on in Settings) travel through the relay described above, so those vendors see
+            the relay's request, not your browser — and the relay itself never receives your
+            location sharper than about 11 km.
           </td>
         </tr>
         <tr>

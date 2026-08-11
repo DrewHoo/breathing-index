@@ -25,6 +25,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | 16 | [Supporter tier](16-supporter-tier.md) | XS | Sponsors + Stripe link in Settings; validates that anyone pays at all |
 | 13 | [Forecast alerts](13-forecast-alerts.md) | L | "Tomorrow is a 3 — walk before 10" push/email; the retention loop, Plus tier |
 | 15 | [Premium sources](15-premium-sources.md) | M | Real US pollen + PurpleAir via proxied keys; BYO-key stays free; historical backfill scores sources against the diary |
+| 18 | [Measured pollen](18-measured-pollen.md) | M | Three pollen-type rows (0–5 index) via Google through the relay; calendar becomes the estimated fallback; delivers the pollen half of 15 |
 
 ## Deferred (per PR #1 review)
 

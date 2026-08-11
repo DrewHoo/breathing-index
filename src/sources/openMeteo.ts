@@ -1,21 +1,9 @@
 import type { Exposure } from '../engine/types'
-import {
-  POLLEN_VARIABLES,
-  calendarPollen,
-  dominantPollen,
-  monthOf,
-  pollenRegion,
-  type PollenVariable,
-} from './pollenCalendar'
+import { type PollenDay, fetchPollen } from './googlePollen'
+import { calendarPollen, monthOf } from './pollenCalendar'
 
-/** What the single pollen row shows for an hour — see `Hour.pollen`. */
-export interface PollenSummary {
-  /** the species the row names, null when nothing is in season */
-  variable: PollenVariable | null
-  value: number
-  /** a calendar estimate for the region rather than a reading */
-  estimated: boolean
-}
+/** The display order of the three pollen rows. */
+export const POLLEN_TYPE_ORDER = ['tree', 'grass', 'weed'] as const
 
 export interface Hour {
   time: string
@@ -25,15 +13,18 @@ export interface Hour {
   /** official composite indices, for scoreboard receipts only */
   official: { usAqi: number | null; eaqi: number | null }
   /**
-   * The dominant pollen species for the one "Pollen" row, or null where no
-   * source covers this place at all. Optional because series cached by earlier
-   * versions are re-read from localStorage and predate the field.
+   * The three pollen rows' display: per type, Google's own type index as the
+   * headline and the per-plant readings ("birch 4 · oak 2") as the sub-label
+   * — every number the engine can cite, visible on the row. Optional because
+   * series cached by earlier versions are re-read from localStorage and
+   * predate the field.
    */
-  pollen?: PollenSummary | null
+  pollenDisplay?: PollenDay['types']
   /**
    * Exposure keys whose values are estimates rather than readings — the
-   * calendar species, where no measured pollen exists. Copied onto diary
-   * entries, where it stops the engine confirming a bound from a guess.
+   * calendar pollen types, on hours the measured feed does not cover. Copied
+   * onto diary entries, where it stops the engine confirming a bound from a
+   * guess.
    */
   estimated?: string[]
 }
@@ -60,16 +51,8 @@ export interface ExposureSeries {
  */
 export const EXPOSURE_SOURCE = 'cams'
 
-/**
- * The pollen fields are CAMS *Europe* only: outside that domain Open-Meteo
- * answers with a full column of nulls rather than an error (verified: real
- * values for Amsterdam, nulls for Hamden — SPEC.md's source table), which is
- * how `fetchExposureSeries` knows to fall back to the calendar.
- */
-const POLLEN_VARS = 'grass_pollen,birch_pollen,ragweed_pollen'
-
 const AIR_VARS =
-  `pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi,${POLLEN_VARS}`
+  'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
 const WEATHER_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m'
 
 interface HourlyBlock {
@@ -124,31 +107,37 @@ function windowMean(values: (number | null)[], i: number, span: number): number 
 }
 
 /**
- * One row's worth of pollen. `covered: false` means no source reaches this
- * place — no row rather than a zero, since "no data" is not "no pollen".
+ * The pollen half of an hour: which types, at what index, named by which
+ * plants, and whether the numbers were measured or a calendar's claim. See
+ * specs/18-measured-pollen.md for why a day, not an hour, is the resolution.
  */
-export function summarizePollen(
-  exposure: Exposure,
-  estimated: boolean,
-  covered: boolean,
-): PollenSummary | null {
-  if (!covered) return null
-  const dominant = dominantPollen(exposure)
-  if (!dominant || dominant.value === 0) return { variable: null, value: 0, estimated }
-  return { ...dominant, estimated }
+export function pollenForHour(
+  measured: Map<string, PollenDay> | null,
+  lat: number,
+  lon: number,
+  time: string,
+): { day: PollenDay; estimated: boolean } {
+  const fromGoogle = measured?.get(time.slice(0, 10))
+  if (fromGoogle) return { day: fromGoogle, estimated: false }
+  return { day: calendarPollen(lat, lon, monthOf(time)), estimated: true }
 }
 
 /**
  * Fetch air quality + weather and derive per-hour exposure vectors using the
- * per-variable windows from docs/trigger-model.md (o3/no2/pm/pollen: max8h;
- * heat/cold: instantaneous; humidity: mean72h). CAMS model data — can miss
- * hyper-local smoke, and carries no pollen outside Europe (calendar there).
+ * per-variable windows from docs/trigger-model.md (o3/no2/pm: max8h;
+ * heat/cold: instantaneous; humidity: mean72h; pollen: its local day's index,
+ * daily being all any pollen source resolves). CAMS model data — can miss
+ * hyper-local smoke. Pollen rides a separate pipe (googlePollen.ts via the
+ * relay, today forward) with the season calendar behind it for the past tail
+ * and for outages — a fallback hour is estimated-tagged, never silently
+ * interchangeable with a measured one.
  */
 export async function fetchExposureSeries(lat: number, lon: number): Promise<ExposureSeries> {
   const common = `latitude=${lat}&longitude=${lon}&past_days=3&forecast_days=2&timezone=auto`
-  const [airRes, weatherRes] = await Promise.all([
+  const [airRes, weatherRes, pollenDays] = await Promise.all([
     fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${common}&hourly=${AIR_VARS}`),
     fetch(`https://api.open-meteo.com/v1/forecast?${common}&hourly=${WEATHER_VARS}`),
+    fetchPollen(lat, lon),
   ])
   if (!airRes.ok || !weatherRes.ok) {
     throw new Error(`Open-Meteo fetch failed (${airRes.status}/${weatherRes.status})`)
@@ -171,13 +160,6 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
   const rh = series(weather.hourly, 'relative_humidity_2m')
   const dew = series(weather.hourly, 'dew_point_2m')
 
-  // Pollen: measured where CAMS covers the place, calendar where it does not,
-  // nothing where neither has anything to say. One number appearing under one
-  // name either way — see pollenCalendar.ts for what the estimate claims.
-  const pollenSeries = POLLEN_VARIABLES.map((v) => [v, series(air.hourly, v)] as const)
-  const measuredPollen = pollenSeries.some(([, values]) => values.some((v) => v != null))
-  const covered = measuredPollen || pollenRegion(lat, lon) !== null
-
   const hours: Hour[] = times.map((time, i) => {
     const wi = weatherTimeIndex.get(time) ?? i
     const t = temp[wi] ?? null
@@ -198,30 +180,22 @@ export async function fetchExposureSeries(lat: number, lon: number): Promise<Exp
     put('heat_stress', heatStress)
     put('cold_dry_stress', coldDryStress)
     put('humidity', windowMean(rh, wi, 72))
-    // Pollen acts within hours, so it takes the same max(now, max8h) window as
-    // the acute pollutants — and the same null discipline: an hour the model
-    // skipped is no data, not clean air. A calendar month is flat across the
-    // window and carries only the species actually in season.
-    const pollen: Exposure = measuredPollen ? {} : calendarPollen(lat, lon, monthOf(time))
-    if (measuredPollen) {
-      for (const [variable, values] of pollenSeries) {
-        const x = windowMax(values, i, 8)
-        if (x !== null) pollen[variable] = x
-      }
-    }
-    for (const [variable, x] of Object.entries(pollen)) put(variable, x)
-    const pollenRaw: Exposure = measuredPollen
-      ? Object.fromEntries(pollenSeries.map(([v, values]) => [v, values[i] ?? 0]))
-      : pollen
+    // Pollen resolves by local day, not hour, so the day's index stands in for
+    // every hour of it — no running window, the same number smeared through a
+    // max is just the same number. Plants, not types, enter the vector: only
+    // plant-level numbers can ever answer "birch and not oak". The null
+    // discipline holds: a plant the source omitted is absent, not zero.
+    const { day: pollenDay, estimated: pollenEstimated } = pollenForHour(pollenDays, lat, lon, time)
+    for (const [variable, value] of Object.entries(pollenDay.exposure)) put(variable, value)
     return {
       time,
-      pollen: summarizePollen(pollen, !measuredPollen, covered),
-      ...(!measuredPollen && Object.keys(pollen).length > 0
-        ? { estimated: Object.keys(pollen) }
+      ...(Object.keys(pollenDay.types).length > 0 ? { pollenDisplay: pollenDay.types } : {}),
+      ...(pollenEstimated && Object.keys(pollenDay.exposure).length > 0
+        ? { estimated: Object.keys(pollenDay.exposure) }
         : {}),
       exposure,
       raw: {
-        ...pollenRaw,
+        ...pollenDay.exposure,
         pm25: pm25[i] ?? 0,
         pm10: pm10[i] ?? 0,
         o3: o3[i] ?? 0,

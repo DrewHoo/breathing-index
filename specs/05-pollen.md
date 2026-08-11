@@ -1,6 +1,10 @@
 # Pollen — the missing variable the docs already promised
 
-**Status:** proposed · **Effort:** M · **Deps:** engine unchanged (variables are data-driven); pairs well with [03-engine-robustness.md](03-engine-robustness.md) · **Priority:** high — core demographic
+**Status:** shipped (PR #11), then superseded in part by
+[18-measured-pollen.md](18-measured-pollen.md) — measured data replaced the CAMS/calendar
+split, three type rows replaced the single dominant-species row, and the grains/m³ species
+variables retired; the calendar and the `estimated` evidence grade survive as the fallback
+path exactly as designed here · **Effort:** M · **Deps:** engine unchanged (variables are data-driven); pairs well with [03-engine-robustness.md](03-engine-robustness.md) · **Priority:** high — core demographic
 
 ## Problem
 

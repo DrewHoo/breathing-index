@@ -1,3 +1,4 @@
+import { POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
 import type { Priors } from './types'
 
 /**
@@ -20,9 +21,12 @@ const NEGLIGIBLE: Record<string, number> = {
   heat_stress: 1, // °C above 25: 26 °C is warm, not stressful
   cold_dry_stress: 1, // °C below 10, same reasoning on the other side
   humidity: 65, // %RH mean72h below this is not a mold-proxy candidate
-  grass_pollen: 2, // grains/m³
+  grass_pollen: 2, // grains/m³ — retired scale, see the pollen note on PRIORS
   ragweed_pollen: 1,
   birch_pollen: 2,
+  // Every measured pollen plant (index points, 0–5): Very Low is present,
+  // never a suspect.
+  ...Object.fromEntries(POLLEN_PLANT_VARIABLES.map((v) => [v, 1])),
 }
 
 export function negligibleFor(variable: string): number {
@@ -143,7 +147,17 @@ export const PRIORS: Priors = {
   heat_stress: { 2: 7, 3: 12 }, // °C above 25
   cold_dry_stress: { 2: 10, 3: 18 }, // °C below 10, dry air
   humidity: { 2: 70 }, // %RH mean72h, indoor mold/dust-mite proxy
+  // Retired grains/m³ species (pre-spec-18): kept only so entries that carry
+  // them keep meaning something wherever old entries surface. They never
+  // rejoin the live vector, and they must never share a name with the index
+  // scale below — a 20 grains/m³ day compared against an index 3 is nonsense.
   ragweed_pollen: { 2: 10, 3: 50 }, // grains/m³
   grass_pollen: { 2: 20, 3: 100 },
   birch_pollen: { 2: 30, 3: 90 },
+  // Every measured pollen plant, on the 0–5 index scale every current source
+  // speaks (specs/18-measured-pollen.md): Moderate is potentially a 2 for a
+  // sensitive person, High potentially a 3, Very High potentially a 4. One
+  // shared heuristic start — the diary is what makes birch and oak diverge,
+  // not the prior; same epistemic status as the weather rows.
+  ...Object.fromEntries(POLLEN_PLANT_VARIABLES.map((v) => [v, { 2: 3, 3: 4, 4: 5 }])),
 }

@@ -1,6 +1,8 @@
 # Premium data sources — better air data as the paid upgrade path
 
-**Status:** proposed · **Effort:** M · **Deps:** [05-pollen.md](05-pollen.md) (variable plumbing), [12-encrypted-sync.md](12-encrypted-sync.md) (tier + proxy backend) · **Priority:** later monetization — build after Plus exists
+**Status:** proposed; §4 (relay) shipped, and the pollen half of §3 shipped via
+[18-measured-pollen.md](18-measured-pollen.md) — no tiers or BYO keys yet, everyone rides the
+proxied key while there is nobody to meter · **Effort:** M · **Deps:** [05-pollen.md](05-pollen.md) (variable plumbing), [12-encrypted-sync.md](12-encrypted-sync.md) (tier + proxy backend) · **Priority:** later monetization — build after Plus exists
 
 ## Why
 
