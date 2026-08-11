@@ -119,19 +119,40 @@ export default {
     const { lat, lon } = coords
 
     switch (url.pathname) {
-      // Official AirNow observations (per-pollutant AQI points, same shape the
-      // client already bridges to µg/m³) — replaces the undocumented widget
-      // endpoint the strip previously leaned on.
+      // Official AirNow current observations plus today's forecast, one
+      // payload, one cache entry: the observations carry the per-pollutant
+      // AQI points the client bridges to µg/m³; the forecast rows ride along
+      // only because they are where AirNow says whether today is an official
+      // Action Day. Parsing lives in the client, where it has tests.
       case '/v1/airnow': {
-        const u = new URL('https://www.airnowapi.org/aq/observation/latLong/current/')
-        u.search = new URLSearchParams({
+        const common = {
           format: 'application/json',
           latitude: lat,
           longitude: lon,
           distance: '50',
           API_KEY: env.AIRNOW_API_KEY,
-        }).toString()
-        return relay(env, `airnow:${lat},${lon}`, () => fetch(u), cors)
+        }
+        const obs = new URL('https://www.airnowapi.org/aq/observation/latLong/current/')
+        obs.search = new URLSearchParams(common).toString()
+        const fc = new URL('https://www.airnowapi.org/aq/forecast/latLong/')
+        fc.search = new URLSearchParams(common).toString()
+        return relay(
+          env,
+          // v2: {observations, forecast} envelope. The version rides the key
+          // so a shape change never serves an hour of stale-shape cache.
+          `airnow:v2:${lat},${lon}`,
+          async () => {
+            const [o, f] = await Promise.all([fetch(obs), fetch(fc)])
+            if (!o.ok) return o
+            // A dead forecast endpoint must not take the observations down.
+            const observations = await o.json()
+            const forecast = f.ok ? await f.json() : []
+            return new Response(JSON.stringify({ observations, forecast }), {
+              headers: { 'content-type': 'application/json' },
+            })
+          },
+          cors,
+        )
       }
 
       // Outdoor PurpleAir sensors in the grid cell — hyperlocal PM where
