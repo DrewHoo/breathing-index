@@ -14,6 +14,6 @@ compatibility_date = "2026-01-01"
 #   npx wrangler kv namespace create CACHE
 # The worker runs fine without it — it just stops deduplicating upstream calls.
 #
-# [[kv_namespaces]]
-# binding = "CACHE"
-# id = "<paste id from the create command>"
+[[kv_namespaces]]
+binding = "CACHE"
+id = "2339359b8f3f46688e48c95f61b1d073"
