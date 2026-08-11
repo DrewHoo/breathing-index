@@ -3,7 +3,7 @@ import { Fragment, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
-import { POLLEN_VARIABLES } from '../sources/pollenCalendar'
+import { POLLEN_TYPES } from '../sources/googlePollen'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
@@ -18,6 +18,18 @@ import { lastKnownCoords } from '../ui/useExposureSeries'
 export const Route = createFileRoute('/diary')({ component: Diary })
 
 const CONFLICT_TAGS = ['pollen', 'sick', 'indoors all day']
+
+/**
+ * Both generations of pollen variable: entries logged before spec 18 carry
+ * the grains-scale species, everything since carries the index-scale types.
+ * Each is judged against its own prior; they never mix scales.
+ */
+const POLLEN_VARIABLES = [
+  ...POLLEN_TYPES,
+  'grass_pollen',
+  'birch_pollen',
+  'ragweed_pollen',
+] as const
 
 function Diary() {
   const [diary, setDiary] = useState<DiaryEntry[]>(loadDiary)

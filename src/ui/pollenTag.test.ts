@@ -15,8 +15,8 @@ const entryAt = (time: string): DiaryEntry => ({
 describe('tagging a conflict "pollen"', () => {
   it('attaches the season that day was in, marked as an estimate', () => {
     const patch = calendarPollenPatch(entryAt('2026-08-20T15:00:00.000Z'), HAMDEN)
-    expect(patch?.exposure?.ragweed_pollen).toBe(10)
-    expect(patch?.estimated).toEqual(['ragweed_pollen'])
+    expect(patch?.exposure?.pollen_weed).toBe(3)
+    expect(patch?.estimated).toEqual(['pollen_weed'])
     // Everything already on the entry survives.
     expect(patch?.exposure?.pm25).toBe(3)
   })
@@ -31,9 +31,9 @@ describe('tagging a conflict "pollen"', () => {
     // The day had nothing else measurably in it, which for measured air is the
     // one shape that confirms on a single day. A calendar figure stops short.
     expect(
-      model.confirmations.filter((c) => c.variable === 'ragweed_pollen').map((c) => c.strength),
+      model.confirmations.filter((c) => c.variable === 'pollen_weed').map((c) => c.strength),
     ).toEqual(['suspected-strong', 'suspected-strong'])
-    expect(model.confirmed.ragweed_pollen).toBeUndefined()
+    expect(model.confirmed.pollen_weed).toBeUndefined()
   })
 
   it('has nothing to attach out of season, and says so', () => {
@@ -46,7 +46,7 @@ describe('tagging a conflict "pollen"', () => {
 
   it('leaves an entry that already carries pollen alone', () => {
     const entry = entryAt('2026-08-20T15:00:00.000Z')
-    entry.exposure.ragweed_pollen = 4
+    entry.exposure.pollen_weed = 4
     expect(calendarPollenPatch(entry, HAMDEN)).toBeNull()
   })
 

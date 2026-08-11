@@ -5,6 +5,7 @@ import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
 import { fetchAirNow, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
+import { POLLEN_TYPES } from '../sources/googlePollen'
 import type { ExposureSeries } from '../sources/openMeteo'
 import { track } from '../ui/analytics'
 import { claimBankedRelease, markBankedToday } from '../ui/bankedDay'
@@ -809,32 +810,31 @@ function buildAirRows(
     })
   }
 
-  // One pollen row whatever the source, never three: the dominant species
-  // names itself in the sub-label, and a calendar figure says so on the note
-  // line rather than passing for a reading — same line the fine-fraction
-  // fingerprint uses, since both are the table talking about its own numbers,
-  // and inline the two labels pushed the reading off a 390 px screen.
-  // Absent on series cached before pollen shipped.
-  const pollen = current.pollen
-  if (pollen) {
-    const species = pollen.variable
-    const sub = species ? VARIABLE_LABELS[species]!.short : undefined
-    // Same convention as the pollutant rows: the reading of this hour on the
-    // track, the 8-hour window feature behind the evidence glyph.
-    const [loP, hiP] = species ? range((h) => h.raw[species] ?? 0) : [0, 0]
+  // One row per pollen type in today's air (specs/18-measured-pollen.md,
+  // superseding spec 05's single row by owner decision): the sub-label names
+  // the plants in season, and a calendar figure says so on the note line
+  // rather than passing for a reading. A type at zero or unreported has no
+  // row — out of season is not a reading, and three zeros all winter is
+  // noise. The 0–5 index is the table's one deliberate exception to the
+  // real-units rule; pollen has no unit a user could check.
+  for (const key of POLLEN_TYPES) {
+    const value = current.exposure[key]
+    if (!value) continue
+    const plants = current.pollenPlants?.[key]
+    const [loP, hiP] = range((h) => h.raw[key] ?? 0)
     rows.push({
-      key: 'pollen',
-      name: 'Pollen',
-      sub,
-      ...(pollen.estimated ? { note: { text: CALENDAR_ESTIMATE } } : {}),
-      value: Math.round(species ? (current.raw[species] ?? 0) : 0),
-      unit: 'grains/m³',
-      statusVar: species ?? 'grass_pollen',
-      statusValue: species ? (current.exposure[species] ?? 0) : 0,
+      key,
+      name: VARIABLE_LABELS[key]!.name,
+      ...(plants?.length ? { sub: plants.join(' · ') } : {}),
+      ...(current.estimated?.includes(key) ? { note: { text: CALENDAR_ESTIMATE } } : {}),
+      value: Math.round(value),
+      unit: 'of 5',
+      statusVar: key,
+      statusValue: value,
       lo: Math.round(loP),
       hi: Math.round(hiP),
-      dot: species ? (current.raw[species] ?? 0) : 0,
-      tol: species ? tolerance(species) : undefined,
+      dot: current.raw[key] ?? 0,
+      tol: tolerance(key),
     })
   }
 

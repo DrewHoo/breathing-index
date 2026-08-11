@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { PRIORS, negligibleFor } from '../engine/config'
-import {
-  POLLEN_VARIABLES,
-  calendarPollen,
-  dominantPollen,
-  monthOf,
-  pollenRegion,
-} from './pollenCalendar'
+import { POLLEN_TYPES } from './googlePollen'
+import { calendarPollen, monthOf, pollenRegion } from './pollenCalendar'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
 const AMSTERDAM = { lat: 52.37, lon: 4.9 }
@@ -29,7 +24,7 @@ describe('region lookup', () => {
     })
   }
 
-  it('claims nothing outside the table — Europe has measured data instead', () => {
+  it('claims nothing outside the table — abroad, the measured feed is the only source', () => {
     expect(pollenRegion(AMSTERDAM.lat, AMSTERDAM.lon)).toBeNull()
     expect(calendarPollen(AMSTERDAM.lat, AMSTERDAM.lon, 8)).toEqual({})
   })
@@ -41,16 +36,16 @@ describe('region lookup', () => {
 })
 
 describe('the calendar itself', () => {
-  it('has ragweed running in Hamden in August', () => {
+  it('has ragweed running in Hamden in August, on the index scale', () => {
     const august = calendarPollen(HAMDEN.lat, HAMDEN.lon, 8)
-    expect(august.ragweed_pollen).toBe(10)
-    expect(august.grass_pollen).toBeUndefined()
-    expect(august.birch_pollen).toBeUndefined()
+    expect(august.pollen_weed).toEqual({ value: 3, plants: ['ragweed'] })
+    expect(august.pollen_grass).toBeUndefined()
+    expect(august.pollen_tree).toBeUndefined()
   })
 
   it('peaks that ragweed season in September and ends it after October', () => {
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 9).ragweed_pollen).toBe(50)
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 11).ragweed_pollen).toBeUndefined()
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 9).pollen_weed?.value).toBe(4)
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 11).pollen_weed).toBeUndefined()
   })
 
   it('leaves winter empty rather than writing zeros', () => {
@@ -59,11 +54,13 @@ describe('the calendar itself', () => {
     expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 1)).toEqual({})
   })
 
-  it('never claims more than the low edge of a high season', () => {
+  it('never claims Very High — a peak is a measurement to make', () => {
     for (const place of REGIONS) {
       for (let month = 1; month <= 12; month++) {
-        for (const [variable, value] of Object.entries(calendarPollen(place.lat, place.lon, month))) {
-          expect(value, `${place.region} ${variable} in month ${month}`).toBeLessThanOrEqual(
+        for (const [variable, reading] of Object.entries(
+          calendarPollen(place.lat, place.lon, month),
+        )) {
+          expect(reading.value, `${place.region} ${variable} in month ${month}`).toBeLessThanOrEqual(
             PRIORS[variable]?.[3] ?? Infinity,
           )
         }
@@ -72,25 +69,12 @@ describe('the calendar itself', () => {
   })
 
   it('keeps a low season under the floor that makes a variable a suspect', () => {
-    // A "low" month is information, not an accusation: 1 grain/m³ sits at or
-    // under every negligible floor, so it can never enter a candidate set.
-    for (const variable of POLLEN_VARIABLES) {
+    // A "low" month is information, not an accusation: index 1 (Very Low)
+    // sits at every negligible floor, so it can never enter a candidate set.
+    for (const variable of POLLEN_TYPES) {
       expect(negligibleFor(variable)).toBeGreaterThanOrEqual(1)
     }
-    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 10).ragweed_pollen).toBe(1)
-  })
-})
-
-describe('naming the row', () => {
-  it('names the species furthest into its own prior, not the biggest count', () => {
-    expect(dominantPollen({ birch_pollen: 15, ragweed_pollen: 50 })?.variable).toBe(
-      'ragweed_pollen',
-    )
-    expect(dominantPollen({ birch_pollen: 90, ragweed_pollen: 1 })?.variable).toBe('birch_pollen')
-  })
-
-  it('has nothing to name out of season', () => {
-    expect(dominantPollen({})).toBeNull()
+    expect(calendarPollen(HAMDEN.lat, HAMDEN.lon, 10).pollen_weed?.value).toBe(1)
   })
 
   it('reads the month off a local API timestamp', () => {

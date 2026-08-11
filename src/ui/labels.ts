@@ -70,11 +70,17 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   heat_stress: { name: 'Heat', short: 'heat', unit: '°' },
   cold_dry_stress: { name: 'Cold, dry', short: 'cold', unit: '°' },
   humidity: { name: 'Humidity', sub: '3-day', short: 'humidity', unit: '%' },
-  // The three species share one "Pollen" row; `sub` is filled in per hour with
-  // the species actually being shown, and where the figure came from.
+  // Retired grains/m³ species (pre-spec-18), kept so old entries still render.
   grass_pollen: { name: 'Grass', short: 'grass', unit: 'grains/m³' },
   birch_pollen: { name: 'Birch', short: 'birch', unit: 'grains/m³' },
   ragweed_pollen: { name: 'Ragweed', short: 'ragweed', unit: 'grains/m³' },
+  // One row per pollen type; the sub-label names the plants in season. The
+  // unit is an index (0–5) because no consumer pollen source publishes a
+  // count a user could check — the one deliberate exception to the air
+  // table's real-units rule, argued in specs/18-measured-pollen.md.
+  pollen_tree: { name: 'Tree pollen', short: 'tree pollen', unit: 'of 5' },
+  pollen_grass: { name: 'Grass pollen', short: 'grass pollen', unit: 'of 5' },
+  pollen_weed: { name: 'Weed pollen', short: 'weed pollen', unit: 'of 5' },
 }
 
 /** The words the air table's pollen sub-label is built from. */
