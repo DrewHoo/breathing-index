@@ -1,0 +1,4 @@
+# Copy to .dev.vars (gitignored) and fill from your local .env.local
+AIRNOW_API_KEY=
+PURPLEAIR_API_KEY=
+GOOGLE_MAPS_API_KEY=

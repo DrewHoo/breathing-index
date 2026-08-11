@@ -1,0 +1,19 @@
+name = "breathing-index-worker"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Secrets — never in this file, never in git. Set each with:
+#   npx wrangler secret put AIRNOW_API_KEY
+#   npx wrangler secret put PURPLEAIR_API_KEY
+#   npx wrangler secret put GOOGLE_MAPS_API_KEY
+# For local dev, put the same names in worker/.dev.vars (gitignored).
+
+# Optional but recommended: KV-backed response cache. The Cache API is a no-op
+# on *.workers.dev domains, so KV is what makes two users in the same grid cell
+# cost one upstream call. Create the namespace and paste its id here:
+#   npx wrangler kv namespace create CACHE
+# The worker runs fine without it — it just stops deduplicating upstream calls.
+#
+# [[kv_namespaces]]
+# binding = "CACHE"
+# id = "<paste id from the create command>"

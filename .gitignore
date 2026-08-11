@@ -4,3 +4,7 @@ src/routeTree.gen.ts
 *.local
 .DS_Store
 .claude/worktrees/
+.env
+.env.*
+!.env.example
+.dev.vars
