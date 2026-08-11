@@ -70,8 +70,8 @@ function Intro() {
         smoke gets you and ozone doesn&rsquo;t, or the other way round. Your lungs sure do though!
       </p>
       <p className="intro-body">
-        This app cares about what your lungs think. Rate your breathing when you think of it, 1 to 4,
-        and it learns your triggers. Once it has a decent baseline, it'll start telling you what tomorrow will
+        This app cares about what your lungs think. Rate your breathing from 1 to 4,
+        and the app learns your triggers. Once it has a decent baseline, it'll start telling you what tomorrow will
         feel like:
       </p>
       <div className="intro-levels">
