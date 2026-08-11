@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
-    "test": "node scripts/derive-breakpoints.mjs --check && vitest run",
+    "test": "node scripts/derive-breakpoints.mjs --check && node scripts/generate-pollen-tables.mjs --check && vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {

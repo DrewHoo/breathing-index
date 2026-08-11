@@ -1,0 +1,590 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages, same as /privacy and /terms: no
+  bundle, no JS, no router. The service worker leaves /pollen alone
+  (navigateFallbackDenylist in vite.config.ts).
+
+  The tables between the `begin generated` markers are rendered from
+  src/sources/pollenCalendar.ts by scripts/generate-pollen-tables.mjs, and
+  `npm test` fails if they drift. Edit the calendar there, not here.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Pollen calendar by US region — Breathing Index</title>
+    <meta
+      name="description"
+      content="When Breathing Index can't measure pollen, it falls back on this calendar: birch, grass, and ragweed seasons by month for nine US regions."
+    />
+    <link rel="canonical" href="https://breathingindex.com/pollen/calendar" />
+    <meta name="theme-color" content="#F3F6F7" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/legal.css" />
+    <link rel="stylesheet" href="/pollen.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Breathing Index", "item": "https://breathingindex.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Pollen", "item": "https://breathingindex.com/pollen/" },
+          { "@type": "ListItem", "position": 3, "name": "Calendar" }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+      <nav class="crumbs"><a href="/pollen/">Pollen</a> / Calendar</nav>
+
+      <h1>Pollen calendar by US region</h1>
+
+      <p>
+        This is the season calendar Breathing Index falls back on when there's no measurement to
+        show: days before today, relay outages, spent quotas. Three species, nine US regions, month
+        granularity. A calendar can't honestly claim more than that, so this one doesn't try.
+      </p>
+
+      <h2>The calendar</h2>
+
+      <!-- begin generated: season-tables — by scripts/generate-pollen-tables.mjs; edit src/sources/pollenCalendar.ts, not here -->
+<p class="season-legend">
+  <span class="band band-low">L</span> low, shown as index 1 (Very Low) ·
+  <span class="band band-med">M</span> moderate, shown as index 3 (Moderate) ·
+  <span class="band band-high">H</span> high, shown as index 4 (High) ·
+  blank = out of season
+</p>
+<div class="season-table">
+  <table>
+    <caption>Birch — the tree season the calendar can claim</caption>
+    <thead>
+      <tr>
+        <th scope="col">Region</th>
+        <th scope="col"><abbr title="January">J</abbr></th>
+        <th scope="col"><abbr title="February">F</abbr></th>
+        <th scope="col"><abbr title="March">M</abbr></th>
+        <th scope="col"><abbr title="April">A</abbr></th>
+        <th scope="col"><abbr title="May">M</abbr></th>
+        <th scope="col"><abbr title="June">J</abbr></th>
+        <th scope="col"><abbr title="July">J</abbr></th>
+        <th scope="col"><abbr title="August">A</abbr></th>
+        <th scope="col"><abbr title="September">S</abbr></th>
+        <th scope="col"><abbr title="October">O</abbr></th>
+        <th scope="col"><abbr title="November">N</abbr></th>
+        <th scope="col"><abbr title="December">D</abbr></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Northeast</th>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — March">L</abbr></td>
+        <td class="band band-high"><abbr title="High — April">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Ohio Valley</th>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — March">M</abbr></td>
+        <td class="band band-high"><abbr title="High — April">H</abbr></td>
+        <td class="band band-low"><abbr title="Low — May">L</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Upper Midwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — April">M</abbr></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northern Plains</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — April">L</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southeast</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">South</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">West (CA/NV)</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northwest</th>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — March">M</abbr></td>
+        <td class="band band-high"><abbr title="High — April">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="season-table">
+  <table>
+    <caption>Grass</caption>
+    <thead>
+      <tr>
+        <th scope="col">Region</th>
+        <th scope="col"><abbr title="January">J</abbr></th>
+        <th scope="col"><abbr title="February">F</abbr></th>
+        <th scope="col"><abbr title="March">M</abbr></th>
+        <th scope="col"><abbr title="April">A</abbr></th>
+        <th scope="col"><abbr title="May">M</abbr></th>
+        <th scope="col"><abbr title="June">J</abbr></th>
+        <th scope="col"><abbr title="July">J</abbr></th>
+        <th scope="col"><abbr title="August">A</abbr></th>
+        <th scope="col"><abbr title="September">S</abbr></th>
+        <th scope="col"><abbr title="October">O</abbr></th>
+        <th scope="col"><abbr title="November">N</abbr></th>
+        <th scope="col"><abbr title="December">D</abbr></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Northeast</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Ohio Valley</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Upper Midwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northern Plains</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southeast</th>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — March">L</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — April">M</abbr></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — September">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">South</th>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — March">M</abbr></td>
+        <td class="band band-high"><abbr title="High — April">H</abbr></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — September">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — April">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — May">M</abbr></td>
+        <td class="band band-low"><abbr title="Low — June">L</abbr></td>
+        <td class="band band-low"><abbr title="Low — July">L</abbr></td>
+        <td class="band band-low"><abbr title="Low — August">L</abbr></td>
+        <td class="band band-low"><abbr title="Low — September">L</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">West (CA/NV)</th>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — March">M</abbr></td>
+        <td class="band band-high"><abbr title="High — April">H</abbr></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — June">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-high"><abbr title="High — May">H</abbr></td>
+        <td class="band band-high"><abbr title="High — June">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — July">M</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="season-table">
+  <table>
+    <caption>Ragweed</caption>
+    <thead>
+      <tr>
+        <th scope="col">Region</th>
+        <th scope="col"><abbr title="January">J</abbr></th>
+        <th scope="col"><abbr title="February">F</abbr></th>
+        <th scope="col"><abbr title="March">M</abbr></th>
+        <th scope="col"><abbr title="April">A</abbr></th>
+        <th scope="col"><abbr title="May">M</abbr></th>
+        <th scope="col"><abbr title="June">J</abbr></th>
+        <th scope="col"><abbr title="July">J</abbr></th>
+        <th scope="col"><abbr title="August">A</abbr></th>
+        <th scope="col"><abbr title="September">S</abbr></th>
+        <th scope="col"><abbr title="October">O</abbr></th>
+        <th scope="col"><abbr title="November">N</abbr></th>
+        <th scope="col"><abbr title="December">D</abbr></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Northeast</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-high"><abbr title="High — September">H</abbr></td>
+        <td class="band band-low"><abbr title="Low — October">L</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Ohio Valley</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-high"><abbr title="High — September">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — October">M</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Upper Midwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-high"><abbr title="High — August">H</abbr></td>
+        <td class="band band-high"><abbr title="High — September">H</abbr></td>
+        <td class="band band-low"><abbr title="Low — October">L</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northern Plains</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — September">M</abbr></td>
+        <td class="band band-low"><abbr title="Low — October">L</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southeast</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-high"><abbr title="High — September">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — October">M</abbr></td>
+        <td class="band band-low"><abbr title="Low — November">L</abbr></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">South</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-med"><abbr title="Moderate — August">M</abbr></td>
+        <td class="band band-high"><abbr title="High — September">H</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — October">M</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Southwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — August">L</abbr></td>
+        <td class="band band-med"><abbr title="Moderate — September">M</abbr></td>
+        <td class="band band-low"><abbr title="Low — October">L</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">West (CA/NV)</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — September">L</abbr></td>
+        <td class="band band-low"><abbr title="Low — October">L</abbr></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <th scope="row">Northwest</th>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="band band-low"><abbr title="Low — September">L</abbr></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<!-- end generated: season-tables -->
+
+      <h2>How to read it</h2>
+      <p>
+        Each letter is the strength of a typical season that month, mapped to the
+        <em>low edge</em> of its category on the 0–5 pollen index the app uses everywhere else.
+        That's deliberate: a calendar month is a climatology, not a forecast, so it claims the
+        least its category allows. There's no letter for Very High either; a peak is a
+        measurement's claim to make, and this table is an estimate.
+      </p>
+
+      <h2>About the blanks</h2>
+      <p>
+        Birch pollen barely registers in the South, the Southeast, the Southwest, or California,
+        so those rows carry no tree season at all. There are birches down there — river birch
+        lines half the creeks in the Southeast — but they don't put enough in the air to count as
+        a season. Those places obviously still have tree pollen — mountain cedar in central Texas
+        all winter, oak and pine across the Southeast in spring — but the app learns their timing
+        from the measured feed, which knows what's actually in the air today. This table only says
+        what a calendar can honestly say, and a made-up season would be worse than an admitted
+        blank.
+      </p>
+
+      <h2>Where the seasons come from</h2>
+      <p>
+        The season shapes follow the
+        <a href="https://pollen.aaaai.org/" rel="noreferrer">AAAAI / National
+        Allergy Bureau</a> picture of North American pollen seasons: tree pollen in early spring,
+        grass from late spring through summer (longer and earlier in the South and West), and
+        ragweed from mid-August to first frost. The NAB's counting stations are the closest thing
+        the US has to ground truth here.
+      </p>
+
+      <p>
+        If you want today's reading for where you actually are — per plant, not per category —
+        <a href="/">open the app</a>. Log how your breathing went and it starts working out which
+        of these seasons is yours.
+      </p>
+
+      <p class="callout">
+        <strong>Breathing Index is a logbook lens on public air data — not medical advice. Trust
+        your symptoms and your asthma action plan over anything on this screen.</strong>
+      </p>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/pollen/">Pollen</a><a href="/privacy">Privacy</a
+        ><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a logbook lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

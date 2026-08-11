@@ -2,8 +2,12 @@
  * The plant catalog: every species the Google Pollen API reports, each with
  * the exposure variable it becomes, the display name its row speaks, and the
  * type row it files under. Plants — not types — are the engine's variables,
- * because "allergic to birch, indifferent to oak" is a real and common shape
+ * because "allergic to oak, indifferent to juniper" is a real and common shape
  * of the disease, and a type-level number makes those two the same forever.
+ * (The pair matters: specificity runs at the plant-family level, and close
+ * cousins cross-react — most birch-allergic people react to oak too, and
+ * birch vs alder is the same sensitization measured twice. Oak vs juniper is
+ * a distinction the immune system actually makes.)
  * A code Google adds later and this table does not know is skipped entirely:
  * the engine may only reason about numbers the app can show and name.
  */

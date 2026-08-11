@@ -1,0 +1,178 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages, same as /privacy and /terms: no
+  bundle, no JS, no router. The service worker leaves /pollen alone
+  (navigateFallbackDenylist in vite.config.ts).
+
+  Provenance: drafted with LLM assistance against Drew's own writing as the
+  style target, then rewritten and edited by Drew (2026-08-11). The factual
+  claims were audited against the cited sources before shipping.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Pollen and breathing — Breathing Index</title>
+    <meta
+      name="description"
+      content="Oak and maple both run in April. If only one is your trigger, 'tree pollen: high' is wrong for you half the time. What pollen does to breathing, and how a breathing log tells plants apart."
+    />
+    <link rel="canonical" href="https://breathingindex.com/pollen/" />
+    <meta name="theme-color" content="#F3F6F7" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/legal.css" />
+    <link rel="stylesheet" href="/pollen.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Breathing Index", "item": "https://breathingindex.com/" },
+          { "@type": "ListItem", "position": 2, "name": "Pollen" }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+      <nav class="crumbs">Pollen</nav>
+
+      <h1>Pollen and breathing</h1>
+
+      <p>
+        Every pollen app can tell you pollen is high. In April that's true every single day, which
+        makes it about as useful as a weather app that says "yep there is weather." If pollen
+        messes with your breathing, you need to know <em>which plant</em> is your mortal enemy.
+      </p>
+      <p>Breathing Index helps you identify your mortal enemy(s). This page explains why you can have
+        a whole tree species as a mortal enemy.</p>
+
+      <h2>Hay Fever vs Allergic Asthma</h2>
+      <p>
+        Pollen sets off two conditions that can get lumped together. Hay fever (allergic rhinitis, if
+        you're billing insurance) lives in your nose and eyes: sneezing, itching, congestion--I personally get
+        this from pine pollen, which you don't need fancy data APIs for; you just have to notice
+        a slight breeze blowing through a loblolly pine tree and producing a giant cloud of yellow dust.
+
+        Allergic asthma is the other condition, and you can even have allergic asthma without
+        so much as a sniffle, though most folks with allergic asthma get
+        the nose stuff too. It happens when airways get inflamed and the muscle around them clamps
+        down, leaving less room for air, which causes breathing to get difficult.
+        Plenty of people have both, and a bad pollen day can cause either or both; the
+        <a href="https://acaai.org/allergies/allergic-conditions/hay-fever/" rel="noreferrer">ACAAI
+        has a good plainspoken rundown</a> of the hay fever half.
+      </p>
+
+      <h2>Identifying the plants that hate you</h2>
+      <p>
+        Allergies are specific--they run in plant families, not in "tree pollen" as a category (or, if
+        you're somehow allergic to all of it, I hope you can afford to move to a desert). If you go to
+        an allergist, they're gonna test you for oak, maple, juniper, and friends separately, because
+        different plant families make different proteins, and your immune system keeps separate grudges.
+        Oak and maple pollen both proliferate in April across the northern half of the country (down
+        south, oak can get going as early as February). If oak is your trigger and maple isn't, a "tree
+        pollen: high" banner is wrong for you half the time!
+      </p>
+      <p>
+        Even if they both happen in April, oak and maple rise and fall on their own schedules, so there are days oak
+        pollen counts are high while maple counts are low. If you rate your breathing on enough
+        days, the app may find that it's only oak that triggers your asthma. Or maybe it's truly both and
+        you can declare war against trees.
+      </p>
+      <figure class="gif">
+        <img
+          src="/pollen/war-saruman.webp"
+          alt="Saruman raising his arm as Isengard's army marches: the last guy who declared war on trees."
+          width="400"
+          height="220"
+          loading="lazy"
+        />
+      </figure>
+      <p>
+        One honest limit: the app can tell oak from juniper, but it can't tell birch from alder--those
+        are such close cousins that your immune system doesn't really distinguish them, and neither
+        will your breathing log.
+      </p>
+
+      <h2>Pollen counting is complicated</h2>
+      <p>
+        Real pollen counting is surprisingly manual: stations run by the
+        <a href="https://pollen.aaaai.org/" rel="noreferrer">National Allergy Bureau</a> catch
+        grains on a greased rod or a strip of sticky tape and count them under a microscope, in
+        <a
+          href="https://www.aaaai.org/tools-for-the-public/allergy,-asthma-immunology-glossary/pollen-counts-defined"
+          rel="noreferrer"
+          >grains per cubic meter of air</a
+        >. Raw counts are difficult to interpret because the thresholds differ per plant on the
+        NAB's reporting scale: twenty grains of grass per cubic meter already counts as high, while
+        a 'high' level of tree pollen requires ninety grains. A thousand grains might be routine or
+        apocalyptic depending on the species.
+      </p>
+      <p>
+        So the app uses a 0–5 index instead, where the scale means the same thing across
+        species: 0 is none, 5 is as bad as that plant gets for the people it affects. The steps describe people, not grains;
+        at 1, only seriously pollen-sensitive folks notice anything, and by 4 most people with
+        that allergy are having a day. Today's values come from
+        <a
+          href="https://developers.google.com/maps/documentation/pollen/pollen-index"
+          rel="noreferrer"
+          >Google's pollen model</a
+        >, which simulates what's in the air from land cover, plant seasons, and weather rather than
+        counting grains directly. When there's no live value to show, the app will
+        show you a season calendar with historical data instead, since it's better than nothing.
+      </p>
+      <p>
+        The calendar is broad: it has nine US regions, three species, month granularity, and 'no data'
+        where a species isn't present. The full table and elaboration are on the <a href="/pollen/calendar">calendar page</a>.
+      </p>
+
+      <h2>What to do with all this</h2>
+      <p>
+        If you're reading this mid-flare: I'm sorry, I know exactly how that goes. When you can,
+        <a href="/">open the app</a> and rate your breathing from 1 to 4.
+        Do that for a few weeks and it starts showing you which of these plants hates you,
+        and at least next time you'll be able to plan for & mitigate it.
+      </p>
+
+      <p class="callout">
+        <strong>Breathing Index is a breathing lens on public air data — not medical advice. Trust
+        your symptoms and your asthma action plan over anything on this screen.</strong>
+      </p>
+
+      <h2>Sources</h2>
+      <ul>
+        <li>
+          <a href="https://acaai.org/allergies/allergic-conditions/hay-fever/" rel="noreferrer"
+            >American College of Allergy, Asthma &amp; Immunology — hay fever</a
+          >: symptoms and triggers of allergic rhinitis.
+        </li>
+        <li>
+          <a
+            href="https://www.aaaai.org/tools-for-the-public/allergy,-asthma-immunology-glossary/pollen-counts-defined"
+            rel="noreferrer"
+            >AAAAI — pollen counts defined</a
+          >
+          and the <a href="https://pollen.aaaai.org/" rel="noreferrer">National Allergy Bureau
+          station map</a>: how counts are measured and reported.
+        </li>
+        <li>
+          <a
+            href="https://developers.google.com/maps/documentation/pollen/pollen-index"
+            rel="noreferrer"
+            >Google Pollen API — Universal Pollen Index</a
+          >: the 0–5 scale the measured values arrive in.
+        </li>
+      </ul>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/pollen/calendar">Pollen calendar</a
+        ><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+        <p>
+          Breathing Index is a breathing lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.
+        </p>
+      </footer>
+    </main>
+  </body>
+</html>

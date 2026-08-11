@@ -20,7 +20,7 @@ import { POLLEN_PLANTS } from './pollenPlants'
  */
 export type Band = 'low' | 'med' | 'high'
 
-const BAND_INDEX: Record<Band, number> = { low: 1, med: 3, high: 4 }
+export const BAND_INDEX: Record<Band, number> = { low: 1, med: 3, high: 4 }
 
 /**
  * The calendar reasons in the species the AAAAI/NAB season picture is written
@@ -67,7 +67,7 @@ export type RegionId =
  * in Texas, oak and pine in the Southeast) are exactly what the measured feed
  * knows and this calendar does not.
  */
-const REGION_SEASONS: Record<RegionId, Partial<Record<keyof typeof SPECIES, MonthBands>>> = {
+export const REGION_SEASONS: Record<RegionId, Partial<Record<keyof typeof SPECIES, MonthBands>>> = {
   northeast: {
     birch: { 3: 'low', 4: 'high', 5: 'med' },
     grass: { 5: 'med', 6: 'high', 7: 'med' },

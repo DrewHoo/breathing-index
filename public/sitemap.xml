@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The root plus the two prerendered documents — the only URLs here that are
+  The root plus the prerendered documents — the only URLs here that are
   content and return 200. The app routes (/detail, /diary, /scoreboard,
   /settings) are app state: they render from the visitor's own diary, serve the
   same HTML through the SPA 404 shim, and GitHub Pages returns them with a 404
-  status. They canonicalise to the root instead.
+  status. They canonicalise to the root instead. The /pollen pages are content
+  and carry their own canonical tags.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -12,6 +13,18 @@
     <lastmod>2026-08-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/pollen/</loc>
+    <lastmod>2026-08-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/pollen/calendar</loc>
+    <lastmod>2026-08-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
   <url>
     <loc>https://breathingindex.com/privacy</loc>
