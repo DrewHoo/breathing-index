@@ -33,7 +33,6 @@
   --pill-4-bg: #c13a31;
   --pill-4-ink: #fff6f4;
   --chip-on-bg: #e0e7ea;
-  --zone: #d3dde2;
   --control-border: #b9c6cc;
   --accent-border: #a9c0cc;
   --knob: #ffffff;
@@ -85,7 +84,6 @@
     --pill-4-bg: #8f2f26;
     --pill-4-ink: #ffe4df;
     --chip-on-bg: #2e3a43;
-    --zone: #35434c;
     --control-border: #55646d;
     --accent-border: #3f5f70;
     --knob: #dfe9ee;
@@ -618,10 +616,19 @@ h1 {
 
 /* What a row says about its own number: where it came from ("calendar
    estimate"), or what it looks like ("likely smoke"). A line of its own, and
-   never below 12 px — the caveat is the point. */
+   never below 12 px — the caveat is the point. As a link (the calendar
+   estimate opens /pollen/calendar) it keeps the caveat's quiet color; the
+   underline is the whole affordance. */
 .air-note {
   font: 400 12px var(--sans);
   color: var(--secondary);
+}
+
+a.air-note {
+  color: var(--secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 2px;
 }
 
 /* The claim variant: the one place in the app allowed to name a source. */
@@ -634,8 +641,10 @@ h1 {
   flex: 1;
 }
 
+/* The reading itself steps up to headline weight — with the range endpoints
+   gone, this is the only number left on the row's top line. */
 .air-value {
-  font: 500 12.5px var(--mono);
+  font: 600 15px var(--mono);
   white-space: nowrap;
 }
 
@@ -645,9 +654,9 @@ h1 {
 }
 
 /* The evidence verdict per row — the whole point of the table, previously
-   set at 10 px. Wide enough for "◌ no evidence yet" at 12 px. */
+   set at 10 px. Wide enough for "handled higher fine" at 12 px. */
 .air-status {
-  width: 106px;
+  width: 116px;
   flex: none;
   white-space: nowrap;
   text-align: right;
@@ -655,7 +664,7 @@ h1 {
   color: var(--secondary);
 }
 
-.air-status.trigger {
+.air-status.past {
   font-weight: 600;
   color: var(--ink);
 }
@@ -669,65 +678,30 @@ h1 {
   color: var(--secondary);
 }
 
-.air-range-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* 48 h of the row's air against the dashed easy-level waterline; the SVG
+   keeps its 340×40 aspect so strokes stay put across widths. */
+.air-spark {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
-.air-endpoint {
-  width: 26px;
-  flex: none;
-  font: 400 10px var(--mono);
+/* The plot stops at x=300 of 340 — the gutter holds the waterline value —
+   so "now" gets the same 40/340 inset to land under the end of the line. */
+.air-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding-right: 11.8%;
+  font: 400 9.5px var(--mono);
   color: var(--faint);
 }
 
-.air-endpoint.lo {
-  text-align: right;
-}
-
-.air-track {
-  flex: 1;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--track);
-  position: relative;
-}
-
-.air-zone {
-  position: absolute;
-  top: 0;
-  height: 3px;
-  background: var(--zone);
-}
-
-.air-zone.left {
-  border-radius: 2px 0 0 2px;
-}
-
-.air-zone.right {
-  border-radius: 0 2px 2px 0;
-}
-
-.air-dot {
-  position: absolute;
-  top: -2px;
-  margin-left: -3.5px;
-  width: 7px;
-  height: 7px;
-  border-radius: 4px;
-  background: var(--ink);
-}
-
-.air-tol {
-  position: absolute;
-  top: -2.5px;
-  margin-left: -4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  border: 1.5px solid var(--secondary);
-  background: var(--paper);
+/* The legend's swatch for the waterline: a dash of the line itself. */
+.rule-dash {
+  display: inline-block;
+  width: 14px;
+  border-top: 1px dashed var(--l2);
+  vertical-align: 3px;
 }
 
 /* --- by hour --- */

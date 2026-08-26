@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
@@ -747,27 +747,23 @@ interface AirRow {
   /** exposure-space value + variable the evidence status is computed from */
   statusVar: string
   statusValue: number
-  lo: number
-  hi: number
-  dot: number
-  /** personal tolerance tick ("highest handled fine"), display space */
+  /** the row's last 48 h in display units, oldest first, ending at now */
+  series: number[]
+  /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
-  /** shaded stress zones (temperature row), as [start, end] in display space */
-  zones?: [number, number][]
+  /** cold side of the temperature row: past-easy is below the waterline */
+  invert?: boolean
   /**
    * A line under the row about the *reading* rather than in it: where the
    * number came from, or what the particulate looks like. Its own line
    * because the name row is already carrying a name, a unit and a verdict,
    * and neither of these is allowed to squeeze the number off a phone.
    * `claim` marks the one that asserts something — the smoke fingerprint;
-   * the provenance caveats stay quiet.
+   * the provenance caveats stay quiet. `href` makes the note a link out to
+   * the prerendered document that explains it (a plain anchor, not a route —
+   * the target is served off disk like /privacy).
    */
-  note?: { text: string; claim?: boolean }
-}
-
-function pct(value: number, lo: number, hi: number): number {
-  if (hi <= lo) return 50
-  return Math.min(98, Math.max(2, ((value - lo) / (hi - lo)) * 100))
+  note?: { text: string; claim?: boolean; href?: string }
 }
 
 function buildAirRows(
@@ -778,10 +774,6 @@ function buildAirRows(
   const ci = data.currentIndex
   const window = data.hours.slice(Math.max(0, ci - 47), ci + 1)
   const current = data.hours[ci]!
-  const range = (pick: (h: (typeof window)[number]) => number): [number, number] => {
-    const values = window.map(pick)
-    return [Math.min(...values), Math.max(...values)]
-  }
   const tolerance = (variable: string): number | undefined => {
     const tol = model.tolerance[variable]?.[2]
     return tol !== undefined && tol > negligibleFor(variable) ? tol : undefined
@@ -791,22 +783,17 @@ function buildAirRows(
 
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
-    const [lo, hi] = range((h) => h.raw[key] ?? 0)
     const meta = VARIABLE_LABELS[key]!
+    const sub = key === 'pm25' && likelySmoke ? `${meta.sub} · likely smoke` : meta.sub
     rows.push({
       key,
       name: meta.name,
-      sub: meta.sub,
-      ...(key === 'pm25' && likelySmoke
-        ? { note: { text: 'likely smoke — nearly all of it fine-mode', claim: true } }
-        : {}),
+      ...(sub ? { sub } : {}),
       value: Math.round(current.raw[key] ?? 0),
       unit: meta.unit ?? '',
       statusVar: key,
       statusValue: current.exposure[key] ?? 0,
-      lo: Math.round(lo),
-      hi: Math.round(hi),
-      dot: current.raw[key] ?? 0,
+      series: window.map((h) => h.raw[key] ?? 0),
       tol: tolerance(key),
     })
   }
@@ -823,31 +810,27 @@ function buildAirRows(
     const display = current.pollenDisplay?.[type]
     const top = display?.plants[0]
     if (!display || !top) continue
-    const [loP, hiP] = range((h) => h.pollenDisplay?.[type]?.value ?? 0)
     rows.push({
       key: `pollen_${type}`,
       name: POLLEN_ROW_NAMES[type],
       sub: display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
-      ...(current.estimated?.includes(top.variable) ? { note: { text: CALENDAR_ESTIMATE } } : {}),
+      ...(current.estimated?.includes(top.variable)
+        ? { note: { text: CALENDAR_ESTIMATE, href: '/pollen/calendar' } }
+        : {}),
       value: display.value,
       unit: 'of 5',
       statusVar: top.variable,
       statusValue: current.exposure[top.variable] ?? top.value,
-      lo: Math.round(loP),
-      hi: Math.round(hiP),
-      dot: display.value,
+      series: window.map((h) => h.pollenDisplay?.[type]?.value ?? 0),
       tol: tolerance(top.variable),
     })
   }
 
   // One temperature row backed by the two one-sided stresses; the name
-  // follows the active side, and both stress zones shade the track.
+  // follows the active side. On the cold side "past your easy" is downward,
+  // so the waterline flips and the fill hangs below it.
   const coldSide = (current.exposure.cold_dry_stress ?? 0) > 0
-  const [loC, hiC] = range((h) => h.raw.temp ?? 0)
   const disp = (c: number): number => Math.round(displayTemperature(c, tempUnit))
-  const zones: [number, number][] = []
-  if (loC < 10) zones.push([disp(loC), disp(Math.min(10, hiC))])
-  if (hiC > 25) zones.push([disp(Math.max(25, loC)), disp(hiC)])
   const tempVar = coldSide ? 'cold_dry_stress' : 'heat_stress'
   const tolStress = tolerance(tempVar)
   rows.push({
@@ -857,14 +840,11 @@ function buildAirRows(
     unit: `°${tempUnit}`,
     statusVar: tempVar,
     statusValue: current.exposure[tempVar] ?? 0,
-    lo: disp(loC),
-    hi: disp(hiC),
-    dot: disp(current.raw.temp ?? 0),
+    series: window.map((h) => disp(h.raw.temp ?? 0)),
     tol: tolStress !== undefined ? disp(coldSide ? 10 - tolStress : 25 + tolStress) : undefined,
-    zones,
+    invert: coldSide,
   })
 
-  const [loH, hiH] = range((h) => h.raw.humidity ?? 0)
   rows.push({
     key: 'humidity',
     name: 'Humidity',
@@ -873,29 +853,37 @@ function buildAirRows(
     unit: '%',
     statusVar: 'humidity',
     statusValue: current.exposure.humidity ?? 0,
-    lo: Math.round(loH),
-    hi: Math.round(hiH),
-    dot: current.exposure.humidity ?? 0,
+    series: window.map((h) => h.raw.humidity ?? 0),
     tol: tolerance('humidity'),
   })
   return rows
 }
 
+/**
+ * The row's verdict, spoken against the waterline. Suspicion outranks the
+ * easy level — a bad day logged below it is the sharper fact — and a
+ * confirmed trigger reads as past-your-easy even before an easy day has
+ * drawn the line.
+ */
 function statusChip(
   model: TriggerModel,
   variable: string,
   value: number,
 ): { text: string; cls: string } {
-  if (value <= negligibleFor(variable)) return { text: '· low', cls: '' }
+  if (value <= negligibleFor(variable)) return { text: 'barely present', cls: '' }
+  const tol = model.tolerance[variable]?.[2]
+  const pastEasy = tol !== undefined && tol > negligibleFor(variable) && value > tol
   switch (variableStatus(model, PRIORS, variable, value)) {
     case 'confirmed':
-      return { text: '● trigger', cls: 'trigger' }
+      return { text: 'past your easy', cls: 'past' }
     case 'suspected':
-      return { text: '◐ suspect', cls: 'suspect' }
+      return pastEasy
+        ? { text: 'past your easy', cls: 'past' }
+        : { text: 'maybe a trigger', cls: 'suspect' }
     case 'tolerated':
-      return { text: '○ fine before', cls: 'fine' }
+      return { text: 'handled higher fine', cls: 'fine' }
     default:
-      return { text: '◌ no evidence yet', cls: '' }
+      return pastEasy ? { text: 'past your easy', cls: 'past' } : { text: 'no logs yet', cls: '' }
   }
 }
 
@@ -909,17 +897,23 @@ function AirTable({
   tempUnit: TemperatureUnit
 }) {
   const rows = buildAirRows(data, model, tempUnit)
-  const hour = fmtHour(hourNum(data.hours[data.currentIndex]!.time), true)
-  // The glyph needs its legend from the first row the diary has a verdict on,
-  // not only from the rows that also carry a tolerance tick.
-  const showLegend = rows.some(
-    (r) => r.tol !== undefined || statusChip(model, r.statusVar, r.statusValue).cls !== '',
-  )
+  // The dash needs its legend only once a row actually draws a waterline.
+  const showWaterline = rows.some((r) => r.tol !== undefined)
   return (
     <section className="section" style={{ gap: 4 }}>
       <SectionRule
         label="In the air"
-        note={`${hour} · range = past 48 h${showLegend ? ' · ○ handled fine' : ''}`}
+        note={
+          <>
+            last 48 h → now
+            {showWaterline && (
+              <>
+                {' · '}
+                <span className="rule-dash" /> your easy level
+              </>
+            )}
+          </>
+        }
         faint
       />
       <div className="air-table">
@@ -936,35 +930,141 @@ function AirTable({
                 </span>
                 <span className={`air-status ${status.cls}`}>{status.text}</span>
               </div>
-              {row.note && (
-                <span className={`air-note${row.note.claim ? ' claim' : ''}`}>{row.note.text}</span>
-              )}
-              <div className="air-range-row">
-                <span className="air-endpoint lo">{row.lo}</span>
-                <div className="air-track">
-                  {row.zones?.map(([start, end], i) => {
-                    const a = pct(start, row.lo, row.hi)
-                    const b = pct(end, row.lo, row.hi)
-                    return (
-                      <span
-                        key={i}
-                        className={`air-zone${a <= 2 ? ' left' : ''}${b >= 98 ? ' right' : ''}`}
-                        style={{ left: `${a}%`, width: `${b - a}%` }}
-                      />
-                    )
-                  })}
-                  {row.tol !== undefined && (
-                    <span className="air-tol" style={{ left: `${pct(row.tol, row.lo, row.hi)}%` }} />
-                  )}
-                  <span className="air-dot" style={{ left: `${pct(row.dot, row.lo, row.hi)}%` }} />
-                </div>
-                <span className="air-endpoint">{row.hi}</span>
+              {row.note &&
+                (row.note.href ? (
+                  <a className={`air-note${row.note.claim ? ' claim' : ''}`} href={row.note.href}>
+                    {row.note.text}
+                  </a>
+                ) : (
+                  <span className={`air-note${row.note.claim ? ' claim' : ''}`}>
+                    {row.note.text}
+                  </span>
+                ))}
+              <AirSpark series={row.series} tol={row.tol} invert={row.invert} name={row.name} />
+              <div className="air-ticks" aria-hidden="true">
+                <span>−48 h</span>
+                <span>−24 h</span>
+                <span>now</span>
               </div>
             </div>
           )
         })}
       </div>
     </section>
+  )
+}
+
+/**
+ * The row's last 48 hours against the personal waterline. The line is the
+ * air; ink appears only between the line and the dashed easy level, so a
+ * calm window is a bare line and the table's total ink literally equals
+ * hours past this person. A row with no easy day logged yet has no
+ * waterline to be past.
+ */
+function AirSpark({
+  series,
+  tol,
+  invert,
+  name,
+}: {
+  series: number[]
+  /** "your easy level" in the row's display units */
+  tol?: number
+  /** cold side of the temperature row: past-easy is below the waterline */
+  invert?: boolean
+  name: string
+}) {
+  const clip = useId()
+  if (series.length < 2) return null
+  // Plot in x 2..300; the right gutter holds the waterline's ring + value.
+  const X0 = 2
+  const X1 = 300
+  const Y0 = 5
+  const Y1 = 35
+  const values = tol === undefined ? series : [...series, tol]
+  let lo = Math.min(...values)
+  let hi = Math.max(...values)
+  if (hi - lo < 1e-9) {
+    lo -= 1
+    hi += 1
+  }
+  const x = (i: number): number => X0 + (i * (X1 - X0)) / (series.length - 1)
+  const y = (v: number): number => Y1 - ((v - lo) / (hi - lo)) * (Y1 - Y0)
+  const line = series
+    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
+    .join(' ')
+  const past = tol !== undefined && series.some((v) => (invert ? v < tol : v > tol))
+  const yTol = tol !== undefined ? y(tol) : 0
+  return (
+    <svg
+      className="air-spark"
+      viewBox="0 0 340 40"
+      role="img"
+      aria-label={
+        tol === undefined
+          ? `${name}, past 48 hours.`
+          : `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
+              past ? ' The air was past it during this window.' : ''
+            }`
+      }
+    >
+      {past && (
+        <>
+          <clipPath id={clip}>
+            {invert ? (
+              <rect x={0} y={yTol} width={340} height={40 - yTol} />
+            ) : (
+              <rect x={0} y={0} width={340} height={yTol} />
+            )}
+          </clipPath>
+          <path
+            d={`${line} V${invert ? 0 : 40} H${X0} Z`}
+            fill="var(--l3)"
+            clipPath={`url(#${clip})`}
+          />
+        </>
+      )}
+      {tol !== undefined && (
+        <>
+          <line
+            x1={X0}
+            y1={yTol}
+            x2={X1}
+            y2={yTol}
+            stroke="var(--l2)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+          />
+          <circle
+            cx={X1 + 8}
+            cy={yTol}
+            r={3.5}
+            fill="var(--paper)"
+            stroke="var(--secondary)"
+            strokeWidth={1.5}
+          />
+          <text
+            x={X1 + 16}
+            y={yTol + 3.5}
+            fontFamily="Spline Sans Mono, monospace"
+            fontSize={10}
+            fontWeight={600}
+            fill="var(--ink-2)"
+          >
+            {Math.round(tol)}
+          </text>
+        </>
+      )}
+      <path
+        d={line}
+        fill="none"
+        stroke="var(--secondary)"
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+    </svg>
   )
 }
 
