@@ -1,5 +1,6 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Fragment, useEffect, useId, useMemo, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState, type ReactElement } from 'react'
+import type { GlossaryKey } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
@@ -17,6 +18,7 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
+import { useGlossaryHelp } from '../ui/help'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
@@ -259,17 +261,13 @@ function Home() {
     updateDiary(diary.map((e) => (e.id === savedEntry.id ? amended : e)))
   }
 
-  const logAgain = () => {
-    setJustSaved(null)
-    setDismissed(false)
-    navigate({ to: '/', search: { log: true } })
-  }
-
   // The hour on screen is the payload's own newest hour, never the clock: the
   // service worker can hand back a six-hour-old response that parses as new.
   const dataHour = fmtHour(hourNum(current.time), true)
   const showStale = stale || isStale(data)
-  // "log again" reopens the ask over an existing answer; a fresh tap closes it.
+  // The diary's "+ Log now" (`?log=true`) reopens the ask over an existing
+  // answer; a fresh tap closes it. The home screen itself no longer offers a
+  // second tap — one answer a visit is the whole idea of the card.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
   // A rating binds to the air in `current` forever, so the ask only appears
@@ -296,7 +294,6 @@ function Home() {
           onLog={logNow}
           onAmend={amendSaved}
           onUndo={undo}
-          onLogAgain={logAgain}
           onDismiss={() => setDismissed(true)}
         />
       )}
@@ -409,7 +406,6 @@ function QuickLogCard({
   onLog,
   onAmend,
   onUndo,
-  onLogAgain,
   onDismiss,
 }: {
   coldStart: boolean
@@ -419,7 +415,6 @@ function QuickLogCard({
   onLog: (rating: Rating) => void
   onAmend: (patch: Partial<DiaryEntry>) => void
   onUndo: () => void
-  onLogAgain: () => void
   onDismiss: () => void
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
@@ -502,9 +497,6 @@ function QuickLogCard({
           />
         )}
         <div className="quicklog-actions">
-          <button type="button" className="dismiss-button" onClick={onLogAgain}>
-            Log again
-          </button>
           <button type="button" className="dismiss-button" onClick={onDismiss}>
             Nothing to add
           </button>
@@ -802,6 +794,14 @@ function WhyBlock({
 interface AirRow {
   key: string
   name: string
+  /**
+   * The glossary entry the row's `?` opens (specs/30-glossary.md). Set on the
+   * row rather than looked up from the key, because two rows are not one
+   * variable: the dew-point row is drawn from `dry_air` and `humid_heat`
+   * folded together, and the pollen rows are drawn at type level over
+   * per-plant variables.
+   */
+  help: GlossaryKey
   sub?: string
   value: number
   unit: string
@@ -824,6 +824,14 @@ interface AirRow {
    * pulled every other hour's shape flat with it.
    */
   series: (number | null)[]
+  /**
+   * Parallel to `series`: true where the hour's number is the last reading
+   * copied forward rather than one taken that day (`Hour.carried`). The
+   * sparkline draws those hours dotted and ends in an open circle — "I don't
+   * know what it is yet" — instead of a solid line that claims a count nobody
+   * took. Only the mold row sets it today.
+   */
+  carried?: boolean[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
@@ -853,6 +861,7 @@ interface AirRow {
 const WINDOW_LABELS: Record<string, string> = {
   pm25: '24-h',
   pm10: '24-h',
+  pm_coarse: '24-h',
   o3: '8-h',
   // SO₂ has no window — the number is the hour (specs/29-sulfur-dioxide.md) —
   // and it says "1-h" anyway, because that is the span the reading covers and
@@ -987,6 +996,7 @@ function buildAirRows(
     rows.push({
       key,
       name: meta.name,
+      help: key,
       ...(sub ? { sub } : {}),
       // Quiet, not a claim: the row is still the best number available for
       // this place, and the note says which way to discount it rather than
@@ -1018,6 +1028,7 @@ function buildAirRows(
     rows.push({
       key: 'so2',
       name: meta.name,
+      help: 'so2',
       ...(sub ? { sub } : {}),
       value: Math.round(so2),
       unit: meta.unit,
@@ -1027,28 +1038,32 @@ function buildAirRows(
     })
   }
 
-  // PM10 keeps the row and loses the verdict (specs/24-vector-diet.md). Coarse
-  // particulate is worth seeing — it is what a dust day is made of, and it is
-  // the denominator of the smoke fingerprint on the PM2.5 row above — but it
-  // is PM2.5 plus the coarse fraction, so it walked into every candidate set
-  // alongside PM2.5 and no clean day could ever tell them apart. So: the same
+  // Coarse particles keep a row and carry no verdict (specs/24-vector-diet.md).
+  // The number is the coarse fraction, PM10 − PM2.5, so the row is what its
+  // name says rather than the fine particles above it counted a second time;
+  // raw PM10 still rides along as the denominator of the smoke fingerprint.
+  // Coarse mass is worth seeing — it is what a dust day and a gritty day are
+  // made of — and it is not graded: the acute-asthma evidence for it is thin
+  // and dust gets a variable of its own (specs/32-dust.md). So: the same
   // 24-hour mean, read from `display` instead of `exposure`, no waterline, no
   // tolerance lookup, and a chip that says out loud that nothing here is being
-  // graded. A series cached before the diet has no `display` block and simply
-  // draws no row, the same rule every other row follows about a missing
-  // number.
-  const pm10 = current.display?.pm10
-  if (pm10 !== undefined) {
-    const meta = VARIABLE_LABELS.pm10!
+  // graded. The sub-label is keyed `pm10` because the monitor that measured
+  // the total is the one to name. A series cached before this has no
+  // `pm_coarse` in `display` and simply draws no row, the same rule every
+  // other row follows about a missing number.
+  const pmCoarse = current.display?.pm_coarse
+  if (pmCoarse !== undefined) {
+    const meta = VARIABLE_LABELS.pm_coarse!
     const sub = subLabel('pm10', meta)
     rows.push({
-      key: 'pm10',
+      key: 'pm_coarse',
       name: meta.name,
+      help: 'pm_coarse',
       ...(sub ? { sub } : {}),
-      value: Math.round(pm10),
+      value: Math.round(pmCoarse),
       unit: meta.unit,
       status: { chip: NOT_GRADED },
-      series: window.map((h) => h.raw.pm10 ?? null),
+      series: window.map((h) => h.raw.pm_coarse ?? null),
     })
   }
 
@@ -1071,6 +1086,7 @@ function buildAirRows(
     rows.push({
       key: 'smoke',
       name: meta.name,
+      help: 'smoke',
       sub: [
         SMOKE_DENSITY_WORDS[smokeDensity],
         'satellite',
@@ -1120,6 +1136,7 @@ function buildAirRows(
     rows.push({
       key: 'mold',
       name: meta.name,
+      help: 'mold',
       sub,
       value: Math.round(moldReading),
       // St. Louis prints a number and never names its unit, so the row says
@@ -1139,6 +1156,7 @@ function buildAirRows(
       // a day is what a once-a-morning instrument looks like on an hourly axis,
       // and smoothing it would be drawing hours nobody counted.
       series: window.map((h) => h.raw.mold ?? null),
+      carried: window.map((h) => h.carried?.includes('mold') ?? false),
       tol: tolerance('mold'),
     })
   }
@@ -1152,6 +1170,7 @@ function buildAirRows(
     rows.push({
       key: 'dry_spore_index',
       name: meta.name,
+      help: 'dry_spore_index',
       sub: 'estimate from weather',
       value: drySpore,
       unit: meta.unit,
@@ -1181,6 +1200,11 @@ function buildAirRows(
     rows.push({
       key: `pollen_${type}`,
       name: POLLEN_ROW_NAMES[type],
+      // The row is drawn at type level; the entries are too, so the row's own
+      // key is the glossary key. The plant variables under it resolve to the
+      // same entry through `glossaryKeyFor`, which is what the diary's
+      // per-species evidence rows use.
+      help: `pollen_${type}`,
       // Grass alone names a window, because grass alone has one: its number is
       // the highest of the trailing three days (specs/22-exposure-windows.md),
       // computed in feature extraction, so the headline, the sub-label and the
@@ -1230,6 +1254,10 @@ function buildAirRows(
     rows.push({
       key: 'dewpoint',
       name: side === 'dry_air' ? 'Dry air' : side === 'humid_heat' ? 'Humid heat' : 'Dew point',
+      // One entry whichever name the row is wearing: the two features are one
+      // curve folded twice, and a reader tapping the `?` is asking about the
+      // number on the screen, which is the dew point either way.
+      help: 'dewpoint',
       // The sub-label says what the number is; on the neutral day the name
       // already does, and "Dew point · dew point" reads as a stutter.
       ...(side ? { sub: 'dew point' } : {}),
@@ -1281,6 +1309,8 @@ interface AbsentName {
   name: string
   /** the reading, where there is one to show ("1 µg/m³", "none") */
   detail?: string
+  /** the glossary entry its `?` opens (specs/30-glossary.md) */
+  help: GlossaryKey
 }
 
 /**
@@ -1304,21 +1334,28 @@ interface AbsentName {
  * vector outright (specs/24-vector-diet.md), and naming it would promise a
  * check nobody is performing.
  */
-function AbsentNames({ data }: { data: ExposureSeries }) {
+function AbsentNames({
+  data,
+  help,
+}: {
+  data: ExposureSeries
+  /** the route's one `?`-and-sheet pair, passed down rather than opened again */
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
   const current = data.hours[data.currentIndex]!
   const so2 = current.exposure.so2
   const so2Meta = VARIABLE_LABELS.so2!
 
   const tooLow: AbsentName[] = []
   if (so2 !== undefined && so2 <= negligibleFor('so2')) {
-    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}` })
+    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}`, help: 'so2' })
   }
   // Smoke says "none" rather than "0 of 3": the scale is analyst-drawn steps,
   // and the honest reading of a zero is that the satellite looked and there
   // was no plume over this place. An hour nobody has an answer for carries no
   // `smoke` key at all and appears on neither line — unknown is not none.
   if (current.exposure.smoke === 0) {
-    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none' })
+    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none', help: 'smoke' })
   }
 
   // "Not measured here" is a fact about the network, not about this hour, so
@@ -1331,14 +1368,14 @@ function AbsentNames({ data }: { data: ExposureSeries }) {
   // be false wherever it could be printed.
   const notMeasured: AbsentName[] =
     data.source === AIRNOW_SOURCE && data.siteNames?.so2 === undefined
-      ? [{ name: so2Meta.name }]
+      ? [{ name: so2Meta.name, help: 'so2' as const }]
       : []
 
   if (tooLow.length === 0 && notMeasured.length === 0) return null
   return (
     <div className="air-absent">
-      <AbsentLine label="Also checked, too low to matter" names={tooLow} />
-      <AbsentLine label="Not measured here" names={notMeasured} />
+      <AbsentLine label="Also checked, too low to matter" names={tooLow} help={help} />
+      <AbsentLine label="Not measured here" names={notMeasured} help={help} />
     </div>
   )
 }
@@ -1349,7 +1386,15 @@ function AbsentNames({ data }: { data: ExposureSeries }) {
  * things a person may not know the meaning of, which is most of why it is
  * worth printing at all.
  */
-function AbsentLine({ label, names }: { label: string; names: AbsentName[] }) {
+function AbsentLine({
+  label,
+  names,
+  help,
+}: {
+  label: string
+  names: AbsentName[]
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
   if (names.length === 0) return null
   return (
     <div>
@@ -1358,6 +1403,7 @@ function AbsentLine({ label, names }: { label: string; names: AbsentName[] }) {
         <Fragment key={item.name}>
           {i > 0 ? ' · ' : ''}
           <span className="air-absent-name">{item.name}</span>
+          {help(item.help, item.name)}
           {item.detail ? ` ${item.detail}` : ''}
         </Fragment>
       ))}
@@ -1380,6 +1426,9 @@ function AirTable({
   lon: number
 }) {
   const rows = buildAirRows(data, model, tempUnit, lat, lon)
+  // One sheet for the whole surface — the rows and the two absent lines under
+  // them — rather than one per name (specs/30-glossary.md §3).
+  const { help, sheet } = useGlossaryHelp()
   // The dash needs its legend only once a row actually draws a waterline.
   const showWaterline = rows.some((r) => r.tol !== undefined)
   return (
@@ -1409,6 +1458,7 @@ function AirTable({
             <div key={row.key} className="air-row">
               <div className="air-name-row">
                 <span className="air-name">{row.name}</span>
+                {help(row.help, row.name)}
                 {row.sub && <span className="air-sub">{row.sub}</span>}
                 <span className="air-spacer" />
                 <span className="air-value">
@@ -1426,7 +1476,13 @@ function AirTable({
                     {row.note.text}
                   </span>
                 ))}
-              <AirSpark series={row.series} tol={row.tol} invert={row.invert} name={row.name} />
+              <AirSpark
+                series={row.series}
+                carried={row.carried}
+                tol={row.tol}
+                invert={row.invert}
+                name={row.name}
+              />
               <div className="air-ticks" aria-hidden="true">
                 <span>−48 h</span>
                 <span>−24 h</span>
@@ -1436,7 +1492,8 @@ function AirTable({
           )
         })}
       </div>
-      <AbsentNames data={data} />
+      <AbsentNames data={data} help={help} />
+      {sheet}
     </section>
   )
 }
@@ -1450,11 +1507,14 @@ function AirTable({
  */
 function AirSpark({
   series,
+  carried,
   tol,
   invert,
   name,
 }: {
   series: (number | null)[]
+  /** parallel to `series`: hours whose number is a copy of the last reading */
+  carried?: boolean[]
   /** "your easy level" in the row's display units */
   tol?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
@@ -1481,20 +1541,35 @@ function AirSpark({
   // One sub-path per unbroken run of hours. The line simply stops where a
   // monitor did, which is the truth; joining across the gap would draw a
   // reading nobody took, and dropping to the floor would invent a clean hour.
-  const runs: { x: number; y: number }[][] = []
+  //
+  // A run also breaks where the hours turn from readings into copies of the
+  // last reading (`carried`), and the copied run is drawn dotted from the last
+  // real point — the two share that point so the line stays joined — because
+  // a solid line across a day nobody counted claims a count. Dotted, not
+  // dashed: dashes on this sparkline already mean the waterline.
+  const runs: { points: { x: number; y: number }[]; carried: boolean }[] = []
   let run: { x: number; y: number }[] = []
+  let runCarried = false
   series.forEach((v, i) => {
+    const isCarried = carried?.[i] ?? false
     if (v === null) {
-      if (run.length > 0) runs.push(run)
+      if (run.length > 0) runs.push({ points: run, carried: runCarried })
       run = []
     } else {
+      if (run.length > 0 && isCarried !== runCarried) {
+        runs.push({ points: run, carried: runCarried })
+        run = [run[run.length - 1]!]
+      }
+      if (run.length === 0) runCarried = isCarried
       run.push({ x: x(i), y: y(v) })
     }
   })
-  if (run.length > 0) runs.push(run)
+  if (run.length > 0) runs.push({ points: run, carried: runCarried })
   const trace = (points: { x: number; y: number }[]): string =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-  const line = runs.map(trace).join(' ')
+  const line = runs.filter((r) => !r.carried).map((r) => trace(r.points)).join(' ')
+  const copied = runs.filter((r) => r.carried).map((r) => trace(r.points)).join(' ')
+  const endsCarried = carried?.[series.length - 1] ?? false
   const past = tol !== undefined && readings.some((v) => (invert ? v < tol : v > tol))
   const yTol = tol !== undefined ? y(tol) : 0
   return (
@@ -1503,11 +1578,11 @@ function AirSpark({
       viewBox="0 0 340 40"
       role="img"
       aria-label={
-        tol === undefined
+        (tol === undefined
           ? `${name}, past 48 hours.`
           : `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
               past ? ' The air was past it during this window.' : ''
-            }`
+            }`) + (copied ? ' The dotted end is the last count carried forward, not a new one.' : '')
       }
     >
       {past && (
@@ -1521,7 +1596,7 @@ function AirSpark({
           </clipPath>
           <path
             d={runs
-              .map((points) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
+              .map(({ points }) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
               .join(' ')}
             fill="var(--l3)"
             clipPath={`url(#${clip})`}
@@ -1559,15 +1634,38 @@ function AirSpark({
           </text>
         </>
       )}
-      <path
-        d={line}
-        fill="none"
-        stroke="var(--secondary)"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      {line && (
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+      {copied && (
+        <path
+          d={copied}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeDasharray="0.1 4"
+        />
+      )}
+      {endsCarried ? (
+        <circle
+          cx={x(series.length - 1)}
+          cy={y(series[series.length - 1]!)}
+          r={3.5}
+          fill="var(--paper)"
+          stroke="var(--ink)"
+          strokeWidth={1.5}
+        />
+      ) : (
+        <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      )}
     </svg>
   )
 }

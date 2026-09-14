@@ -1,6 +1,6 @@
 # Glossary — what each thing in the air is, and a ? on every row
 
-**Status:** proposed · **Effort:** M · **Deps:** [19-pollen-content-pages.md](19-pollen-content-pages.md) (the generator pattern), [11-ui-polish.md](11-ui-polish.md) (44 px targets) · **Priority:** high. The rows now name eleven things and the app explains none of them.
+**Status:** built 2026-09-14 (branch `claude/spec-30-glossary`) · **Effort:** M · **Deps:** [19-pollen-content-pages.md](19-pollen-content-pages.md) (the generator pattern), [11-ui-polish.md](11-ui-polish.md) (44 px targets) · **Priority:** high. The rows now name eleven things and the app explains none of them.
 
 ## Problem
 
@@ -39,6 +39,34 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 | `humid_heat` | Dew point above 18 °C / 64 °F: hot, wet air. | Shown in controlled exposure: a separate reflex from dry air, blocked by an inhaler drug in the lab. | The hour itself. | "comfortable" between 11 and 18 °C. |
 | `viral` | You said you were sick. | A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. | The day you tapped it. | — |
 
+## Copy rules from Drew (2026-09-14), applied
+
+- A symbol gets its English name in parentheses the first time it appears in an entry: "2.5 µm (micrometers)", "10 µg/m³ (micrograms per cubic meter of air)", "0.06 ppm (parts per million)".
+- "Average", never "mean".
+- "Monitor" and "model" are named and told apart in every entry that uses them: a monitor is an instrument run by the state environmental agency, published through the EPA's AirNow; a model is a computer estimate on a 45-kilometer grid, a prediction and not a measurement.
+- The "What the words on the row mean" part is gone from the module, the sheet and the page.
+- A part that would only state the obvious is left out; Sick keeps one sentence.
+- Dew point, what it is: the temperature at which the water vapor in the air would condense into a dew drop; too high and the air is muggy and sets off the humid-heat reflex; too low and it dries the airway lining, which is what people call cold-air asthma.
+
+A test guards the first two rules for the symbols the copy uses.
+
+Second round, same day:
+
+- "How it affects breathing" says more than the mechanism: how likely the thing is to matter and for whom ("How likely: ..."), and what people do about it ("What helps: ..."), with treatment and mitigation in plain words (mask, air cleaner, nose breathing, controller inhaler, rescue inhaler before exercise, allergy shots). Shared sentences for particles and for pollen are constants so the three particle entries and the three pollen entries say the same thing the same way.
+- "The window" is retitled "How Breathing Index measures it". Every answer starts "Your Breathing Index ..." and gives the span and the reason for it: the 8-hour average for ozone since the damage builds over hours; the hour itself for dew point since there is no cumulative effect; the three station days for mold since a calendar window would empty every Monday; and so on.
+- Dew point, what it is, in Drew's words: the temperature at which the water vapor in the air would condense into a dew drop; if it's too high, the hot, wet air can set off a reflex that tightens airways; if it's too low the dry air causes the lining of the airways to dry out; in between is comfortable. The thresholds moved to the breathing part.
+
+A test guards the "How likely:" / "What helps:" phrases and the "Your Breathing Index ... since" shape.
+
+Third round, same day:
+
+- Nothing specific to one reader or one town: no "Connecticut", no "here". Regional facts stay ("the eastern US").
+- Numbers in the table's units: ozone's lab threshold is "about 120 µg/m³, below the US standard of about 140", not 0.06 / 0.07 ppm.
+- "this place" → "this location". Smoke says Canadian fire smoke has been reaching farther into the United States than it used to, since 2023.
+- Coarse particles: "the diary does not grade it" is strictly true and stays true under spec 32, which grades dust from CAMS's own dust column rather than from PM10. Drew's call: the entry stays, reworded around what coarse particles are (upper-airway irritation, a read on how gritty the air is), and the number becomes the coarse fraction PM10 − PM2.5 so the name is true (spec 24, amended). No user-facing sentence says "the row".
+
+A test bans ppm/ppb and the place words.
+
 ## Acceptance
 
 - `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.
@@ -49,3 +77,32 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 ## Non-goals
 
 Per-verdict explanations beyond the words listed. Translation. A glossary for retired variables.
+
+## As built
+
+- **One dew-point entry, not two.** `dry_air` and `humid_heat` are one row on the screen, so
+  they are one entry keyed `dewpoint`, and `glossaryKeyFor` sends both variables to it. The two
+  drafts above are merged with a joining sentence on each side ("One measurement with two
+  edges", "Two mechanisms, one row"); every other clause is the draft's.
+- **Tree and weed split.** The draft's one "tree / weed pollen" row became `pollen_tree` and
+  `pollen_weed`, since the app draws two rows. The shared sentences are shared verbatim; only
+  the first noun differs.
+- **Five fields, and the draft table had four.** The table's "Window / source" column is one
+  cell, so `window` and `source` are split out of it where it holds two sentences. Where it
+  holds none for `source` — PM10, SO₂, smoke, dry-spore, tree/weed pollen, dew point, sick —
+  one short sentence was written to fill it, each saying only what the code already does.
+  `viral.verdicts` was "—" in the draft and needed words for the same reason.
+- **The part labels are content too.** `GLOSSARY_PARTS` in the module holds the five labels, so
+  the page and the sheet cannot label the same paragraph differently — §4's rule applied to the
+  chrome as well as the prose.
+- **The `?` announces the row's name, not the entry's.** "Dry air" and "Humid heat" are two
+  rows and one entry, and two buttons in one panel both reading "About Dew point" is a screen
+  reader saying the same thing twice. The entry's name is the fallback.
+- **`/glossary` has no dark mode**, because `legal.css` has none — it is the same light
+  document /privacy, /terms and /pollen are. The sheet inside the app is on the app's tokens
+  and follows the system.
+- **No component tests.** `HelpButton` and `HelpSheet` have no harness in this repo (there is
+  no DOM test setup); `src/content/glossary.test.ts` covers the content and the key mapping,
+  and the generator's `--check` covers the page. The sheet was verified by hand: open from an
+  air row, a diary row and an absent-line name; close by button and by backdrop; the anchor
+  link lands on the right section.

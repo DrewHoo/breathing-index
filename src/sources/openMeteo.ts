@@ -35,7 +35,8 @@ export interface Hour {
   raw: Record<string, number>
   /**
    * Window features for variables the app shows and the engine does not grade
-   * — `pm10` alone today (specs/24-vector-diet.md). A display-only row still
+   * — `pm_coarse` alone today, the coarse fraction PM10 − PM2.5
+   * (specs/24-vector-diet.md, amended). A display-only row still
    * owes the reader the same quantity a graded row shows, a trailing mean
    * rather than the top of the hour, or one column would be carrying two
    * different claims. Same null discipline as `exposure`: a window holding no
@@ -60,6 +61,14 @@ export interface Hour {
    * guess.
    */
   estimated?: string[]
+  /**
+   * Raw keys whose value on this hour is the last reading copied forward from
+   * an earlier day rather than one taken on the hour's own day — `mold` on
+   * the Saturday after a Friday count. The number is still the best one
+   * there is, which is why `raw` carries it; this is what lets the sparkline
+   * draw the copy as a copy (dotted, open end) instead of as a reading.
+   */
+  carried?: string[]
   /**
    * Set on the hours of a measured series whose air is still a model forecast.
    * AirNow has no hourly forecast — it publishes a daily category and nothing
@@ -758,6 +767,17 @@ export async function fetchExposureSeries(
 
   const pm25 = column('pm25')
   const pm10 = column('pm10')
+  // The coarse fraction: what is under 10 µm minus what is under 2.5 µm, hour
+  // by hour, so the "coarse particles" row is coarse particles and not the
+  // fine ones counted twice. Null where either side is missing — a difference
+  // with one term is not a reading — and clamped at 0, because the two columns
+  // can come from two monitors (siteNames.pm25 ≠ siteNames.pm10) and a
+  // negative coarse mass is the sites disagreeing, not the air.
+  const pmCoarse: (number | null)[] = times.map((_, i) => {
+    const fine = pm25[i]
+    const total = pm10[i]
+    return fine == null || total == null ? null : Math.max(0, total - fine)
+  })
   const o3 = column('o3')
   // SO₂ takes the same route as the pollutants above (specs/29-sulfur-dioxide
   // .md): the nearest monitor reporting it where the series is a station's,
@@ -848,7 +868,7 @@ export async function fetchExposureSeries(
     // NO₂ gradients are sub-kilometer, so a 45 km CAMS cell reads as noise
     // about the one thing it was standing in for — traffic, which
     // `near-traffic` now records as an observation instead.
-    putDisplay('pm10', windowMean(pm10, i, 24))
+    putDisplay('pm_coarse', windowMean(pmCoarse, i, 24))
     // Smoke: a satellite density, gated on what the PM columns say about the
     // air at ground level (specs/25-smoke-variable.md). No window — HMS is a
     // nowcast and the plume either is overhead this hour or is not — and no
@@ -979,6 +999,7 @@ export async function fetchExposureSeries(
     }
     putRaw('pm25', pm25[i] ?? null)
     putRaw('pm10', pm10[i] ?? null)
+    putRaw('pm_coarse', pmCoarse[i] ?? null)
     putRaw('o3', o3[i] ?? null)
     putRaw('so2', so2Column[i] ?? null)
     putRaw('co', coColumn[i] ?? null)
@@ -999,11 +1020,16 @@ export async function fetchExposureSeries(
     // the station posted — which is what a daily instrument honestly looks
     // like on an hourly axis.
     putRaw('mold', mold?.newest.total ?? null)
+    // A step's flat run is honest across the day the count was taken and a
+    // copy on every later day until the next count; the hour says which so
+    // the line can look different there.
+    const carried = mold && mold.newest.total !== null && mold.newest.date !== date ? ['mold'] : []
     putRaw('dry_spore_index', drySpore)
     return {
       time,
       ...(Object.keys(pollenTypes).length > 0 ? { pollenDisplay: pollenTypes } : {}),
       ...(estimatedKeys.size > 0 ? { estimated: [...estimatedKeys] } : {}),
+      ...(carried.length > 0 ? { carried } : {}),
       ...(measured && i > currentIndex ? { forecastSource: 'cams' as const } : {}),
       exposure,
       ...(Object.keys(display).length > 0 ? { display } : {}),

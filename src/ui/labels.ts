@@ -67,7 +67,11 @@ export interface VariableLabel {
  */
 export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   pm25: { name: 'Fine particles', sub: 'PM2.5', short: 'PM2.5', unit: 'µg/m³', plural: true },
-  pm10: { name: 'Coarse particles', sub: 'PM10', short: 'PM10', unit: 'µg/m³', plural: true },
+  // The coarse fraction, PM10 − PM2.5, so the name is true: the row would
+  // otherwise be counting the fine particles a second time. `pm10` keeps a
+  // label of its own for old diary entries that carry a verdict on it.
+  pm_coarse: { name: 'Coarse particles', sub: 'PM10 − PM2.5', short: 'coarse particles', unit: 'µg/m³', plural: true },
+  pm10: { name: 'Particles under 10 µm', sub: 'PM10', short: 'PM10', unit: 'µg/m³', plural: true },
   o3: { name: 'Ozone', sub: 'O₃', short: 'ozone', unit: 'µg/m³' },
   // "of 3" because the source's scale is three analyst-drawn steps — Light,
   // Medium, Heavy — and nobody publishes a µg/m³ of smoke at a point. The one

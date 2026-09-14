@@ -92,3 +92,16 @@ Changed from the original list: the fixture's count moved from 3,000 to 15,000 â
 ## Non-goals
 
 Indoor mold. Buying a spore trap. Paying AccuWeather or weather.com (a modeled index is a proxy with a price). Headless-browser and PDF scrapers in v1. Genus-level modeling in the proxy.
+
+
+## Amended 2026-09-14: the carried days draw dotted
+
+Drew: a flat line across the days after a count "feels lame" and claims a
+count nobody took. Each hour now says whether its raw mold number is a copy
+of an earlier day's count (`Hour.carried`), and the sparkline draws those
+hours dotted from the last real point, ending in an open circle rather than a
+filled one. Dotted, not dashed, because dashes on the sparkline already mean
+the waterline. The number on the row is unchanged; only the drawing admits
+which part of it was read and which part was copied. The cone Drew asked
+about is deferred until the reading store holds a season of counts to size
+it from.

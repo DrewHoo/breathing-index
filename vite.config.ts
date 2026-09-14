@@ -2,10 +2,46 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import type { Plugin } from 'vite'
+
+/**
+ * The prerendered documents in `public/`, by the path a link uses. GitHub
+ * Pages answers `/glossary` with `glossary/index.html` and `/privacy` with
+ * `privacy.html`; Vite's dev server does neither — an extensionless path
+ * falls through to the app shell and the router says Not Found for a page
+ * that is right there on disk. The list is spelled out rather than read off
+ * the disk because the config is typed without Node's `fs`, and it is the
+ * same set the service worker's `navigateFallbackDenylist` names below: a
+ * document added to one belongs in the other.
+ */
+const PUBLIC_DOCUMENTS: Record<string, string> = {
+  '/privacy': '/privacy.html',
+  '/terms': '/terms.html',
+  '/glossary': '/glossary/index.html',
+  '/pollen': '/pollen/index.html',
+  '/pollen/calendar': '/pollen/calendar.html',
+}
+
+/** Dev only: serve those documents the way Pages does. The build copies `public/` verbatim. */
+const publicDocuments = (): Plugin => ({
+  name: 'public-documents',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      // Typed by hand: the config compiles without Node's types, so
+      // `IncomingMessage` is an empty shape here.
+      const request = req as { url?: string }
+      const url = new URL(request.url ?? '/', 'http://localhost')
+      const file = PUBLIC_DOCUMENTS[url.pathname.replace(/\/+$/, '')]
+      if (file !== undefined) request.url = file + url.search
+      next()
+    })
+  },
+})
 
 export default defineConfig({
   base: '/',
   plugins: [
+    publicDocuments(),
     tanstackRouter({ target: 'react', autoCodeSplitting: true }),
     react(),
     VitePWA({
@@ -33,11 +69,11 @@ export default defineConfig({
         // Workbox precaches js/wasm/css/html by default; the self-hosted fonts
         // have to be named or the installed app falls back to system type.
         globPatterns: ['**/*.{js,wasm,css,html,woff2}'],
-        // /privacy, /terms and the /pollen pages are real documents served off
-        // disk, not app routes. Without this the navigation fallback answers
-        // them from the precached index.html and an installed PWA never sees
-        // them.
-        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/pollen/],
+        // /privacy, /terms and the /pollen and /glossary pages are real
+        // documents served off disk, not app routes. Without this the
+        // navigation fallback answers them from the precached index.html and
+        // an installed PWA never sees them.
+        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/pollen/, /^\/glossary/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/(air-quality-api|api)\.open-meteo\.com\/.*/,
