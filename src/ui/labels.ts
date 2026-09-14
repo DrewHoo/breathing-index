@@ -134,6 +134,18 @@ export const COMFORTABLE = 'comfortable'
  */
 export const NOT_GRADED = 'not graded'
 
+/**
+ * The ozone row's caveat when the number under it came from CAMS inside the
+ * US. The global model carries a warm-season positive ozone bias over the
+ * eastern US, and it is not small: on 2026-08-07 in Hamden CAMS read
+ * 166 µg/m³ while the New Haven monitor implied about 82 — a 2× gap, which is
+ * the difference between a day this app tells someone to stay in and a day it
+ * does not. Outside AirNow's coverage the caveat is not made: the bias is a
+ * claim about a region, and repeating it over Amsterdam would be inventing
+ * one. (specs/27-one-ozone.md)
+ */
+export const MODEL_OZONE_BIAS = 'Model ozone runs high in the eastern US in summer.'
+
 export const variableName = (v: string): string => VARIABLE_LABELS[v]?.name ?? v
 
 /** "is" or "are" for a sentence about one variable — "Fine particles are…". */

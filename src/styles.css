@@ -723,6 +723,17 @@ a.air-note {
   color: var(--faint);
 }
 
+/* The seam caption under the curve on a station series (specs/27-one-ozone.md).
+   Axis furniture rather than prose: it sits in the ticks' own register so it
+   reads as part of the scale, not as a second takeaway arguing with the one
+   already on the section rule. */
+.byhour-seam {
+  display: block;
+  margin-top: 2px;
+  font: 400 9.5px var(--mono);
+  color: var(--faint);
+}
+
 /* --- tab bar --- */
 
 .tabbar {

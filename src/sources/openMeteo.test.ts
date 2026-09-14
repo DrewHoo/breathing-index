@@ -189,10 +189,14 @@ describe('the calendar fallback', () => {
 
 const NEW_HAVEN = { lat: 41.301288, lon: -72.902685 }
 
-/** One monitor's hourly rows, UTC, ending at `throughUtcHour` on 2026-09-13. */
+/**
+ * One monitor's hourly rows, UTC, ending at `throughUtcHour` on 2026-09-13.
+ * `raw` may be a function of the UTC hour, for the tests that need a window
+ * whose mean is a different number from every hour inside it.
+ */
 function monitorRows(
   parameter: 'PM2.5' | 'PM10' | 'OZONE',
-  raw: number,
+  raw: number | ((utcHour: number) => number),
   fromUtcHour: number,
   throughUtcHour: number,
   skipUtcHour?: number,
@@ -200,14 +204,15 @@ function monitorRows(
   const rows: AirNowRow[] = []
   for (let h = fromUtcHour; h <= throughUtcHour; h++) {
     if (h === skipUtcHour) continue
+    const value = typeof raw === 'function' ? raw(h) : raw
     rows.push({
       Latitude: NEW_HAVEN.lat,
       Longitude: NEW_HAVEN.lon,
       UTC: `2026-09-13T${String(h).padStart(2, '0')}:00`,
       Parameter: parameter,
       Unit: parameter === 'OZONE' ? 'PPB' : 'UG/M3',
-      Value: raw,
-      RawConcentration: raw,
+      Value: value,
+      RawConcentration: value,
       AQI: 30,
       Category: 1,
       SiteName: 'New Haven',
@@ -223,14 +228,28 @@ function monitorRows(
  */
 const EDT_OFFSET = -4 * 3600
 
+/**
+ * µg/m³ per ppb of ozone at the EPA's reference conditions — the constant
+ * `airnow.ts` converts with. Spelled out here rather than imported because a
+ * test that reuses the module's own constant cannot catch it changing.
+ */
+const UG_M3_PER_PPB_O3 = 1.96
+
+/** The mean of a window, for tests that compute their expectation from the fixture. */
+const meanOf = (values: number[]): number => values.reduce((a, b) => a + b, 0) / values.length
+
 describe('AirNow as the exposure source', () => {
   afterEach(() => vi.useRealTimers())
 
-  const stubHamden = (airnow?: AirNowRow[]) => {
+  const stubHamden = (airnow?: AirNowRow[], air?: Record<string, (number | null)[]>) => {
     vi.useFakeTimers()
     // 14:00 local on the 13th, so hours 0–14 are past and 15–23 are forecast.
     vi.setSystemTime(new Date('2026-09-13T18:00:00Z'))
-    stubSources('2026-09-13', null, { airnow, utcOffsetSeconds: EDT_OFFSET })
+    stubSources('2026-09-13', null, {
+      airnow,
+      utcOffsetSeconds: EDT_OFFSET,
+      ...(air ? { air } : {}),
+    })
   }
 
   /** Monitors covering pm2.5 and ozone: 00:00–14:00 local, one pm2.5 gap. */
@@ -288,6 +307,41 @@ describe('AirNow as the exposure source', () => {
     expect(forecast.forecastSource).toBe('cams')
     expect(forecast.raw.pm25).toBe(3) // the model column
     expect(series.hours[series.currentIndex]!.forecastSource).toBeUndefined()
+  })
+
+  // The ozone row shows one number and grades the same one: the trailing
+  // 8-hour mean of whichever source the series runs on (specs/27-one-ozone.md).
+  // Both halves are asserted against a ramp, because a flat fixture makes
+  // "the mean of the last eight" and "the reading at 2 pm" the same number, and
+  // a test that cannot tell those apart would pass on any window at all.
+  it('means the monitor’s own last eight hours on a station series', async () => {
+    const ozone = monitorRows('OZONE', (utcHour) => utcHour, 4, 18)
+    stubHamden([...monitorRows('PM2.5', 12, 4, 18), ...ozone, ...monitorRows('PM10', 20, 4, 18)])
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+
+    // Local 14:00 is 18:00 UTC, so the window is the last eight rows the
+    // monitor filed. Computed from the fixture: a hardcoded number would
+    // survive the window silently becoming something else.
+    expect(series.source).toBe(AIRNOW_SOURCE)
+    const last8 = ozone.slice(-8).map((r) => r.RawConcentration * UG_M3_PER_PPB_O3)
+    expect(last8).toHaveLength(8)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.o3).toBeCloseTo(meanOf(last8), 6)
+    // And it is not the hour's own reading, which is the confusion this ends.
+    expect(now.raw.o3).toBeCloseTo(18 * UG_M3_PER_PPB_O3, 6)
+    expect(now.exposure.o3).not.toBeCloseTo(now.raw.o3!, 6)
+  })
+
+  it('means the model’s own last eight hours when no monitor is in play', async () => {
+    const ozone = Array.from({ length: 24 }, (_, h) => 10 + h * 7)
+    stubHamden(undefined, { ozone })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+
+    expect(series.source).toBe(EXPOSURE_SOURCE)
+    const ci = series.currentIndex
+    const last8 = ozone.slice(ci - 7, ci + 1)
+    expect(last8).toHaveLength(8)
+    expect(series.hours[ci]!.exposure.o3).toBeCloseTo(meanOf(last8), 6)
   })
 
   it('falls back to the model when no monitor reports ozone', async () => {
