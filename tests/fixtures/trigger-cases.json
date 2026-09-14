@@ -418,6 +418,20 @@
       "predict": [
         { "exposure": { "pm25": 15 }, "expect": [3, 3] }
       ]
+    },
+    {
+      "name": "a window change is a source change: cams bounds go inert on cams-w2",
+      "$comment": "specs/22-exposure-windows.md: bounds are learned against features, and PM2.5 moved from an 8-hour max to a 24-hour mean. 'pm25 was 20' therefore describes a quantity the app no longer computes, so the tolerance learned under cams must not silence the first bad day read on the new windows. The engine needs no new machinery for this — the source name carries the window generation, and a rename is a switch.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 }, "source": "cams" },
+        { "rating": 3, "exposure": { "pm25": 15 }, "source": "cams-w2" }
+      ],
+      "expectConfirmed": { "pm25": { "2": 15, "3": 15 } },
+      "expectConflicts": [],
+      "expectInertSources": ["cams"],
+      "predict": [
+        { "exposure": { "pm25": 15 }, "expect": [3, 3] }
+      ]
     }
   ]
 }

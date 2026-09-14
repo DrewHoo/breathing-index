@@ -1,4 +1,4 @@
-import { POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
+import { POLLEN_PLANTS, POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
 import type { Priors } from './types'
 
 /**
@@ -98,14 +98,16 @@ export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
  *
  * Two honesty notes about comparing these to what the app actually measures:
  *
- * 1. **Instantaneous vs averaged.** The published breakpoints are averages — 24-h
- *    means for PM, 8-h for ozone and CO, 1-h or 24-h for the WHO gases — but the
- *    engine compares them against features built from the current hour and an 8-h
- *    running max (docs/trigger-model.md). A single bad hour can therefore cross a
- *    24-h breakpoint that a real 24-h mean would not. The bias is toward warning
- *    early, which is the right direction for a ceiling that only ever *raises* a
- *    prediction and is superseded by the user's own diary — but the numbers are not
- *    AQI categories, and nothing in the UI should claim they are.
+ * 1. **Which average.** The published breakpoints are averages — 24-h means for PM,
+ *    8-h for ozone and CO, 1-h or 24-h for the WHO gases — and since
+ *    specs/22-exposure-windows.md the engine's features are the matching running
+ *    means: 24-h for PM, 8-h for ozone (docs/trigger-model.md). PM and ozone are
+ *    therefore compared like with like. The gases are not: no2/so2/co are the hour
+ *    itself against a 1-h or 24-h guideline, so a single bad hour can cross a 24-h
+ *    number a real 24-h mean would not. The bias is toward warning early, which is
+ *    the right direction for a ceiling that only ever *raises* a prediction and is
+ *    superseded by the user's own diary — but the numbers are not AQI categories,
+ *    and nothing in the UI should claim they are.
  * 2. **Which end of the category.** Every row is the *lower* bound of its category:
  *    the exposure at which a category begins, not its midpoint. That is what makes
  *    "potentially at this level" true at the threshold rather than halfway past it.
@@ -156,8 +158,24 @@ export const PRIORS: Priors = {
   birch_pollen: { 2: 30, 3: 90 },
   // Every measured pollen plant, on the 0–5 index scale every current source
   // speaks (specs/18-measured-pollen.md): Moderate is potentially a 2 for a
-  // sensitive person, High potentially a 3, Very High potentially a 4. One
-  // shared heuristic start — the diary is what makes birch and oak diverge,
-  // not the prior; same epistemic status as the weather rows.
-  ...Object.fromEntries(POLLEN_PLANT_VARIABLES.map((v) => [v, { 2: 3, 3: 4, 4: 5 }])),
+  // sensitive person, High potentially a 3, Very High potentially a 4. A
+  // heuristic start — the diary is what makes birch and oak diverge, not the
+  // prior; same epistemic status as the weather rows.
+  //
+  // Tree plants warn one step later, skipping the Moderate row entirely
+  // (specs/22-exposure-windows.md). The population evidence for tree pollen
+  // and asthma is weak where it exists at all: London's tree models came back
+  // inconclusive, and Atlanta associated Cupressaceae with *fewer* asthma ED
+  // visits. Tree pollen is mostly a rhinitis story. Grass is the one taxon
+  // with a defensible asthma signal — Erbas 2018's meta-analysis, threshold-
+  // shaped over a three-day window, which is why grass is also the one pollen
+  // variable carrying a window (sources/openMeteo.ts) — and weeds keep their
+  // Moderate row on the same reasoning at lower confidence. Every plant stays
+  // a candidate either way; only the prior moved.
+  ...Object.fromEntries(
+    Object.values(POLLEN_PLANTS).map((plant) => [
+      plant.variable,
+      plant.type === 'tree' ? { 3: 4, 4: 5 } : { 2: 3, 3: 4, 4: 5 },
+    ]),
+  ),
 }

@@ -15,17 +15,18 @@ explicitly, instead of pretending a weighted score resolves it.
   "rating": 3,                          // Breathing Index 1–4 (behavioral, see SPEC)
   "note": "walk cut short at the park",
   "confounders": [],                    // e.g. "sick", "allergies", "exercise", "indoors all day"
-  "source": "cams",                     // which feed these numbers are; bounds are scoped to it
+  "source": "cams-w2",                  // which feed *and which windows*; bounds are scoped to it
   "exposure": {                         // captured automatically when the entry is saved
     "location": { "lat": 41.396, "lon": -72.897 },
     "features": {                       // per-variable trailing-window features
-      "pm25": { "now": 14.3, "max8h": 14.3 },          // µg/m³
-      "o3":   { "now": 150.0, "max8h": 168.0 },        // µg/m³
-      "pm10": { "now": 15.5, "max8h": 15.7 },          // µg/m³
-      "no2":  { "now": 12.0, "max8h": 14.0 },          // µg/m³
+      "pm25": { "now": 14.3, "mean24h": 11.8 },        // µg/m³
+      "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
+      "pm10": { "now": 15.5, "mean24h": 13.1 },        // µg/m³
+      "no2":  { "now": 12.0 },                         // µg/m³
       "heat_stress":     { "now": 1.2 },               // °C above 25
       "cold_dry_stress": { "now": 0.0 },               // °C below 10, gated on low humidity
-      "humidity":        { "mean72h": 68.0 }           // %RH, multi-day (mold/dust-mite lag)
+      "humidity":        { "mean72h": 68.0 },          // %RH, multi-day (mold/dust-mite lag)
+      "pollen_graminales": { "max3d": 4 }              // 0–5 index, highest of three local days
     }
   }
 }
@@ -40,15 +41,23 @@ nobody can check.
 For inference, each variable `p` is reduced to one scalar `x_p` per entry, via a per-variable
 window chosen to match its mechanism of action:
 
-| Variable | v1 feature | Why |
+| Variable | feature | Why |
 |---|---|---|
-| o3, no2 | `max(now, max8h)` | acute, acts over hours |
-| pm25, pm10 | `max(now, max8h)` | v1 simplification; consider `mean24h` later |
+| o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
+| pm25, pm10 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
+| no2 | `now` | acts within the hour it is breathed; a 45 km model cell has nothing longer to say about a gas whose gradients are sub-kilometer |
 | heat_stress, cold_dry_stress | `now` | felt immediately |
 | humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
-| pollen (per species) | `max(now, max8h)` when measured; calendar-region prior otherwise | acts within hours; `max24h` is the later refinement |
+| grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
+| tree, weed pollen (per plant) | the local day's index | no evidence for a longer window, and tree pollen's asthma signal is weak to begin with (it is mostly a rhinitis story) |
 
-Window choices are an open tuning question; feature extraction is the only place they live.
+One window per mechanism, and **feature extraction is the only place they live**
+(`src/sources/openMeteo.ts`). Two consequences worth keeping in view: the published sources
+Google and AirNow serve pollen by *day*, so the grass window remembers days the app has already
+seen (`src/sources/pollenHistory.ts`) rather than asking for them — nobody backfills pollen — and
+a window that includes a season-calendar day is `estimated` for that hour even when the winning
+day was measured, because "the worst of three days" leans on all three. And changing a window is
+a *source* change: see Thresholds are scoped to their source, below.
 
 **Everything else is derived.** The trigger model is a pure function of the diary: recomputed from
 scratch on every change, never incrementally mutated. This makes inference order-independent — a
@@ -319,7 +328,15 @@ tolerable at its exposure regardless of where the user spent the day.
 CAMS model ozone read 166 µg/m³ in Hamden on 2026-08-07 while the New Haven monitor implied ~82:
 CAMS global carries a known warm-season positive surface-ozone bias in the eastern US. A bound
 learned against a biased source still predicts correctly *on that source*, so per-source learning
-is fine — but the bounds do not transfer. Every learned bound therefore records the source it came
+is fine — but the bounds do not transfer.
+
+The same is true of a **window** change, which is why the source name carries a window generation
+(`cams` → `cams-w2`). Bounds are learned against features, not against readings: when PM2.5 moved
+from an 8-hour max to a 24-hour mean, "PM2.5 was 22" stopped describing the quantity it was
+learned about. The engine cannot version a bound per variable and does not need to — a window
+change *is* a source change, and it already knows what one of those means.
+
+Every learned bound therefore records the source it came
 from, and a source switch starts a **fresh bound set** for the variables that source measures
 (`SOURCE_SCOPED_VARIABLES` in engine config: the air-quality pollutants; weather comes from a
 different pipe and survives). The old set is retained, inert, never predicted from. Entries logged

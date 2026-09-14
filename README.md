@@ -25,7 +25,7 @@ TypeScript, React, Vite, TanStack Router (file-based routes), vite-plugin-pwa. T
 - **Open-Meteo** air quality + weather APIs — model data, no key required, worldwide.
 - **AirNow** monitoring-site observations through the relay — hourly station concentrations, US only. In the US, with a monitor nearby reporting both PM2.5 and ozone, these *are* the exposure vector and entries log against `source: 'airnow'`; otherwise they stay a comparison strip and the model drives.
 
-All fetching is client-side; there is no backend. Logs live in `localStorage` — export and import are in Settings.
+All fetching is client-side; there is no backend. Logs live in `localStorage` — export and import are in Settings. Pollen keeps a small history there too: the measured feed serves today forward, and grass is graded over the trailing three days ([docs/trigger-model.md](docs/trigger-model.md)), so the app writes each day down as it passes — capped, per coarse grid cell, and never the forecast days that arrive with it — instead of asking for a past nobody publishes.
 
 Freshness comes from the payload's own newest hour rather than from when the response arrived: the service worker serves Open-Meteo network-first with a six-hour cache, so a cache hit is indistinguishable from a live fetch at arrival time. With no readings at all the quick log still works — the rating saves at once and picks up the exposure vector for its hour from Open-Meteo's three-day history on the next successful fetch. Until it does, the entry stays out of inference.
 

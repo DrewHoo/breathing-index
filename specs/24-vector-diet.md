@@ -8,7 +8,7 @@ The trigger-model doc's identifiability argument: every variable enlarges candid
 
 ## Design
 
-1. **`pm10` becomes display-only.** Coarse PM has weak independent evidence for acute asthma, and PM10 is PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set. Keep fetching it: the row and the smoke fingerprint need it. Feature extraction stops writing `pm10` into `exposure` and keeps it in `raw`; `smokeFingerprint` reads `raw`. No engine change. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), [20-baseline-bad-air.md](20-baseline-bad-air.md) already adds `dust` as its own variable.
+1. **`pm10` becomes display-only.** Coarse PM has weak independent evidence for acute asthma, and PM10 is PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set. Keep fetching it: the row and the smoke fingerprint need it. Feature extraction stops writing `pm10` into `exposure` and keeps it in `raw`. `smokeFingerprint` already reads `raw` (moved in [22-exposure-windows.md](22-exposure-windows.md) §6), so nothing else changes. No engine change. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), [20-baseline-bad-air.md](20-baseline-bad-air.md) already adds `dust` as its own variable.
 
 2. **`no2` leaves the vector.** Controlled-exposure meta-analyses find it statistically significant, clinically marginal, and without a dose-response between 100 and 600 ppb; where it matters is as an amplifier after allergen challenge. NO₂ gradients are sub-kilometer, so a 45 km CAMS cell reads as noise. The row goes with it. The label stays for old entries.
 
@@ -22,7 +22,7 @@ After [23-dew-point-air.md](23-dew-point-air.md) and this spec the US vector is 
 
 - A bad day with pm25 and pm10 both elevated yields the candidate set `{pm25}`.
 - The NO₂ row is gone; an older entry still lists its NO₂ in the diary.
-- `smoke.test.ts` passes with the fingerprint reading `raw`.
+- `smoke.test.ts` still passes (the fingerprint has read `raw` since spec 22).
 - The `near-traffic` chip saves to `observations`.
 
 ## Non-goals

@@ -157,7 +157,7 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Open questions
 
-- **Exposure windows per variable:** ozone acts over hours, PM2.5 over a day, humidity→mold over days. v1 window table lives in [docs/trigger-model.md](docs/trigger-model.md); tune against diary data.
+- **Exposure windows per variable:** one window per mechanism, settled for now by [specs/22-exposure-windows.md](specs/22-exposure-windows.md) — ozone on an 8-hour mean and PM on a 24-hour one, each matching the averaging its own published breakpoints are written at; grass pollen on the highest of three local days, the shape of the only pollen-and-asthma signal worth trusting; NO₂ and the weather stresses on the hour they were breathed. The table lives in [docs/trigger-model.md](docs/trigger-model.md). Still open is the tuning: these are the literature's windows, not this user's. Retuning is not free — bounds are learned against features, so the source name carries a window generation (`cams-w2`) and changing a window retires everything learned under the old one.
 - **How many variables is too many?** Each added dimension slows attribution (bigger candidate sets, and correlated pairs like heat+ozone rarely decorrelate naturally). Keep the vector mechanistically plausible for the user; let empty-candidate-set conflicts drive additions.
 - **Indoor air:** outdoor humidity is a rough proxy for indoor mold/dust-mite load. Indoor sensor as a v2 source plugin?
 - **Synergy extrapolation:** a novel combination with both pollutants slightly *below* their individually suspected exposures — bump the prediction or not? v1 doesn't extrapolate; revisit once real co-elevation diary data exists.

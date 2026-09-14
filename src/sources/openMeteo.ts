@@ -9,6 +9,8 @@ import {
 } from './airnow'
 import { type PollenDay, fetchPollen } from './googlePollen'
 import { calendarPollen, monthOf } from './pollenCalendar'
+import { recallPollenDays, rememberPollenDays } from './pollenHistory'
+import { POLLEN_PLANTS } from './pollenPlants'
 
 /** The display order of the three pollen rows. */
 export const POLLEN_TYPE_ORDER = ['tree', 'grass', 'weed'] as const
@@ -73,8 +75,17 @@ export interface ExposureSeries {
  * Open-Meteo's air-quality endpoint serves the CAMS model, not monitors. The
  * name is on every entry logged against it, because a bound learned here does
  * not transfer to a station feed reading the same air differently.
+ *
+ * The `-w2` is the window generation, not a second feed. Bounds are learned
+ * against *features*, so putting ozone on an 8-hour mean and PM on a 24-hour
+ * one (specs/22-exposure-windows.md) makes every stored `cams` bound a claim
+ * about a quantity that no longer exists — "PM2.5 was 22" used to mean the
+ * worst hour of eight and now means the average of a day. The engine cannot
+ * version a bound per variable and does not need to: a window change is a
+ * source change, and it already knows what to do with one of those. The old
+ * `cams` set lands in `model.inert` on its own, kept and never predicted from.
  */
-export const EXPOSURE_SOURCE = 'cams'
+export const EXPOSURE_SOURCE = 'cams-w2'
 
 /**
  * The station source. It is a separate name from `cams` because that is what
@@ -82,6 +93,11 @@ export const EXPOSURE_SOURCE = 'cams'
  * in the eastern US — 166 µg/m³ in Hamden on 2026-08-07 against a New Haven
  * monitor implying about 82 — so a threshold learned on one feed is not a
  * threshold on the other (docs/trigger-model.md).
+ *
+ * No `-w2` on this one, deliberately: the windows changed before a single
+ * entry was ever logged against a station series — spec 21 has not shipped —
+ * so there is no old airnow bound set for a rename to retire. Renaming it
+ * anyway would cost nothing today and confuse the next reader tomorrow.
  */
 export const AIRNOW_SOURCE = 'airnow'
 
@@ -117,16 +133,12 @@ export function findCurrentIndex(times: string[], utcOffsetSeconds: number): num
  * the feed is not a clean reading: recorded as 0 it would drop the variable
  * below its background floor and quietly disqualify the real trigger from
  * candidacy. Absent, it simply proves nothing either way.
+ *
+ * A partly-filled window is averaged over what it holds rather than over what
+ * it wanted: a monitor that missed three hours of the last eight still knows
+ * what the other five were, and dividing those five by eight would report air
+ * cleaner than anybody breathed.
  */
-function windowMax(values: (number | null)[], i: number, span: number): number | null {
-  let max: number | null = null
-  for (let j = Math.max(0, i - span + 1); j <= i; j++) {
-    const v = values[j]
-    if (v != null && (max === null || v > max)) max = v
-  }
-  return max
-}
-
 function windowMean(values: (number | null)[], i: number, span: number): number | null {
   let sum = 0
   let n = 0
@@ -187,16 +199,66 @@ function monitorColumn(
  * The pollen half of an hour: which types, at what index, named by which
  * plants, and whether the numbers were measured or a calendar's claim. See
  * specs/18-measured-pollen.md for why a day, not an hour, is the resolution.
+ *
+ * Three places to ask, in order of standing: today's fetch, what earlier
+ * fetches wrote down (pollenHistory.ts — Google serves today forward, so a
+ * past day is only ever there because the app was open then), and the season
+ * calendar, whose answers are estimates and say so.
  */
 export function pollenForHour(
   measured: Map<string, PollenDay> | null,
   lat: number,
   lon: number,
   time: string,
+  remembered: Map<string, PollenDay> | null = null,
 ): { day: PollenDay; estimated: boolean } {
-  const fromGoogle = measured?.get(time.slice(0, 10))
-  if (fromGoogle) return { day: fromGoogle, estimated: false }
+  const date = time.slice(0, 10)
+  const read = measured?.get(date) ?? remembered?.get(date)
+  if (read) return { day: read, estimated: false }
   return { day: calendarPollen(lat, lon, monthOf(time)), estimated: true }
+}
+
+/** Grass is the one pollen plant whose exposure is a window, not a day. */
+const GRASS = POLLEN_PLANTS.GRAMINALES!
+
+/** Days in that window, today included. */
+const GRASS_WINDOW_DAYS = 3
+
+/** The local date `back` days before this one, as a "2026-09-13" key. */
+const shiftDate = (date: string, back: number): string =>
+  new Date(Date.parse(`${date}T00:00:00Z`) - back * 86_400_000).toISOString().slice(0, 10)
+
+/**
+ * Grass pollen over the trailing three local days, highest day wins.
+ *
+ * Grass is the only pollen taxon with a defensible asthma signal, and the
+ * shape of that signal is cumulative rather than same-day: Erbas 2018's
+ * meta-analysis puts the rise above a 3-day mean, and London's very-high-vs-low
+ * IRR of 1.46 is at a 3-day lag. A day-of index systematically under-weights
+ * the Thursday that follows a huge Tuesday. Max rather than mean because the
+ * index is a 0–5 category, and averaging categories invents a resolution the
+ * scale does not have.
+ *
+ * The window inherits the weakest provenance it touches: a max that includes a
+ * calendar day is an estimate for that hour even when the winning day was
+ * measured, because the claim "this was the worst of three days" leans on all
+ * three. A day with no grass reading at all contributes nothing in either
+ * direction — out of season is a blank, not a zero and not a guess.
+ */
+export function grassWindow(
+  dayFor: (date: string) => { day: PollenDay; estimated: boolean },
+  date: string,
+): { value: number; estimated: boolean } | null {
+  let value: number | null = null
+  let estimated = false
+  for (let back = 0; back < GRASS_WINDOW_DAYS; back++) {
+    const { day, estimated: guessed } = dayFor(shiftDate(date, back))
+    const reading = day.exposure[GRASS.variable]
+    if (reading === undefined) continue
+    if (value === null || reading > value) value = reading
+    if (guessed) estimated = true
+  }
+  return value === null ? null : { value, estimated }
 }
 
 /** What the caller wants consulted beyond the model feeds. */
@@ -211,12 +273,16 @@ export interface ExposureOptions {
 
 /**
  * Fetch air quality + weather and derive per-hour exposure vectors using the
- * per-variable windows from docs/trigger-model.md (o3/no2/pm: max8h;
- * heat/cold: instantaneous; humidity: mean72h; pollen: its local day's index,
- * daily being all any pollen source resolves). Pollen rides a separate pipe
- * (googlePollen.ts via the relay, today forward) with the season calendar
- * behind it for the past tail and for outages — a fallback hour is
- * estimated-tagged, never silently interchangeable with a measured one.
+ * per-variable windows from docs/trigger-model.md — one window per mechanism
+ * (o3: mean8h; pm25/pm10: mean24h; no2: the hour itself; heat/cold:
+ * instantaneous; humidity: mean72h; grass pollen: the highest of the trailing
+ * three local days; other pollen: its local day's index, daily being all any
+ * pollen source resolves). This function is the only place windows live, and
+ * changing one renames the source (EXPOSURE_SOURCE). Pollen rides a separate
+ * pipe (googlePollen.ts via the relay, today forward) with what earlier
+ * fetches wrote down (pollenHistory.ts) behind it and the season calendar
+ * behind that — a fallback day is estimated-tagged, never silently
+ * interchangeable with a measured one.
  *
  * Two feeds can fill the pollutant columns. CAMS model data is the default and
  * the worldwide one; it can miss hyper-local smoke, and over the US it is a
@@ -269,6 +335,26 @@ export async function fetchExposureSeries(
   const rh = series(weather.hourly, 'relative_humidity_2m')
   const dew = series(weather.hourly, 'dew_point_2m')
 
+  // Today's pollen is tomorrow's history: the only way the 3-day grass window
+  // ever has a day −2 in it is that some earlier fetch filed one. Only days
+  // up to *this place's* today are filed — the relay's endpoint is a forecast
+  // lookup, and one of its projections remembered as a reading would later be
+  // graded as one.
+  const localToday = new Date(Date.now() + air.utc_offset_seconds * 1000)
+    .toISOString()
+    .slice(0, 10)
+  if (pollenDays) rememberPollenDays(lat, lon, pollenDays, localToday)
+  const rememberedPollen = recallPollenDays(lat, lon)
+  const pollenByDate = new Map<string, { day: PollenDay; estimated: boolean }>()
+  const pollenDayFor = (date: string): { day: PollenDay; estimated: boolean } => {
+    let day = pollenByDate.get(date)
+    if (!day) {
+      day = pollenForHour(pollenDays, lat, lon, date, rememberedPollen)
+      pollenByDate.set(date, day)
+    }
+    return day
+  }
+
   const measured = monitors !== null && coversExposureVector(monitors) ? monitors : null
   // Everything the monitors do not measure leaves the series with them. NO₂ is
   // the one that matters: AirNow rarely reports it, and under the null
@@ -308,24 +394,51 @@ export async function fetchExposureSeries(
     const put = (variable: string, x: number | null): void => {
       if (x !== null) exposure[variable] = x
     }
-    put('pm25', windowMax(pm25, i, 8))
-    put('pm10', windowMax(pm10, i, 8))
-    put('o3', windowMax(o3, i, 8))
-    put('no2', windowMax(no2Column, i, 8))
+    // One window per mechanism (specs/22-exposure-windows.md). PM's published
+    // breakpoints are 24-hour means and the ED-visit epidemiology runs at lag
+    // 0–2 days, so the day is the unit. Ozone's are 8-hour means, and AirNow's
+    // ozone number is a NowCast of the same shape — a max of hourlies graded
+    // against a mean prior over-warns by construction. NO₂ acts within the
+    // hour it is breathed, and a 45 km model cell has nothing longer to say
+    // about a gas whose gradients are sub-kilometer.
+    put('pm25', windowMean(pm25, i, 24))
+    put('pm10', windowMean(pm10, i, 24))
+    put('o3', windowMean(o3, i, 8))
+    put('no2', no2Column[i] ?? null)
     put('heat_stress', heatStress)
     put('cold_dry_stress', coldDryStress)
     put('humidity', windowMean(rh, wi, 72))
-    // Pollen resolves by local day, not hour, so the day's index stands in for
-    // every hour of it — no running window, the same number smeared through a
-    // max is just the same number. Plants, not types, enter the vector: only
+    // Pollen resolves by local day, not hour, so a day's index stands in for
+    // every hour of it. Grass is the exception on the other axis: its exposure
+    // is the highest of the trailing three days, because that is the shape of
+    // the only pollen-and-asthma signal worth trusting (see grassWindow). It
+    // replaces the day's own number on the display too — the row's number and
+    // the number it is graded on have to be the same quantity, and a grass row
+    // that vanished the day after a spike would hide the exposure the engine
+    // is reasoning about. Plants, not types, enter the vector: only
     // plant-level numbers can ever answer "birch and not oak". The null
     // discipline holds: a plant the source omitted is absent, not zero.
-    const { day: pollenDay, estimated: pollenEstimated } = pollenForHour(pollenDays, lat, lon, time)
+    const date = time.slice(0, 10)
+    const { day: pollenDay, estimated: pollenEstimated } = pollenDayFor(date)
+    const grass = grassWindow(pollenDayFor, date)
+    const pollenTypes: PollenDay['types'] = { ...pollenDay.types }
+    const estimatedPollen = new Set(pollenEstimated ? Object.keys(pollenDay.exposure) : [])
     for (const [variable, value] of Object.entries(pollenDay.exposure)) put(variable, value)
+    if (grass) {
+      exposure[GRASS.variable] = grass.value
+      pollenTypes.grass = {
+        value: grass.value,
+        plants: [{ variable: GRASS.variable, name: GRASS.name, value: grass.value }],
+      }
+      if (grass.estimated) estimatedPollen.add(GRASS.variable)
+      else estimatedPollen.delete(GRASS.variable)
+    }
 
     // The raw row follows the same rule as the vector: a variable this hour
     // has no reading for is missing from it, never zero. The air table skips
-    // the row rather than printing a nought nobody measured.
+    // the row rather than printing a nought nobody measured. Raw is what was
+    // read, so the windows do not reach it — grass here is this day's own
+    // index, not the three-day max.
     const raw: Record<string, number> = { ...pollenDay.exposure }
     const putRaw = (variable: string, x: number | null): void => {
       if (x !== null) raw[variable] = x
@@ -342,10 +455,8 @@ export async function fetchExposureSeries(
     putRaw('temp', t)
     return {
       time,
-      ...(Object.keys(pollenDay.types).length > 0 ? { pollenDisplay: pollenDay.types } : {}),
-      ...(pollenEstimated && Object.keys(pollenDay.exposure).length > 0
-        ? { estimated: Object.keys(pollenDay.exposure) }
-        : {}),
+      ...(Object.keys(pollenTypes).length > 0 ? { pollenDisplay: pollenTypes } : {}),
+      ...(estimatedPollen.size > 0 ? { estimated: [...estimatedPollen] } : {}),
       ...(measured && i > currentIndex ? { forecastSource: 'cams' as const } : {}),
       exposure,
       raw,
