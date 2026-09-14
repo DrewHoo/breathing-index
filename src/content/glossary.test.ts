@@ -3,14 +3,32 @@ import { VARIABLE_LABELS } from '../ui/labels'
 import { GLOSSARY, GLOSSARY_ORDER, glossaryKeyFor, type GlossaryKey } from './glossary'
 
 describe('the entries', () => {
-  it('has all five parts on every entry, none of them blank', () => {
-    // The page renders five labelled paragraphs per section and the sheet
-    // renders the same five. A blank one is a heading over nothing.
+  it('has a name and a breathing paragraph on every entry, and no blank part', () => {
+    // Both surfaces render a labelled paragraph per part the entry carries. A
+    // part may be left out (Sick has one worth reading); a part that is
+    // present and blank is a heading over nothing.
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
-      for (const field of ['name', 'what', 'breathing', 'window', 'source', 'verdicts'] as const) {
-        expect(entry[field].trim(), `${key}.${field}`).not.toBe('')
+      expect(entry.name.trim(), `${key}.name`).not.toBe('')
+      expect(entry.breathing.trim(), `${key}.breathing`).not.toBe('')
+      for (const field of ['what', 'window', 'source'] as const) {
+        const part = entry[field]
+        if (part !== undefined) expect(part.trim(), `${key}.${field}`).not.toBe('')
       }
+    }
+  })
+
+  it('names a symbol in English the first time it uses one', () => {
+    // Drew's rule: the symbol is fine, the English word rides in parentheses.
+    // Checked for the three symbols the copy actually uses.
+    for (const key of GLOSSARY_ORDER) {
+      const entry = GLOSSARY[key]
+      const text = [entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
+      const symbols: [string, string][] = [['µm', 'micrometers'], ['µg/m³', 'micrograms'], ['ppm', 'parts per million']]
+      for (const [symbol, word] of symbols) {
+        if (text.includes(symbol)) expect(text, `${key} uses ${symbol} without ${word}`).toContain(word)
+      }
+      expect(text, `${key} says "mean" where "average" is the word`).not.toMatch(/\bmean\b/)
     }
   })
 
@@ -40,7 +58,7 @@ describe('what the text may not say', () => {
   it('never puts a second person and a "now" in one sentence', () => {
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
-      const text = [entry.what, entry.breathing, entry.window, entry.source, entry.verdicts].join(' ')
+      const text = [entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
       expect(text, `${key} speaks about the reader's day`).not.toMatch(SPEAKS_ABOUT_TODAY)
     }
   })

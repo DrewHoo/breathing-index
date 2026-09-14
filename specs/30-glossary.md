@@ -39,6 +39,17 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 | `humid_heat` | Dew point above 18 °C / 64 °F: hot, wet air. | Shown in controlled exposure: a separate reflex from dry air, blocked by an inhaler drug in the lab. | The hour itself. | "comfortable" between 11 and 18 °C. |
 | `viral` | You said you were sick. | A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. | The day you tapped it. | — |
 
+## Copy rules from Drew (2026-09-14), applied
+
+- A symbol gets its English name in parentheses the first time it appears in an entry: "2.5 µm (micrometers)", "10 µg/m³ (micrograms per cubic meter of air)", "0.06 ppm (parts per million)".
+- "Average", never "mean".
+- "Monitor" and "model" are named and told apart in every entry that uses them: a monitor is an instrument run by the state environmental agency, published through the EPA's AirNow; a model is a computer estimate on a 45-kilometer grid, a prediction and not a measurement.
+- The "What the words on the row mean" part is gone from the module, the sheet and the page.
+- A part that would only state the obvious is left out; Sick keeps one sentence.
+- Dew point, what it is: the temperature at which the water vapor in the air would condense into a dew drop; too high and the air is muggy and sets off the humid-heat reflex; too low and it dries the airway lining, which is what people call cold-air asthma.
+
+A test guards the first two rules for the symbols the copy uses.
+
 ## Acceptance
 
 - `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.

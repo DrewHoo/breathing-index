@@ -27,7 +27,8 @@ const esc = (s) =>
 
 function section(key) {
   const entry = GLOSSARY[key]
-  const parts = GLOSSARY_PARTS.map(
+  // A part the entry leaves out is skipped, not labelled over nothing.
+  const parts = GLOSSARY_PARTS.filter(([field]) => entry[field] !== undefined).map(
     ([field, label]) =>
       `        <p class="gl-part"><span class="gl-label">${label}</span> ${esc(entry[field])}</p>`,
   )

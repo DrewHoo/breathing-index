@@ -127,12 +127,18 @@ function HelpSheet({
             Close
           </button>
         </div>
-        {GLOSSARY_PARTS.map(([field, label]) => (
-          <p key={field} className="help-part">
-            <span className="help-label">{label}</span>
-            {entry[field]}
-          </p>
-        ))}
+        {GLOSSARY_PARTS.map(([field, label]) => {
+          // A part the entry leaves out is skipped, not labelled over nothing:
+          // Sick has one sentence worth reading, so it has one part.
+          const part = entry[field]
+          if (part === undefined) return null
+          return (
+            <p key={field} className="help-part">
+              <span className="help-label">{label}</span>
+              {part}
+            </p>
+          )
+        })}
         <p className="help-disclaimer">{DISCLAIMER}</p>
         <a className="help-full" href={`/glossary#${entryKey}`}>
           Full glossary →
