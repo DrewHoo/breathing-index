@@ -86,8 +86,9 @@
     },
     {
       "name": "confounded entries yield no constraints",
+      "$comment": "The confounder used to be \"sick\". It is an exposure variable now (specs/26-sick-as-signal.md) and no longer excludes anything, so the case names one of the tags that still does.",
       "diary": [
-        { "rating": 3, "exposure": { "pm25": 25, "o3": 10 }, "confounders": ["sick"] }
+        { "rating": 3, "exposure": { "pm25": 25, "o3": 10 }, "confounders": ["allergies"] }
       ],
       "expectConfirmed": {},
       "expectConflicts": [],
@@ -108,16 +109,16 @@
       ]
     },
     {
-      "name": "U-shaped temperature via one-sided encoding: cold-dry day attributes cleanly",
-      "why": "Expectation widened for exact matching: the level-2 bound this day always implied is now written down.",
-      "$comment": "Inference only ever sees monotone features; heat_stress and cold_dry_stress are separate dimensions, so a cold trigger says nothing about hot days.",
+      "name": "U-shaped dew point via one-sided encoding: dry-air day attributes cleanly",
+      "why": "Rewritten on dry_air/humid_heat (spec 23); the shape is unchanged, because the U was always a feature-extraction concern and never an engine one. Expectation widened for exact matching: the level-2 bound this day always implied is now written down.",
+      "$comment": "Inference only ever sees monotone features; dry_air and humid_heat are separate dimensions cut from one dew point, so a dry-air trigger says nothing about muggy days. dry_air 8 is a 3 °C dew point; humid_heat 6 is a 24 °C one.",
       "diary": [
-        { "rating": 3, "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 8 } }
+        { "rating": 3, "exposure": { "pm25": 4, "o3": 5, "humid_heat": 0, "dry_air": 8 } }
       ],
-      "expectConfirmed": { "cold_dry_stress": { "2": 8, "3": 8 } },
+      "expectConfirmed": { "dry_air": { "2": 8, "3": 8 } },
       "predict": [
-        { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 6, "cold_dry_stress": 0 }, "expect": [1, 1] },
-        { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 9 }, "expect": [3, 3] }
+        { "exposure": { "pm25": 4, "o3": 5, "humid_heat": 6, "dry_air": 0 }, "expect": [1, 1] },
+        { "exposure": { "pm25": 4, "o3": 5, "humid_heat": 0, "dry_air": 9 }, "expect": [3, 3] }
       ]
     },
     {
@@ -417,6 +418,132 @@
       "expectInertSources": ["cams"],
       "predict": [
         { "exposure": { "pm25": 15 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "smoke and the PM it rode in on are one candidate set",
+      "$comment": "specs/25-smoke-variable.md: the engine can only learn 'smoke PM2.5 gets me at 15 where ordinary PM2.5 does not until 35' if the two are separate dimensions. On the day itself they are inseparable \u2014 a plume is made of fine particles \u2014 so the bad day implicates both and says so, which is the model working rather than failing.",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "smoke": 2 } }
+      ],
+      "expectCandidates": { "3": [["pm25", "smoke"]] },
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pm25": 20, "smoke": 2 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 20, "smoke": 0 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "smoke": 2 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "smoke": 0 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a smoke-free PM day is what separates them",
+      "$comment": "specs/25-smoke-variable.md: the separator has to be a day with more ordinary PM2.5 and no plume over it \u2014 24 \u00b5g/m\u00b3 handled fine exonerates the bad day's 20, and the smoke is left holding the bag. The other direction cannot happen: the gate only lets a density into the vector when PM2.5 is already past the level the population prior calls noticeable, so there is no such thing as a heavy-smoke day at 4 \u00b5g/m\u00b3. The collapse shows up as an attribution rather than a candidate set: once tolerance leaves one candidate standing, the entry stops being an ambiguous constraint.",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 20, "smoke": 2 } },
+        { "rating": 1, "exposure": { "pm25": 24, "smoke": 0 } }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "smoke": { "2": 2, "3": 2 } },
+      "predict": [
+        { "exposure": { "pm25": 24, "smoke": 0 }, "expect": [1, 1] },
+        { "exposure": { "pm25": 5, "smoke": 2 }, "expect": [1, 3] }
+      ]
+    },
+    {
+      "name": "a window change is a source change: cams bounds go inert on cams-w2",
+      "$comment": "specs/22-exposure-windows.md: bounds are learned against features, and PM2.5 moved from an 8-hour max to a 24-hour mean. 'pm25 was 20' therefore describes a quantity the app no longer computes, so the tolerance learned under cams must not silence the first bad day read on the new windows. The engine needs no new machinery for this — the source name carries the window generation, and a rename is a switch.",
+      "diary": [
+        { "rating": 1, "exposure": { "pm25": 20 }, "source": "cams" },
+        { "rating": 3, "exposure": { "pm25": 15 }, "source": "cams-w2" }
+      ],
+      "expectConfirmed": { "pm25": { "2": 15, "3": 15 } },
+      "expectConflicts": [],
+      "expectInertSources": ["cams"],
+      "predict": [
+        { "exposure": { "pm25": 15 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "a sick day is evidence, not a day to throw away",
+      "$comment": "specs/26-sick-as-signal.md. `viral` is a tap, not a reading: 1 or absent, floor 0. A bad day with oak up and the flag on implicates both, exactly as a smoke day implicates the PM it rode in on \u2014 a virus alone is null in the literature (Green 2002, OR 1.67 crossing 1) and what multiplies is virus \u00d7 sensitisation \u00d7 allergen exposure, which is a candidate set, not a sum.",
+      "diary": [
+        { "rating": 3, "exposure": { "pollen_oak": 4, "viral": 1 } }
+      ],
+      "expectCandidates": { "2": [["pollen_oak", "viral"]], "3": [["pollen_oak", "viral"]] },
+      "expectConfirmed": {},
+      "predict": [
+        { "exposure": { "pollen_oak": 4, "viral": 1 }, "expect": [3, 3], "expectGrade": "provisional" },
+        { "exposure": { "viral": 1 }, "expect": [1, 3] },
+        { "exposure": { "pollen_oak": 4 }, "expect": [1, 3] }
+      ]
+    },
+    {
+      "name": "a well day at higher pollen leaves the virus holding the bag",
+      "$comment": "The separator is a fine day with *more* oak than the bad one and no flag. It has to clear the margin: a tolerance at 5 exonerates to 4.25 and guards at 4.57, which the bad day's 4 does not reach \u2014 a well day at oak 4 would have proved nothing. The collapse yields a ceiling claim, not a floor: `viral` was the lone candidate on one day that still had oak 4 in the background, so the bound travels with that context.",
+      "diary": [
+        { "rating": 3, "exposure": { "pollen_oak": 4, "viral": 1 } },
+        { "rating": 1, "exposure": { "pollen_oak": 5 } }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "viral": { "2": 1, "3": 1 } },
+      "expectTolerance": { "pollen_oak": { "2": 5, "3": 5, "4": 5 } },
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pollen_oak": 4, "viral": 1 }, "expect": [1, 3] },
+        { "exposure": { "pollen_oak": 4 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "two sick days confirm the virus, and the context travels with it",
+      "$comment": "The second sick-with-oak day is the repetition, so the claim may set the floor \u2014 but only where the day it was learned on is matched. The flag on its own does not reach it: what the diary saw was a virus *with* oak about, which is the interaction the literature describes and the one thing a prior cannot say.",
+      "diary": [
+        { "rating": 3, "exposure": { "pollen_oak": 4, "viral": 1 } },
+        { "rating": 1, "exposure": { "pollen_oak": 5 } },
+        { "rating": 3, "exposure": { "pollen_oak": 4, "viral": 1 } }
+      ],
+      "expectConfirmed": { "viral": { "2": 1, "3": 1 } },
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "pollen_oak": 4, "viral": 1 }, "expect": [3, 3], "expectGrade": "confirmed" },
+        { "exposure": { "viral": 1 }, "expect": [1, 3] },
+        { "exposure": { "pollen_oak": 4 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a measured mold count confirms on a clean day",
+      "$comment": "Houston in September: 15,000 spores/m\u00b3, which the AAAAI's bands call High, on air that is otherwise nothing at all. The lone candidate on a clean day is the one shape that confirms from a single entry, and a count read off a microscope is exactly the provenance that earns it \u2014 the trailing floors are there so the clean day really is clean (pm25 5, o3 20, mold 500).",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 } }
+      ],
+      "expectConfirmed": { "mold": { "2": 15000, "3": 15000 } },
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 400 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "a sulfur dioxide hour confirms on a clean day",
+      "$comment": "The day the variable exists for (specs/29-sulfur-dioxide.md): 150 \u00b5g/m\u00b3 of SO\u2082 \u2014 a port, a refinery, a volcanic plume \u2014 on air that is otherwise nothing at all. pm25 4 and o3 10 are both under their floors, so the candidate set is the singleton the engine can confirm from one entry, and the floor of 20 is what makes that true: at a Connecticut background of 1 \u00b5g/m\u00b3 the name would never have been in the set to begin with.",
+      "diary": [
+        { "rating": 3, "exposure": { "so2": 150, "pm25": 4, "o3": 10 } }
+      ],
+      "expectConfirmed": { "so2": { "2": 150, "3": 150 } },
+      "predict": [
+        { "exposure": { "so2": 150 }, "expect": [3, 3] },
+        { "exposure": { "so2": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "the same mold day from a stale reading only ever suspects",
+      "$comment": "The identical vector with `mold` tagged estimated \u2014 a count more than three days old, or the dry-spore proxy, which is always one. The clean singleton stops at suspected-strong regardless of repetition: repeating a guess repeats the guess. Ceiling 3, floor 1, forever.",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "estimated": ["mold"] },
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "estimated": ["mold"] }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "mold": { "2": 15000, "3": 15000 } },
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "expect": [1, 3] }
       ]
     }
   ]

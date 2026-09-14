@@ -11,7 +11,7 @@ export interface DiaryEntry {
   time: string
   rating: Rating
   note?: string
-  /** reasons to distrust the entry — inference excludes it (e.g. "sick") */
+  /** reasons to distrust the entry — inference excludes it (e.g. "allergies") */
   confounders?: string[]
   /** things the user noticed that sharpen attribution (e.g. "worse-outdoors") */
   observations?: string[]

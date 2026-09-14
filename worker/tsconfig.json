@@ -9,5 +9,8 @@
     "noUncheckedIndexedAccess": true,
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // The geo tests run off the root vitest config and are typechecked by the
+  // root tsconfig; vitest is not a dependency of the worker.
+  "exclude": ["src/**/*.test.ts"]
 }

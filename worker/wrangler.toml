@@ -4,9 +4,22 @@ compatibility_date = "2026-01-01"
 
 # Secrets — never in this file, never in git. Set each with:
 #   npx wrangler secret put AIRNOW_API_KEY
-#   npx wrangler secret put PURPLEAIR_API_KEY
 #   npx wrangler secret put GOOGLE_MAPS_API_KEY
 # For local dev, put the same names in worker/.dev.vars (gitignored).
+
+# Plain environment variables, not secrets: these values are not sensitive and
+# being readable in git is the point of them.
+[vars]
+# The AAAAI National Allergy Bureau mold stations (specs/28-mold.md §1). "1"
+# switches them on; anything else, including unset, leaves them off, and the
+# relay 403s every `nab:` station id while it is off.
+#
+# This is a licence term wearing a feature flag. The endpoint is public,
+# unauthenticated and unmetered, and none of that is permission: the NAB states
+# that any use without the AAAAI's prior written consent is prohibited, and its
+# data-release policy excludes commercial use. Production stays "0" until that
+# consent is on file. See worker/src/mold/nab.ts.
+MOLD_NAB_ENABLED = "0"
 
 # Optional but recommended: KV-backed response cache. The Cache API is a no-op
 # on *.workers.dev domains, so KV is what makes two users in the same grid cell

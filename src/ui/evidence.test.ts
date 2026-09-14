@@ -51,7 +51,7 @@ describe('the Why line agrees with its subject', () => {
       'Fine particles are past guidance',
     )
     expect(evidence(predict(fresh, { pm10: 300 }, PRIORS), fresh, []).main).toContain(
-      'Coarse particles are past guidance',
+      'Particles under 10 µm are past guidance',
     )
     expect(evidence(predict(fresh, { ragweed_pollen: 50 }, PRIORS), fresh, []).main).toContain(
       'Ragweed is past guidance',

@@ -56,10 +56,25 @@ describe('resolvePending', () => {
   })
 
   it('keeps the rating, the time and the tags', () => {
-    const entry = pendingEntry({ note: 'stairs', confounders: ['sick'] })
+    const entry = pendingEntry({ note: 'stairs', confounders: ['allergies'] })
     const [resolved] = resolvePending([entry], series(), HAMDEN)
     expect(resolved).toMatchObject({ id: 'p1', time: entry.time, rating: 3, note: 'stairs' })
-    expect(resolved!.confounders).toEqual(['sick'])
+    expect(resolved!.confounders).toEqual(['allergies'])
+  })
+
+  it('keeps the one variable the feed cannot supply', () => {
+    // "sick" is a tap on the entry, not a number in the series
+    // (specs/26-sick-as-signal.md), and the air arriving late must not delete
+    // it — the user can tap it the moment they log, hours before the hour's
+    // vector shows up.
+    const entry = pendingEntry({ exposure: { viral: 1 } })
+    const [resolved] = resolvePending([entry], series(), HAMDEN)
+    expect(resolved!.exposure).toEqual({ pm25: 31, o3: 40, humidity: 60, viral: 1 })
+  })
+
+  it('does not invent one for an entry that never claimed it', () => {
+    const [resolved] = resolvePending([pendingEntry()], series(), HAMDEN)
+    expect('viral' in resolved!.exposure).toBe(false)
   })
 
   it('refuses air measured somewhere else', () => {
@@ -99,8 +114,41 @@ describe('backfillPending', () => {
     const fetchSeries = vi.fn().mockResolvedValue(series())
     const now = new Date('2026-08-07T14:05:00Z')
     const next = await backfillPending([pendingEntry()], null, null, now, fetchSeries)
-    expect(fetchSeries).toHaveBeenCalledWith(HAMDEN.lat, HAMDEN.lon)
+    expect(fetchSeries).toHaveBeenCalledWith(HAMDEN.lat, HAMDEN.lon, {
+      airnow: true,
+      moldStation: null,
+    })
     expect(next![0]!.exposure.pm25).toBe(31)
+  })
+
+  it('asks the history for the same sources the live screen reads', async () => {
+    // The active source is whatever the newest entry recorded, so a backfill
+    // that came back on the model could be the entry that tips an `airnow`
+    // diary over to `cams` and makes every station bound inert. The mold
+    // station travels on the same argument (specs/28-mold.md): a backfilled
+    // entry should carry the vector a live one would have carried.
+    const fetchSeries = vi.fn().mockResolvedValue(series())
+    const now = new Date('2026-08-07T14:05:00Z')
+    const stored = { airnow: true }
+    vi.stubGlobal('localStorage', {
+      getItem: () =>
+        stored.airnow
+          ? null
+          : JSON.stringify({ airnowEnabled: false, moldStation: 'houston-hhd' }),
+    })
+    await backfillPending([pendingEntry()], null, null, now, fetchSeries)
+    expect(fetchSeries).toHaveBeenLastCalledWith(HAMDEN.lat, HAMDEN.lon, {
+      airnow: true,
+      moldStation: null,
+    })
+
+    stored.airnow = false
+    await backfillPending([pendingEntry()], null, null, now, fetchSeries)
+    expect(fetchSeries).toHaveBeenLastCalledWith(HAMDEN.lat, HAMDEN.lon, {
+      airnow: false,
+      moldStation: 'houston-hhd',
+    })
+    vi.unstubAllGlobals()
   })
 
   it('leaves the entry pending when the network is still gone', async () => {

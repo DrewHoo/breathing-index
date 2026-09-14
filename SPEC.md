@@ -61,9 +61,10 @@ examples: **[docs/trigger-model.md](docs/trigger-model.md)**; test fixtures the 
 pass: `tests/fixtures/trigger-cases.json`. The short version:
 
 - A **diary entry** = a 1–4 rating + the full exposure vector captured at log time. The vector is
-  **not just pollutants**: heat stress, cold-dry stress, humidity (multi-day window, as an indoor
-  mold/dust-mite proxy), and pollen enter as additional dimensions under the same semantics —
-  non-monotone variables like temperature are split into one-sided stress features first.
+  **not just pollutants**: dry air and humid heat — two one-sided features cut from the hour's
+  dew point, which is the number both mechanisms are actually gated on — and pollen enter as
+  additional dimensions under the same semantics; non-monotone variables like the weather are
+  split into one-sided features first.
 - Per variable and level, the user has unknown thresholds; the model learns **bounds** on them.
 - A *fine* day is unambiguous tolerance evidence for **every** pollutant (nothing triggered you).
   A *bad* day is an ambiguous constraint over its elevated pollutants — resolved only when later
@@ -83,8 +84,10 @@ pass: `tests/fixtures/trigger-cases.json`. The short version:
 |---|---|---|---|---|
 | **Open-Meteo Air Quality API** | CAMS *model* data | none | ✅ yes | Default source. Free, no key, returns per-pollutant µg/m³ + US AQI + EU AQI, hourly, worldwide. Being model output, it can miss hyper-local smoke. |
 | **AirNow API** (EPA) | Station measurements | free API key | key exposed client-side (acceptable: free tier, user-owned key) | Ground truth for US. User pastes their own key in settings → localStorage. |
-| **PurpleAir** | Crowdsourced sensors | API key | ✅ with key header | Densest hyper-local coverage; famously reads high without correction (apply EPA conversion). Optional, user-keyed. |
-| **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Temperature, humidity, dew point — feeds the heat/cold-dry/humidity exposure variables. Free, global. |
+| **PurpleAir** | ~~Crowdsourced sensors~~ | — | — | **Removed on licence grounds** ([21](specs/21-airnow-migration.md)): its terms forbid combining the data with open-source code, and this repo is public. If hyper-local PM is ever wanted, AirGradient's public world endpoint is keyless and licence-clean. |
+| **NOAA HMS smoke** (via USFS AirFire) | Satellite smoke-plume analysis | none | through the relay | Analyst-drawn plume polygons over North America, republished hourly as GeoJSON, with density as Light/Medium/Heavy. The relay does the point-in-polygon for the coarse cell and answers `{density, start, end}` ([25](specs/25-smoke-variable.md)). It is a *column* product — a plume aloft over clean surface air is flagged too — so the density only enters the exposure vector when the hour's PM says the particulate at ground level is fine-mode. A nowcast: no forecast hours, and the trailing 48 h come from what the app wrote down as they passed. |
+| **Mold counting stations** (via the relay) | Trap-derived spore counts, scraped | none | through the relay | No vendor sells this number: every consumer pollen API is a model with no mold field, and the measurements live at health departments, hospitals and clinics that post a figure on a web page once a weekday morning ([28](specs/28-mold.md), `research/mold-sources.md`). `GET /v1/mold/stations` is the directory and `GET /v1/mold?station=<id>` is one station's newest reading — one relay module per *publishing shape*, not per station. The user picks a station by name in Settings, because stations are 50–100 miles apart and there is nothing honest to interpolate between them. The reading carries its own observation date, and a page with no date is a failed fetch rather than a reading; past three days the variables it feeds are marked `estimated`. The AAAAI National Allergy Bureau's 19 mold-active stations are built and gated off (`MOLD_NAB_ENABLED`) pending written consent. Where there is no station — nearly everywhere — `dry_spore_index` counts five weather conditions instead and is always an estimate. |
+| **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Dew point — feeds the `dry_air` and `humid_heat` exposure variables, the one number both weather mechanisms are gated on ([23](specs/23-dew-point-air.md)). Temperature, humidity, wind and precipitation came back in [28](specs/28-mold.md) for one variable rather than rows of their own: `dry_spore_index` counts them, and the wet-spell condition is why the weather feed is asked for seven past days where the air feed is asked for three. Free, global. |
 | **Pollen** | CAMS model (EU) / calendar prior (US) | none | ✅ yes | Open-Meteo serves per-species pollen for **Europe only** (verified `null` for US). US fallback: calendar-region priors in `src/sources/pollenCalendar.ts` (NOAA climate region × month × species, at NAB band low edges — e.g. CT ragweed ≈ Aug–Oct), recorded as `estimated` so they can suspect but never confirm. Upgrade path: Google Pollen API or Ambee as user-keyed plugins, same variable names. |
 
 Architecture treats sources as plugins behind one interface: `fetch(lat, lon) → { pollutant: {value, unit, time} }`. The UI can display sources side-by-side ("model says 18 µg/m³, nearest sensor says 34") — disagreement is itself signal that smoke is hyper-local.
@@ -120,9 +123,12 @@ Deliberately absent from the home screen: official composite indices (US AQI / E
 Goals; they live in a retrospective scoreboard view) and any "driven by" claim.
 
 **Diary (the input that powers everything):** one-tap "how's breathing?" → 1–4 + optional
-confounder tags (exclude the entry) and observation tags like "worse when outdoors" (sharpen
-attribution — see docs/trigger-model.md); exposure vector captured automatically. The app prompts on high-information days
-("today is ozone-only — logging tonight would teach me a lot").
+confounder tags (exclude the entry), observation tags like "worse when outdoors" (sharpen
+attribution), and "sick", which is neither — it writes a variable onto the entry, because a sick day
+with pollen up is the most informative day about allergen triggers a diary gets, and excluding it
+was throwing exactly those days away (see docs/trigger-model.md); exposure vector captured
+automatically. The app prompts on high-information days ("today is ozone-only — logging tonight
+would teach me a lot").
 
 **Detail screen:** 48h hourly sparkline per exposure variable (past + forecast), so "should I walk now or at 7pm?" is answerable.
 
@@ -149,7 +155,7 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 2. **M2 — Scaffold + home screen:** ✅ done — TypeScript/Vite/TanStack-Router app; inference engine (`src/engine/`) passing all fixtures; predicted BI (from priors), evidence line, constituent strip with evidence-status coloring, hourly curve, live Open-Meteo exposures. Detail-screen sparklines deferred to M3.
 3. **M3 — Diary + trigger inference:** ✅ done — one-tap diary with confounder tags and automatic exposure + official-index capture; conflict cards (superseded / unmodeled-trigger) with tag-to-resolve; detail sparklines; scoreboard receipts; personal-tolerance-overrides-priors added to the engine (fixture 13).
 4. **M4 — PWA:** ✅ done — vite-plugin-pwa (autoUpdate SW, manifest, generated icon set via `scripts/generate-icons.mjs`), NetworkFirst runtime caching for Open-Meteo, plus an app-level last-good localStorage fallback with staleness banner and re-derived current hour. Geolocation was in from M2.
-5. **M5 — Tunability:** ✅ done — settings screen: saved locations (follow-me or fixed), AirNow measured-comparison toggle, diary export/import JSON. Home shows the AirNow measured strip (per-pollutant AQI + Action Day flag) via the keyless widget endpoint. PurpleAir (needs user API key) still planned.
+5. **M5 — Tunability:** ✅ done — settings screen: saved locations (follow-me or fixed), AirNow toggle, diary export/import JSON. Home shows the AirNow measured strip (per-pollutant AQI + Action Day flag) via the keyless widget endpoint. PurpleAir is no longer planned: its licence forbids combining the data with open-source code, which this repo is. AirGradient's keyless world endpoint is the licence-clean alternative if hyper-local PM is ever wanted.
 6. **M6 — Public:** ✅ done (2026-08-06) — repo public, Pages deploying via Actions (SPA 404 fallback), OG/Twitter meta + share card + drewhoover.com chrome, live under `drewhoover.com/breathing-index/`, registered on the drewhoover.com index.
 7. **M7 — Own domain:** ✅ done (2026-08-07) — moved to https://breathingindex.com/ (`base: '/'`, `public/CNAME`, absolute OG/Twitter URLs). Two consequences of the move are worth remembering, because neither can be fixed from the server side:
    - **Old PWA installs are frozen, not migrated.** Devices that installed the app from `drewhoover.com/breathing-index/` still have its service worker registered at that scope, and it answers navigations from its own precache. Its update check re-fetches `sw.js` under the old prefix, which now 301s — and a redirect on a service-worker script is a spec-mandated failure, so the update can never succeed and no replacement worker can be served there. Those installs keep working, indefinitely, on the old code. They have to be deleted by hand.
@@ -157,8 +163,8 @@ Mobile-first; this is primarily a phone-on-the-sidewalk app. Desktop is the debu
 
 ## Open questions
 
-- **Exposure windows per variable:** ozone acts over hours, PM2.5 over a day, humidity→mold over days. v1 window table lives in [docs/trigger-model.md](docs/trigger-model.md); tune against diary data.
-- **How many variables is too many?** Each added dimension slows attribution (bigger candidate sets, and correlated pairs like heat+ozone rarely decorrelate naturally). Keep the vector mechanistically plausible for the user; let empty-candidate-set conflicts drive additions.
+- **Exposure windows per variable:** one window per mechanism, settled for now by [specs/22-exposure-windows.md](specs/22-exposure-windows.md) — ozone on an 8-hour mean and PM on a 24-hour one, each matching the averaging its own published breakpoints are written at; grass pollen on the highest of three local days, the shape of the only pollen-and-asthma signal worth trusting; the weather stresses on the hour they were breathed; SO₂ on the hour too, because its mechanism runs in minutes ([29](specs/29-sulfur-dioxide.md)). PM10 is computed on the same 24-hour mean and shown on its row without being graded ([24](specs/24-vector-diet.md)). The table lives in [docs/trigger-model.md](docs/trigger-model.md). Still open is the tuning: these are the literature's windows, not this user's. Retuning is not free — bounds are learned against features, so the source name carries a window generation (`cams-w2`) and changing a window retires everything learned under the old one.
+- **How many variables is too many?** Each added dimension slows attribution (bigger candidate sets, and correlated pairs like heat+ozone rarely decorrelate naturally). Keep the vector mechanistically plausible for the user; let empty-candidate-set conflicts drive additions. Subtraction counts too: [24](specs/24-vector-diet.md) cut PM10 to display-only and dropped NO₂ entirely, on the grounds that neither could ever be told apart from what was already in the vector. The counter-case is [29](specs/29-sulfur-dioxide.md), which put SO₂ back: a variable that sits below its floor on essentially every day joins no candidate set and costs no other variable its identifiability, so the only price of carrying it is the day it pays.
 - **Indoor air:** outdoor humidity is a rough proxy for indoor mold/dust-mite load. Indoor sensor as a v2 source plugin?
 - **Synergy extrapolation:** a novel combination with both pollutants slightly *below* their individually suspected exposures — bump the prediction or not? v1 doesn't extrapolate; revisit once real co-elevation diary data exists.
 - **Threshold drift:** sensitivity changes with season, illness, fitness. Recency-wins conflict handling is the v1 answer; time-decayed inference is the v2 answer.

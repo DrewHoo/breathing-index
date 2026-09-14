@@ -49,3 +49,10 @@ The held-out-today statistics are sound; the presentation reads as rejection.
 - No copy claims a mechanism the engine doesn't implement (audit strings against
   `docs/copy.md`, and reconcile the level-1 name — copy.md says "Excellent", labels.ts says
   "Easy"; pick one everywhere).
+
+## Amended 2026-09-14: no "log again" on the card
+
+Drew's call: the saved card's **log again** button is gone. The echo form keeps the level
+pill, the time, the amendable chips and "Nothing to add"; a second entry in the same air is
+the diary's job, through its "+ Log now" (`/?log=true`), which still reopens the ask over an
+existing answer. `forceLog` stays for that route and nothing else.

@@ -36,6 +36,12 @@ export function exposureDistance(a: Exposure, b: Exposure, priors: Priors): numb
  * meaningfully moved — e.g. PM2.5 within ±2.3 µg/m³, ozone within ±25 µg/m³,
  * heat stress within ±1.75 °C — so asking the user to re-rate it would be
  * asking the same question twice.
+ *
+ * The flags fall out of the same arithmetic in the right place: `viral` has a
+ * level-2 prior of 1 and only ever holds 0 or 1, so a sick day and a well one
+ * are four times this far apart and never count as the same day
+ * (specs/26-sick-as-signal.md). Which is what we want — being sick is exactly
+ * the change that makes the question worth asking again.
  */
 export const SIMILAR_EXPOSURE_DISTANCE = 0.25
 

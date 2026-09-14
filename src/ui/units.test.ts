@@ -71,8 +71,13 @@ describe('conversion', () => {
     expect(displayTemperatureDelta(5, 'C')).toBe(5)
   })
 
-  it('converts only the temperature stress features', () => {
-    // 6 °C over 25 is 10.8 °F over 77 — the same air, described twice.
+  it('converts only the temperature-shaped features', () => {
+    // 6 °C under an 11 °C dew point is 10.8 °F under 51.8 °F — the same air,
+    // described twice. Both dew-point features are distances, so neither
+    // takes the 32° offset.
+    expect(displayExposure('dry_air', 6, 'F')).toBeCloseTo(10.8)
+    expect(displayExposure('humid_heat', 5, 'F')).toBeCloseTo(9)
+    // Retired (pre-spec-23), still converting for old entries.
     expect(displayExposure('heat_stress', 6, 'F')).toBeCloseTo(10.8)
     expect(displayExposure('cold_dry_stress', 5, 'F')).toBeCloseTo(9)
     expect(displayExposure('pm25', 20, 'F')).toBe(20)

@@ -9,7 +9,14 @@
  * tolerance for every variable at once.
  */
 import type { DiaryEntry } from '../engine/types'
-import { fetchExposureSeries, hourInstant, type ExposureSeries } from '../sources/openMeteo'
+import {
+  fetchExposureSeries,
+  hourInstant,
+  type ExposureOptions,
+  type ExposureSeries,
+} from '../sources/openMeteo'
+import { loadSettings } from './settings'
+import { ENTRY_OWN_VARIABLES } from './viralTag'
 
 const HOUR_MS = 3_600_000
 
@@ -38,6 +45,10 @@ export const settled = (diary: DiaryEntry[]): DiaryEntry[] => diary.filter((e) =
 
 const samePlace = (a: Place, b: Place): boolean =>
   Math.abs(a.lat - b.lat) <= SAME_PLACE_DEGREES && Math.abs(a.lon - b.lon) <= SAME_PLACE_DEGREES
+
+/** The part of an entry's vector the user put there, which no backfill may overwrite. */
+const entryOwn = (exposure: DiaryEntry['exposure']): DiaryEntry['exposure'] =>
+  Object.fromEntries(Object.entries(exposure).filter(([v]) => ENTRY_OWN_VARIABLES.has(v)))
 
 /** Index of the hour containing this instant, or -1 if the series doesn't reach it. */
 function hourIndexAt(series: ExposureSeries, instant: number): number {
@@ -71,7 +82,12 @@ export function resolvePending(
     const { pendingExposure: _pending, ...rest } = entry
     return {
       ...rest,
-      exposure: hour.exposure,
+      // The hour's air, plus whatever the entry carries that no series ever
+      // produces. `viral` is the only one today (specs/26-sick-as-signal.md):
+      // the user can tap "sick" on an entry that is still waiting on its
+      // numbers, and replacing the vector wholesale would quietly delete the
+      // one variable the feed cannot supply.
+      exposure: { ...hour.exposure, ...entryOwn(entry.exposure) },
       // A vector that arrives late still has to say where it came from and
       // which of its numbers were guessed — an entry backfilled in Connecticut
       // carries calendar pollen, and untagged it could confirm a bound.
@@ -102,13 +118,30 @@ const placeKey = (place: Place): string =>
  * Fill in what can be filled in, using the series already on screen where it
  * covers the entry and a history request per other place where it doesn't.
  * Returns null when nothing changed, so a caller can skip the write.
+ *
+ * The history request asks the same sources the live screen does, AirNow
+ * setting included. It has to: `buildModel` reads the active source off the
+ * newest entry that recorded one, so a backfill that quietly came back `cams`
+ * could be the newest entry in an otherwise `airnow` diary and push every
+ * station bound into `inert` until the next live log.
+ *
+ * Asking the monitors does not guarantee they answer. They cover 48 hours and
+ * this window reaches back three days, so an older hour resolves to a series
+ * labelled `airnow` whose pm2.5 and ozone are simply absent. That is the right
+ * outcome, not a bug to paper over: an absent variable is unknown air, which
+ * proves nothing in either direction, where a model number filled in behind
+ * the station's back would be a bound learned against the wrong instrument.
  */
 export async function backfillPending(
   diary: DiaryEntry[],
   series: ExposureSeries | null,
   at: Place | null,
   now: Date = new Date(),
-  fetchSeries: (lat: number, lon: number) => Promise<ExposureSeries> = fetchExposureSeries,
+  fetchSeries: (
+    lat: number,
+    lon: number,
+    options?: ExposureOptions,
+  ) => Promise<ExposureSeries> = fetchExposureSeries,
 ): Promise<DiaryEntry[] | null> {
   if (backfillable(diary, now).length === 0) return null
 
@@ -119,9 +152,16 @@ export async function backfillPending(
     const place = entry.pendingExposure!
     elsewhere.set(placeKey(place), place)
   }
+  // The mold station rides along for the same reason the AirNow toggle does: a
+  // backfilled entry should carry the vector a live one would have carried, and
+  // the window reads days the app already wrote down — so an entry logged on
+  // Tuesday and resolved on Wednesday picks up Tuesday's count rather than a
+  // hole where one variable should be.
+  const { airnowEnabled: airnow, moldStation } = loadSettings()
+  const options: ExposureOptions = { airnow, moldStation }
   for (const place of elsewhere.values()) {
     try {
-      next = resolvePending(next, await fetchSeries(place.lat, place.lon), place)
+      next = resolvePending(next, await fetchSeries(place.lat, place.lon, options), place)
     } catch {
       // Still offline, or the place is gone from the API's window. The entry
       // keeps waiting; it is a real rating either way.

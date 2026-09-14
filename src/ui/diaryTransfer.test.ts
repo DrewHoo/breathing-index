@@ -28,7 +28,7 @@ describe('parseDiaryImport', () => {
   it('accepts a diary export, optional fields and all', () => {
     const full = entry({
       note: 'walk cut short',
-      confounders: ['sick'],
+      confounders: ['allergies'],
       observations: ['worse-outdoors'],
       official: { usAqi: 70, eaqi: null },
     })

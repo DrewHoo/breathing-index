@@ -1,11 +1,12 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState, type ReactElement } from 'react'
+import type { GlossaryKey } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
-import { fetchAirNow, type AirNowReport } from '../sources/airnow'
+import { airNowReport, fetchAirNow, inAirNowCoverage, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
-import { POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
+import { AIRNOW_SOURCE, POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
 
 const POLLEN_ROW_NAMES = { tree: 'Tree pollen', grass: 'Grass pollen', weed: 'Weed pollen' } as const
 import { track } from '../ui/analytics'
@@ -17,12 +18,19 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
+import { useGlossaryHelp } from '../ui/help'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
+  COMFORTABLE,
+  DRY_SPORE_ESTIMATE,
   FORECAST_MEANING,
+  MODEL_OZONE_BIAS,
+  MOLD_ESTIMATE,
+  NOT_GRADED,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
+  type VariableLabel,
   levelWord,
 } from '../ui/labels'
 import { LocationNeededCard } from '../ui/locationUi'
@@ -32,6 +40,7 @@ import { loadSettings } from '../ui/settings'
 import { smokeFingerprint } from '../ui/smoke'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
+import { VIRAL } from '../ui/viralTag'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { log?: boolean } =>
@@ -252,17 +261,13 @@ function Home() {
     updateDiary(diary.map((e) => (e.id === savedEntry.id ? amended : e)))
   }
 
-  const logAgain = () => {
-    setJustSaved(null)
-    setDismissed(false)
-    navigate({ to: '/', search: { log: true } })
-  }
-
   // The hour on screen is the payload's own newest hour, never the clock: the
   // service worker can hand back a six-hour-old response that parses as new.
   const dataHour = fmtHour(hourNum(current.time), true)
   const showStale = stale || isStale(data)
-  // "log again" reopens the ask over an existing answer; a fresh tap closes it.
+  // The diary's "+ Log now" (`?log=true`) reopens the ask over an existing
+  // answer; a fresh tap closes it. The home screen itself no longer offers a
+  // second tap — one answer a visit is the whole idea of the card.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
   // A rating binds to the air in `current` forever, so the ask only appears
@@ -289,7 +294,6 @@ function Home() {
           onLog={logNow}
           onAmend={amendSaved}
           onUndo={undo}
-          onLogAgain={logAgain}
           onDismiss={() => setDismissed(true)}
         />
       )}
@@ -318,9 +322,20 @@ function Home() {
         nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
         estimated={current.estimated ?? []}
       />
-      <AirTable data={data} model={model} tempUnit={tempUnit} />
+      <AirTable
+        data={data}
+        model={model}
+        tempUnit={tempUnit}
+        lat={location.lat}
+        lon={location.lon}
+      />
       <ByHour data={data} model={model} coldStart={coldStart} />
-      <MeasuredStrip lat={location.lat} lon={location.lon} />
+      <MeasuredStrip
+        lat={location.lat}
+        lon={location.lon}
+        source={data.source}
+        utcOffsetSeconds={data.utcOffsetSeconds}
+      />
     </>
   )
 }
@@ -346,7 +361,40 @@ function Header({ place, hour }: { place: string; hour?: string }) {
 
 const SAVED_CHIPS = [
   { label: 'worse outdoors', kind: 'observation', value: 'worse-outdoors' },
-  { label: 'sick', kind: 'confounder', value: 'sick' },
+  // An observation, not a confounder: exertion does not make the day
+  // untrustworthy, it makes the dose bigger. Airway drying engages above
+  // about 30 L/min of ventilation and nasal breathing nearly cancels it, so
+  // the same dry air is a different exposure depending on what the user was
+  // doing in it — which only the user knows. v1 writes it down and nothing
+  // reads it (see engine/infer.ts).
+  { label: 'exercising', kind: 'observation', value: 'exercising' },
+  // The traffic mixture is invisible in every number this app fetches. Karner
+  // 2010 pooled 41 studies of concentration against distance from a road:
+  // PM2.5 *mass* shows essentially no gradient, while ultrafines, black
+  // carbon, NO₂ and CO decay sharply within a few hundred metres. The Oxford
+  // Street crossover is the clinical end of it — two hours walking a
+  // traffic-heavy street dropped FEV₁ 6.1 % against the same walk in Hyde
+  // Park, tracking ultrafines, which no public network measures anywhere. So
+  // the PM2.5 row can be perfectly honest and still miss the exposure, and
+  // dropping NO₂ (specs/24-vector-diet.md) costs nothing here: a 45 km CAMS
+  // cell never saw the gradient either. This tag is the only handle v1 has on
+  // it. Recorded and not read, like `exercising`; later it can gate a static
+  // road-proximity feature per saved location.
+  { label: 'near traffic', kind: 'observation', value: 'near-traffic' },
+  // A third kind, and `sick` is the only chip in it (specs/26-sick-as-signal.md).
+  // It used to be a confounder — the entry stayed in the diary and left
+  // inference — and the research says that threw away the best days the diary
+  // gets. A virus *alone* is null: Green 2002 put it at OR 1.67 with an
+  // interval crossing 1. What multiplies is virus × sensitization × allergen
+  // exposure, at OR 8.4 in Green's adults and 19.4 in Murray 2005's children.
+  // So a sick day with oak up is the most informative day about allergen
+  // triggers there is, and excluding it was the one rule guaranteeing the app
+  // could never see the interaction.
+  //
+  // As an exposure key it costs the user nothing: same chip, same place, one
+  // tap, and no onset date or decay window — the flag lands on the day it is
+  // tapped and the engine handles the rest through the combo-repeat clause.
+  { label: 'sick', kind: 'exposure', value: VIRAL },
   { label: 'allergies', kind: 'confounder', value: 'allergies' },
   { label: 'indoors all day', kind: 'confounder', value: 'indoors all day' },
 ] as const
@@ -358,7 +406,6 @@ function QuickLogCard({
   onLog,
   onAmend,
   onUndo,
-  onLogAgain,
   onDismiss,
 }: {
   coldStart: boolean
@@ -368,7 +415,6 @@ function QuickLogCard({
   onLog: (rating: Rating) => void
   onAmend: (patch: Partial<DiaryEntry>) => void
   onUndo: () => void
-  onLogAgain: () => void
   onDismiss: () => void
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
@@ -380,10 +426,20 @@ function QuickLogCard({
       minute: '2-digit',
     })
     const isOn = (chip: (typeof SAVED_CHIPS)[number]): boolean =>
-      chip.kind === 'observation'
-        ? (saved.observations ?? []).includes(chip.value)
-        : (saved.confounders ?? []).includes(chip.value)
+      chip.kind === 'exposure'
+        ? saved.exposure[chip.value] === 1
+        : chip.kind === 'observation'
+          ? (saved.observations ?? []).includes(chip.value)
+          : (saved.confounders ?? []).includes(chip.value)
     const toggle = (chip: (typeof SAVED_CHIPS)[number]) => {
+      // An exposure chip writes a variable, not a tag. Off deletes the key
+      // rather than writing a 0: absent means "nobody said", and a 0 would be
+      // a reading of something nobody measured.
+      if (chip.kind === 'exposure') {
+        const { [chip.value]: had, ...rest } = saved.exposure
+        onAmend({ exposure: had === 1 ? rest : { ...saved.exposure, [chip.value]: 1 } })
+        return
+      }
       const key = chip.kind === 'observation' ? 'observations' : 'confounders'
       const cur = saved[key] ?? []
       const next = cur.includes(chip.value)
@@ -441,9 +497,6 @@ function QuickLogCard({
           />
         )}
         <div className="quicklog-actions">
-          <button type="button" className="dismiss-button" onClick={onLogAgain}>
-            Log again
-          </button>
           <button type="button" className="dismiss-button" onClick={onDismiss}>
             Nothing to add
           </button>
@@ -741,17 +794,47 @@ function WhyBlock({
 interface AirRow {
   key: string
   name: string
+  /**
+   * The glossary entry the row's `?` opens (specs/30-glossary.md). Set on the
+   * row rather than looked up from the key, because two rows are not one
+   * variable: the dew-point row is drawn from `dry_air` and `humid_heat`
+   * folded together, and the pollen rows are drawn at type level over
+   * per-plant variables.
+   */
+  help: GlossaryKey
   sub?: string
   value: number
   unit: string
-  /** exposure-space value + variable the evidence status is computed from */
-  statusVar: string
-  statusValue: number
-  /** the row's last 48 h in display units, oldest first, ending at now */
-  series: number[]
+  /**
+   * What the row says on its right-hand side. Either the variable and
+   * exposure-space value the diary's verdict is computed from, or a chip the
+   * row supplies itself in place of the one the evidence would have spoken.
+   * Two rows speak for themselves: the dew point between its thresholds,
+   * where there is no exposure for the diary to have a view on, and PM10,
+   * which is shown and never graded (specs/24-vector-diet.md). A self-spoken
+   * chip wears the unknown chip's styling, because that is what it is — and
+   * the union is what keeps a row that has no variable from having to invent
+   * one to be ignored.
+   */
+  status: { variable: string; value: number } | { chip: string }
+  /**
+   * The row's last 48 h in display units, oldest first, ending at now. An
+   * hour the source never reported is null, not zero: a monitor that was down
+   * from Tuesday lunchtime drew a flat floor across a third of the window and
+   * pulled every other hour's shape flat with it.
+   */
+  series: (number | null)[]
+  /**
+   * Parallel to `series`: true where the hour's number is the last reading
+   * copied forward rather than one taken that day (`Hour.carried`). The
+   * sparkline draws those hours dotted and ends in an open circle — "I don't
+   * know what it is yet" — instead of a solid line that claims a count nobody
+   * took. Only the mold row sets it today.
+   */
+  carried?: boolean[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
-  /** cold side of the temperature row: past-easy is below the waterline */
+  /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
   /**
    * A line under the row about the *reading* rather than in it: where the
@@ -766,10 +849,81 @@ interface AirRow {
   note?: { text: string; claim?: boolean; href?: string }
 }
 
+/**
+ * The span each pollutant's number covers, for the row's sub-label. Every row
+ * shows the feature the engine grades (specs/22-exposure-windows.md), and
+ * "PM2.5 · 24-h" is a different claim from the reading at the top of the hour
+ * — a screen that shows one and means the other is the gaslighting this app
+ * exists to undo. PM10 keeps its entry after leaving the vector
+ * (specs/24-vector-diet.md): ungraded is not the same as unaveraged, and the
+ * row still owes the reader the span its number covers.
+ */
+const WINDOW_LABELS: Record<string, string> = {
+  pm25: '24-h',
+  pm10: '24-h',
+  pm_coarse: '24-h',
+  o3: '8-h',
+  // SO₂ has no window — the number is the hour (specs/29-sulfur-dioxide.md) —
+  // and it says "1-h" anyway, because that is the span the reading covers and
+  // a row that named a span for every neighbour and not for itself would read
+  // as an oversight rather than as a claim.
+  so2: '1-h',
+}
+
+/** HMS's three analyst-drawn steps, indexed by the density the relay returns. */
+const SMOKE_DENSITY_WORDS = ['', 'Light', 'Medium', 'Heavy']
+
+/**
+ * How old the plume behind the smoke row may be before the row says so. Three
+ * hours is roughly the span of one HMS analysis, so anything past it is a
+ * *previous* one — and overnight that is yesterday afternoon's, because the
+ * satellites need daylight to see smoke at all.
+ */
+const SMOKE_AS_OF_HOURS = 3
+
+/**
+ * An instant as the hour it was at the *place* being shown, not in the reader's
+ * own timezone: the rest of the table is on the location's local clock (the
+ * hourly curve, the freshness line), and a saved place three timezones away
+ * would otherwise carry an "as of" nobody there would recognise.
+ */
+const localHour = (iso: string, utcOffsetSeconds: number): string =>
+  new Date(Date.parse(iso) + utcOffsetSeconds * 1000).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    timeZone: 'UTC',
+  })
+
+/**
+ * A mold reading's date as "Sep 11". Pinned to noon UTC before formatting,
+ * because the string is the *station's* local day and has no time in it — fed
+ * to `Date` as a bare date it would be parsed as midnight UTC and slide to the
+ * 10th for every reader west of Greenwich.
+ */
+const readingDay = (date: string): string =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+
+/**
+ * Where "eastern US" starts for the model-ozone note: the 100th meridian. The
+ * documented CAMS warm-season ozone bias is an eastern-US finding (the 2026-08-07
+ * Hamden case), and a note that says "eastern US" should not fire in Honolulu.
+ */
+const EASTERN_US_LON = -100
+
 function buildAirRows(
   data: ExposureSeries,
   model: TriggerModel,
   tempUnit: TemperatureUnit,
+  /**
+   * Where the air is. Nothing on a row is computed from it — it answers the
+   * one question a reading cannot, which is whether the *region* is one a
+   * known model bias applies to (specs/27-one-ozone.md).
+   */
+  lat: number,
+  lon: number,
 ): AirRow[] {
   const ci = data.currentIndex
   const window = data.hours.slice(Math.max(0, ci - 47), ci + 1)
@@ -779,22 +933,255 @@ function buildAirRows(
     return tol !== undefined && tol > negligibleFor(variable) ? tol : undefined
   }
 
-  const likelySmoke = smokeFingerprint(current.exposure)
+  // The hour's readings, not its window features: what the particulate is made
+  // of is a question about the air outside right now, and a 24-hour mean would
+  // both miss a plume that arrived at 3 pm and go on calling it smoke into
+  // tomorrow.
+  const likelySmoke = smokeFingerprint(current.raw)
+
+  // The gated satellite density (specs/25-smoke-variable.md). When it is above
+  // zero the table grows a Smoke row, and the PM2.5 row gives up its "likely
+  // smoke" sub-label: one claim belongs in one place, and the row with a named
+  // satellite behind it is the better place for it. Where HMS says nothing and
+  // the fingerprint still fires — a plume too thin to draw, or a place the
+  // analysis does not reach — the sub-label stays exactly as it was.
+  const smokeDensity = current.exposure.smoke ?? 0
+
+  // Composable, because these say different things and a row can need all of
+  // them: what the pollutant is, what span its number covers, what the
+  // particulate looks like, and which instrument saw it.
+  //
+  // The instrument is named either way, never left blank (specs/27-one-ozone
+  // .md). Naming only the monitor made "model" the unmarked case, and the
+  // confusion this spec exists to end was two numbers both labelled ozone with
+  // neither labelled by source — an unnamed number reads as *the* number. So a
+  // row whose figure a station produced says which station, and a row whose
+  // figure the model produced says "model". Per key rather than per series
+  // because that is the true statement: on a station series every row shown
+  // has a monitor behind it, so the two rules never disagree, and if one ever
+  // did the row would still be telling the truth about itself.
+  const subLabel = (key: string, meta: VariableLabel): string =>
+    [
+      meta.sub,
+      WINDOW_LABELS[key],
+      key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null,
+      data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : 'model',
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' · ')
+
+  // The one caveat on this screen that is about a region rather than a
+  // reading, so it is gated on both: the number has to have come from the
+  // model, and the place has to be inside the coverage the bias was measured
+  // in. It rides the ozone row alone — CAMS's particulate has no equivalent
+  // known lean, and a caveat repeated under every row would stop being read.
+  const modelOzoneInUs = data.source !== AIRNOW_SOURCE && inAirNowCoverage(lat, lon) && lon > EASTERN_US_LON
 
   const rows: AirRow[] = []
-  for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
+  for (const key of ['pm25', 'o3'] as const) {
+    // The number on the row is the window feature, the same quantity the
+    // verdict beside it is spoken about (specs/22-exposure-windows.md). It
+    // used to be the hour's own reading while the chip graded the window, so
+    // a row could say 30 and "past your easy" about a threshold of 40.
+    //
+    // A pollutant this series has no feature for gets no row at all — a row
+    // reading "0 µg/m³" would be a measurement nobody made. The hour's own
+    // reading going missing is not that case and no longer costs the row:
+    // AirNow publishes the NowCast before the raw hourly, so the current hour
+    // is routinely blank while the trailing window is full.
+    const reading = current.exposure[key]
+    if (reading === undefined) continue
     const meta = VARIABLE_LABELS[key]!
-    const sub = key === 'pm25' && likelySmoke ? `${meta.sub} · likely smoke` : meta.sub
+    const sub = subLabel(key, meta)
     rows.push({
       key,
       name: meta.name,
+      help: key,
       ...(sub ? { sub } : {}),
-      value: Math.round(current.raw[key] ?? 0),
+      // Quiet, not a claim: the row is still the best number available for
+      // this place, and the note says which way to discount it rather than
+      // telling anyone to disbelieve their own screen.
+      ...(key === 'o3' && modelOzoneInUs ? { note: { text: MODEL_OZONE_BIAS } } : {}),
+      value: Math.round(reading),
       unit: meta.unit ?? '',
-      statusVar: key,
-      statusValue: current.exposure[key] ?? 0,
-      series: window.map((h) => h.raw[key] ?? 0),
+      status: { variable: key, value: reading },
+      series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
+    })
+  }
+
+  // SO₂, after the two pollutants that are always on the screen and before the
+  // one that is never graded (specs/29-sulfur-dioxide.md). The row appears
+  // only above the floor, on the smoke rule and for the smoke reason: the
+  // variable sits at 0.2–2.7 µg/m³ in Connecticut against a floor of 20, so a
+  // standing "1 µg/m³ · barely present" row on every screen for years would
+  // teach people to skip past the one row that matters on the day it means
+  // something. What the table owes the reader instead is a line saying the app
+  // did look — which is what `AbsentNames` below is for.
+  //
+  // Absent is a third state and not this one: an airnow series whose monitors
+  // do not report SO₂ has no number at all, and that line says so separately.
+  const so2 = current.exposure.so2
+  if (so2 !== undefined && so2 > negligibleFor('so2')) {
+    const meta = VARIABLE_LABELS.so2!
+    const sub = subLabel('so2', meta)
+    rows.push({
+      key: 'so2',
+      name: meta.name,
+      help: 'so2',
+      ...(sub ? { sub } : {}),
+      value: Math.round(so2),
+      unit: meta.unit,
+      status: { variable: 'so2', value: so2 },
+      series: window.map((h) => h.raw.so2 ?? null),
+      tol: tolerance('so2'),
+    })
+  }
+
+  // Coarse particles keep a row and carry no verdict (specs/24-vector-diet.md).
+  // The number is the coarse fraction, PM10 − PM2.5, so the row is what its
+  // name says rather than the fine particles above it counted a second time;
+  // raw PM10 still rides along as the denominator of the smoke fingerprint.
+  // Coarse mass is worth seeing — it is what a dust day and a gritty day are
+  // made of — and it is not graded: the acute-asthma evidence for it is thin
+  // and dust gets a variable of its own (specs/32-dust.md). So: the same
+  // 24-hour mean, read from `display` instead of `exposure`, no waterline, no
+  // tolerance lookup, and a chip that says out loud that nothing here is being
+  // graded. The sub-label is keyed `pm10` because the monitor that measured
+  // the total is the one to name. A series cached before this has no
+  // `pm_coarse` in `display` and simply draws no row, the same rule every
+  // other row follows about a missing number.
+  const pmCoarse = current.display?.pm_coarse
+  if (pmCoarse !== undefined) {
+    const meta = VARIABLE_LABELS.pm_coarse!
+    const sub = subLabel('pm10', meta)
+    rows.push({
+      key: 'pm_coarse',
+      name: meta.name,
+      help: 'pm_coarse',
+      ...(sub ? { sub } : {}),
+      value: Math.round(pmCoarse),
+      unit: meta.unit,
+      status: { chip: NOT_GRADED },
+      series: window.map((h) => h.raw.pm_coarse ?? null),
+    })
+  }
+
+  // Smoke, after the pollutants it is cut from and before the pollen
+  // (specs/25-smoke-variable.md). The row exists only when two instruments
+  // agree — HMS drew a plume over this cell *and* the particulate underneath
+  // it is fine-mode — so a zero never draws one: "no plume" is not a reading
+  // worth a row, it is the ordinary state of the sky.
+  //
+  // The number is the density itself, 1–3, because that is the whole scale the
+  // source publishes; the sub-label spends the words the number cannot on what
+  // Light means and who says so. "as of" appears only when the plume behind it
+  // has aged past three hours, which is most of every night: smoke detection
+  // needs daylight, so after dark the newest analysis is the afternoon's and a
+  // row that did not say so would be quietly claiming a live reading.
+  if (smokeDensity > 0) {
+    const meta = VARIABLE_LABELS.smoke!
+    const asOf = data.smokeAsOf
+    const aged = asOf !== undefined && Date.now() - Date.parse(asOf) > SMOKE_AS_OF_HOURS * 3_600_000
+    rows.push({
+      key: 'smoke',
+      name: meta.name,
+      help: 'smoke',
+      sub: [
+        SMOKE_DENSITY_WORDS[smokeDensity],
+        'satellite',
+        aged ? `as of ${localHour(asOf!, data.utcOffsetSeconds)}` : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(' · '),
+      value: smokeDensity,
+      unit: meta.unit,
+      status: { variable: 'smoke', value: smokeDensity },
+      // The ungated density, so the curve draws the plume overhead rather than
+      // the hours the PM columns happened to have posted by.
+      series: window.map((h) => h.raw.hms_density ?? null),
+      tol: tolerance('smoke'),
+    })
+  }
+
+  // Mold, after the smoke it is nothing like and before the pollen it is
+  // usually confused with (specs/28-mold.md). Two rows, and they are two
+  // different claims: a count somebody made with a microscope 50 miles away,
+  // and a weather pattern that would put dry-weather spores in the air if
+  // there were any. Both can be on the screen at once, and should be — the
+  // engine grades both, and an evidence line may only cite a number the reader
+  // can see.
+  //
+  // The note carries the station and the day it counted, because those are
+  // what make the number checkable: a spore count is an integration over one
+  // day at one building, and "5,116" with neither of those on it is exactly
+  // the unsourced number this app exists to stop printing. When the count has
+  // aged past three days the note says "estimate" as well, which is the same
+  // word the vector is carrying (`estimated`) rather than a second opinion
+  // about it.
+  const moldReading = current.exposure.mold
+  if (moldReading !== undefined && data.mold) {
+    const meta = VARIABLE_LABELS.mold!
+    // The genus numbers the engine actually grades, not the station's whole
+    // list: Cladosporium first because it is the larger of the two by an order
+    // of magnitude nearly everywhere, so it reads as the headline of the split.
+    const split = (['mold_cladosporium', 'mold_alternaria'] as const)
+      .filter((variable) => current.exposure[variable] !== undefined)
+      .map((variable) => `${VARIABLE_LABELS[variable]!.short} ${Math.round(current.exposure[variable]!)}`)
+    // A station with no split has its own band word to spend instead. It is
+    // the publisher's, verbatim and lowercased to sit in a sub-label — never
+    // this app's reading of the number beside it.
+    const band = data.mold.category?.toLowerCase()
+    const sub = [...(split.length > 0 ? split : band ? [band] : []), '3-day'].join(' · ')
+    rows.push({
+      key: 'mold',
+      name: meta.name,
+      help: 'mold',
+      sub,
+      value: Math.round(moldReading),
+      // St. Louis prints a number and never names its unit, so the row says
+      // "count" rather than inventing a per-cubic-metre it was not given.
+      unit: data.mold.units === 'count' ? 'count' : meta.unit,
+      note: {
+        text: [
+          data.mold.name,
+          readingDay(data.mold.date),
+          current.estimated?.includes('mold') ? MOLD_ESTIMATE : null,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' · '),
+      },
+      status: { variable: 'mold', value: moldReading },
+      // The station's own daily totals, which draw as a staircase. Flat within
+      // a day is what a once-a-morning instrument looks like on an hourly axis,
+      // and smoothing it would be drawing hours nobody counted.
+      series: window.map((h) => h.raw.mold ?? null),
+      carried: window.map((h) => h.carried?.includes('mold') ?? false),
+      tol: tolerance('mold'),
+    })
+  }
+
+  // The proxy. It is on the screen in season whether or not a station is, and
+  // for most people it is the only mold signal there will ever be: Hamden's
+  // nearest live counting stations are Olean, NY and Silver Spring, MD.
+  const drySpore = current.exposure.dry_spore_index
+  if (drySpore !== undefined) {
+    const meta = VARIABLE_LABELS.dry_spore_index!
+    rows.push({
+      key: 'dry_spore_index',
+      name: meta.name,
+      help: 'dry_spore_index',
+      sub: 'estimate from weather',
+      value: drySpore,
+      unit: meta.unit,
+      // Quiet rather than a claim: the row is not asserting that there are
+      // spores, it is saying what kind of number it is. The sentence is the
+      // mechanism in eight words, because "3 of 5" on its own is a score in a
+      // game nobody explained.
+      note: { text: DRY_SPORE_ESTIMATE },
+      status: { variable: 'dry_spore_index', value: drySpore },
+      series: window.map((h) => h.raw.dry_spore_index ?? null),
+      tol: tolerance('dry_spore_index'),
     })
   }
 
@@ -813,49 +1200,79 @@ function buildAirRows(
     rows.push({
       key: `pollen_${type}`,
       name: POLLEN_ROW_NAMES[type],
-      sub: display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
+      // The row is drawn at type level; the entries are too, so the row's own
+      // key is the glossary key. The plant variables under it resolve to the
+      // same entry through `glossaryKeyFor`, which is what the diary's
+      // per-species evidence rows use.
+      help: `pollen_${type}`,
+      // Grass alone names a window, because grass alone has one: its number is
+      // the highest of the trailing three days (specs/22-exposure-windows.md),
+      // computed in feature extraction, so the headline, the sub-label and the
+      // verdict are already the same quantity by the time the row is built.
+      sub: [
+        display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
+        type === 'grass' ? '3-day' : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(' · '),
       ...(current.estimated?.includes(top.variable)
         ? { note: { text: CALENDAR_ESTIMATE, href: '/pollen/calendar' } }
         : {}),
       value: display.value,
       unit: 'of 5',
-      statusVar: top.variable,
-      statusValue: current.exposure[top.variable] ?? top.value,
+      status: { variable: top.variable, value: current.exposure[top.variable] ?? top.value },
       series: window.map((h) => h.pollenDisplay?.[type]?.value ?? 0),
       tol: tolerance(top.variable),
     })
   }
 
-  // One temperature row backed by the two one-sided stresses; the name
-  // follows the active side. On the cold side "past your easy" is downward,
-  // so the waterline flips and the fill hangs below it.
-  const coldSide = (current.exposure.cold_dry_stress ?? 0) > 0
-  const disp = (c: number): number => Math.round(displayTemperature(c, tempUnit))
-  const tempVar = coldSide ? 'cold_dry_stress' : 'heat_stress'
-  const tolStress = tolerance(tempVar)
-  rows.push({
-    key: 'temp',
-    name: coldSide ? 'Cold, dry' : 'Heat',
-    value: disp(current.raw.temp ?? 0),
-    unit: `°${tempUnit}`,
-    statusVar: tempVar,
-    statusValue: current.exposure[tempVar] ?? 0,
-    series: window.map((h) => disp(h.raw.temp ?? 0)),
-    tol: tolStress !== undefined ? disp(coldSide ? 10 - tolStress : 25 + tolStress) : undefined,
-    invert: coldSide,
-  })
-
-  rows.push({
-    key: 'humidity',
-    name: 'Humidity',
-    sub: '3-day',
-    value: Math.round(current.exposure.humidity ?? 0),
-    unit: '%',
-    statusVar: 'humidity',
-    statusValue: current.exposure.humidity ?? 0,
-    series: window.map((h) => h.raw.humidity ?? 0),
-    tol: tolerance('humidity'),
-  })
+  // One dew-point row backed by the two one-sided features, which are the
+  // same curve folded at 11 °C and 18 °C (specs/23-dew-point-air.md). The
+  // number is the dew point itself rather than either feature: a hinge
+  // sparkline would drop to zero every time the air passed through
+  // comfortable, and "6°" says nothing a person can stand outside and check.
+  // The name follows whichever side is active, and on the dry side "past your
+  // easy" is downward — drier is worse — so the waterline flips and the fill
+  // hangs below it, exactly as the cold side used to.
+  //
+  // An hour with no dew point gets no row, the same rule the pollutants
+  // follow: a series cached by an earlier version has no `dewpoint` in its
+  // raw block, and a row reading 0° would be a reading nobody took.
+  const dewpoint = current.raw.dewpoint
+  if (dewpoint !== undefined) {
+    const disp = (c: number): number => Math.round(displayTemperature(c, tempUnit))
+    const dryAir = current.exposure.dry_air ?? 0
+    const humidHeat = current.exposure.humid_heat ?? 0
+    const drySide = dryAir > 0
+    // Neither side active is its own honest state: the air is between the two
+    // thresholds, so the row names a measurement rather than a stress, and it
+    // draws no waterline — an easy level belongs to one side of the fold, and
+    // hanging the humid side's line over a 14 °C dew point would answer a
+    // question nobody asked.
+    const side = drySide ? 'dry_air' : humidHeat > 0 ? 'humid_heat' : null
+    const tolFeature = side ? tolerance(side) : undefined
+    rows.push({
+      key: 'dewpoint',
+      name: side === 'dry_air' ? 'Dry air' : side === 'humid_heat' ? 'Humid heat' : 'Dew point',
+      // One entry whichever name the row is wearing: the two features are one
+      // curve folded twice, and a reader tapping the `?` is asking about the
+      // number on the screen, which is the dew point either way.
+      help: 'dewpoint',
+      // The sub-label says what the number is; on the neutral day the name
+      // already does, and "Dew point · dew point" reads as a stutter.
+      ...(side ? { sub: 'dew point' } : {}),
+      value: disp(dewpoint),
+      unit: `°${tempUnit}`,
+      status: side
+        ? { variable: side, value: current.exposure[side] ?? 0 }
+        : { chip: COMFORTABLE },
+      series: window.map((h) => (h.raw.dewpoint === undefined ? null : disp(h.raw.dewpoint))),
+      // The waterline is a dew point too, so an easy level learned in feature
+      // space comes back through the same fold it went out by.
+      tol: tolFeature !== undefined ? disp(drySide ? 11 - tolFeature : 18 + tolFeature) : undefined,
+      invert: drySide,
+    })
+  }
   return rows
 }
 
@@ -887,16 +1304,131 @@ function statusChip(
   }
 }
 
+/** One name under the air table, with whatever the app can say about it. */
+interface AbsentName {
+  name: string
+  /** the reading, where there is one to show ("1 µg/m³", "none") */
+  detail?: string
+  /** the glossary entry its `?` opens (specs/30-glossary.md) */
+  help: GlossaryKey
+}
+
+/**
+ * The two lines under the air table that name what has no row
+ * (specs/29-sulfur-dioxide.md §7). A variable the app carries and does not
+ * draw has to say so somewhere, or the day its row does appear reads as a bug
+ * rather than as news.
+ *
+ * They are two lines and never one, because the two silences are different
+ * claims. "Too low to matter" is the floor: the number was read, and it sits
+ * below the level at which the variable could be a suspect at all — so the
+ * number is printed, because somebody measured it. "Not measured here" is the
+ * other absence: a station series whose nearest monitor does not report the
+ * variable, where the model is deliberately not consulted for it, since one
+ * CAMS number inside a series of monitor readings would be a bound learned
+ * against the wrong instrument.
+ *
+ * A name with a row is in neither line, by construction rather than by a
+ * check: each line's condition is the exact complement of the row's — the
+ * floor for SO₂, a zero for smoke. NO₂ is in neither because it left the
+ * vector outright (specs/24-vector-diet.md), and naming it would promise a
+ * check nobody is performing.
+ */
+function AbsentNames({
+  data,
+  help,
+}: {
+  data: ExposureSeries
+  /** the route's one `?`-and-sheet pair, passed down rather than opened again */
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
+  const current = data.hours[data.currentIndex]!
+  const so2 = current.exposure.so2
+  const so2Meta = VARIABLE_LABELS.so2!
+
+  const tooLow: AbsentName[] = []
+  if (so2 !== undefined && so2 <= negligibleFor('so2')) {
+    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}`, help: 'so2' })
+  }
+  // Smoke says "none" rather than "0 of 3": the scale is analyst-drawn steps,
+  // and the honest reading of a zero is that the satellite looked and there
+  // was no plume over this place. An hour nobody has an answer for carries no
+  // `smoke` key at all and appears on neither line — unknown is not none.
+  if (current.exposure.smoke === 0) {
+    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none', help: 'smoke' })
+  }
+
+  // "Not measured here" is a fact about the network, not about this hour, so
+  // it is decided by whether a monitor reports SO₂ at all — `siteNames` holds
+  // one entry per variable some monitor answered for. An hour whose reading
+  // has not posted yet is a different absence entirely (AirNow publishes the
+  // NowCast before the raw hourly) and belongs on neither line: the station
+  // does measure SO₂, and it is about to say so. Only ever a station series
+  // either way — on the model every variable has a number, so the line would
+  // be false wherever it could be printed.
+  const notMeasured: AbsentName[] =
+    data.source === AIRNOW_SOURCE && data.siteNames?.so2 === undefined
+      ? [{ name: so2Meta.name, help: 'so2' as const }]
+      : []
+
+  if (tooLow.length === 0 && notMeasured.length === 0) return null
+  return (
+    <div className="air-absent">
+      <AbsentLine label="Also checked, too low to matter" names={tooLow} help={help} />
+      <AbsentLine label="Not measured here" names={notMeasured} help={help} />
+    </div>
+  )
+}
+
+/**
+ * One of those lines, or nothing when it has no names. Each name is its own
+ * element because [30-glossary.md] hangs a `?` off it — the line is a list of
+ * things a person may not know the meaning of, which is most of why it is
+ * worth printing at all.
+ */
+function AbsentLine({
+  label,
+  names,
+  help,
+}: {
+  label: string
+  names: AbsentName[]
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
+  if (names.length === 0) return null
+  return (
+    <div>
+      {label}:{' '}
+      {names.map((item, i) => (
+        <Fragment key={item.name}>
+          {i > 0 ? ' · ' : ''}
+          <span className="air-absent-name">{item.name}</span>
+          {help(item.help, item.name)}
+          {item.detail ? ` ${item.detail}` : ''}
+        </Fragment>
+      ))}
+    </div>
+  )
+}
+
 function AirTable({
   data,
   model,
   tempUnit,
+  lat,
+  lon,
 }: {
   data: ExposureSeries
   model: TriggerModel
   tempUnit: TemperatureUnit
+  /** the place, for the row caveat that is about a region (see buildAirRows) */
+  lat: number
+  lon: number
 }) {
-  const rows = buildAirRows(data, model, tempUnit)
+  const rows = buildAirRows(data, model, tempUnit, lat, lon)
+  // One sheet for the whole surface — the rows and the two absent lines under
+  // them — rather than one per name (specs/30-glossary.md §3).
+  const { help, sheet } = useGlossaryHelp()
   // The dash needs its legend only once a row actually draws a waterline.
   const showWaterline = rows.some((r) => r.tol !== undefined)
   return (
@@ -918,11 +1450,15 @@ function AirTable({
       />
       <div className="air-table">
         {rows.map((row) => {
-          const status = statusChip(model, row.statusVar, row.statusValue)
+          const status =
+            'chip' in row.status
+              ? { text: row.status.chip, cls: '' }
+              : statusChip(model, row.status.variable, row.status.value)
           return (
             <div key={row.key} className="air-row">
               <div className="air-name-row">
                 <span className="air-name">{row.name}</span>
+                {help(row.help, row.name)}
                 {row.sub && <span className="air-sub">{row.sub}</span>}
                 <span className="air-spacer" />
                 <span className="air-value">
@@ -940,7 +1476,13 @@ function AirTable({
                     {row.note.text}
                   </span>
                 ))}
-              <AirSpark series={row.series} tol={row.tol} invert={row.invert} name={row.name} />
+              <AirSpark
+                series={row.series}
+                carried={row.carried}
+                tol={row.tol}
+                invert={row.invert}
+                name={row.name}
+              />
               <div className="air-ticks" aria-hidden="true">
                 <span>−48 h</span>
                 <span>−24 h</span>
@@ -950,6 +1492,8 @@ function AirTable({
           )
         })}
       </div>
+      <AbsentNames data={data} help={help} />
+      {sheet}
     </section>
   )
 }
@@ -963,25 +1507,29 @@ function AirTable({
  */
 function AirSpark({
   series,
+  carried,
   tol,
   invert,
   name,
 }: {
-  series: number[]
+  series: (number | null)[]
+  /** parallel to `series`: hours whose number is a copy of the last reading */
+  carried?: boolean[]
   /** "your easy level" in the row's display units */
   tol?: number
-  /** cold side of the temperature row: past-easy is below the waterline */
+  /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
   name: string
 }) {
   const clip = useId()
-  if (series.length < 2) return null
+  const readings = series.filter((v): v is number => v !== null)
+  if (readings.length < 2) return null
   // Plot in x 2..300; the right gutter holds the waterline's ring + value.
   const X0 = 2
   const X1 = 300
   const Y0 = 5
   const Y1 = 35
-  const values = tol === undefined ? series : [...series, tol]
+  const values = tol === undefined ? readings : [...readings, tol]
   let lo = Math.min(...values)
   let hi = Math.max(...values)
   if (hi - lo < 1e-9) {
@@ -990,10 +1538,39 @@ function AirSpark({
   }
   const x = (i: number): number => X0 + (i * (X1 - X0)) / (series.length - 1)
   const y = (v: number): number => Y1 - ((v - lo) / (hi - lo)) * (Y1 - Y0)
-  const line = series
-    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
-    .join(' ')
-  const past = tol !== undefined && series.some((v) => (invert ? v < tol : v > tol))
+  // One sub-path per unbroken run of hours. The line simply stops where a
+  // monitor did, which is the truth; joining across the gap would draw a
+  // reading nobody took, and dropping to the floor would invent a clean hour.
+  //
+  // A run also breaks where the hours turn from readings into copies of the
+  // last reading (`carried`), and the copied run is drawn dotted from the last
+  // real point — the two share that point so the line stays joined — because
+  // a solid line across a day nobody counted claims a count. Dotted, not
+  // dashed: dashes on this sparkline already mean the waterline.
+  const runs: { points: { x: number; y: number }[]; carried: boolean }[] = []
+  let run: { x: number; y: number }[] = []
+  let runCarried = false
+  series.forEach((v, i) => {
+    const isCarried = carried?.[i] ?? false
+    if (v === null) {
+      if (run.length > 0) runs.push({ points: run, carried: runCarried })
+      run = []
+    } else {
+      if (run.length > 0 && isCarried !== runCarried) {
+        runs.push({ points: run, carried: runCarried })
+        run = [run[run.length - 1]!]
+      }
+      if (run.length === 0) runCarried = isCarried
+      run.push({ x: x(i), y: y(v) })
+    }
+  })
+  if (run.length > 0) runs.push({ points: run, carried: runCarried })
+  const trace = (points: { x: number; y: number }[]): string =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+  const line = runs.filter((r) => !r.carried).map((r) => trace(r.points)).join(' ')
+  const copied = runs.filter((r) => r.carried).map((r) => trace(r.points)).join(' ')
+  const endsCarried = carried?.[series.length - 1] ?? false
+  const past = tol !== undefined && readings.some((v) => (invert ? v < tol : v > tol))
   const yTol = tol !== undefined ? y(tol) : 0
   return (
     <svg
@@ -1001,11 +1578,11 @@ function AirSpark({
       viewBox="0 0 340 40"
       role="img"
       aria-label={
-        tol === undefined
+        (tol === undefined
           ? `${name}, past 48 hours.`
           : `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
               past ? ' The air was past it during this window.' : ''
-            }`
+            }`) + (copied ? ' The dotted end is the last count carried forward, not a new one.' : '')
       }
     >
       {past && (
@@ -1018,7 +1595,9 @@ function AirSpark({
             )}
           </clipPath>
           <path
-            d={`${line} V${invert ? 0 : 40} H${X0} Z`}
+            d={runs
+              .map(({ points }) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
+              .join(' ')}
             fill="var(--l3)"
             clipPath={`url(#${clip})`}
           />
@@ -1055,15 +1634,38 @@ function AirSpark({
           </text>
         </>
       )}
-      <path
-        d={line}
-        fill="none"
-        stroke="var(--secondary)"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      {line && (
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+      {copied && (
+        <path
+          d={copied}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeDasharray="0.1 4"
+        />
+      )}
+      {endsCarried ? (
+        <circle
+          cx={x(series.length - 1)}
+          cy={y(series[series.length - 1]!)}
+          r={3.5}
+          fill="var(--paper)"
+          stroke="var(--ink)"
+          strokeWidth={1.5}
+        />
+      ) : (
+        <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      )}
     </svg>
   )
 }
@@ -1168,13 +1770,34 @@ function ByHour({
           <span key={i}>{t}</span>
         ))}
       </div>
+      {/* The seam (specs/27-one-ozone.md). This curve starts at now and runs
+          forward, and on a station series only its first hour is measured:
+          AirNow publishes no hourly forecast, so every hour after now is CAMS
+          (`forecastSource: 'cams'`). A reader who has just been told the ozone
+          row is a New Haven monitor would otherwise carry that standing across
+          the whole curve. On a model series there is no seam to mark — it is
+          one instrument the whole way across, and the rows already say so. */}
+      {data.source === AIRNOW_SOURCE && (
+        <span className="byhour-seam">measured to now · model after</span>
+      )}
     </section>
   )
 }
 
 /* --- measured nearby (AirNow) --- */
 
-function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
+function MeasuredStrip({
+  lat,
+  lon,
+  source,
+  utcOffsetSeconds,
+}: {
+  lat: number
+  lon: number
+  /** the source the rows above run on — what this strip is allowed to repeat */
+  source: string
+  utcOffsetSeconds: number
+}) {
   const [report, setReport] = useState<AirNowReport | null>(null)
   const enabled = useMemo(() => loadSettings().airnowEnabled, [])
 
@@ -1182,8 +1805,8 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
     if (!enabled) return
     let cancelled = false
     fetchAirNow(lat, lon)
-      .then((r) => {
-        if (!cancelled) setReport(r)
+      .then((observations) => {
+        if (!cancelled) setReport(observations ? airNowReport(observations) : null)
       })
       .catch(() => undefined)
     return () => {
@@ -1192,6 +1815,27 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
   }, [enabled, lat, lon])
 
   if (!enabled || !report) return null
+
+  // When the rows above already run on these monitors, every chip here would
+  // be the same measurement twice, in the population's unit system instead of
+  // the screen's, and the site name is on each row (specs/21-airnow-migration
+  // .md §6). One thing is left that no row can carry: the Action Day, which is
+  // a declaration by an agency rather than a reading. Without one there is
+  // nothing to say, so the section does not appear at all.
+  if (source === AIRNOW_SOURCE) {
+    if (!report.actionDay) return null
+    return (
+      <section className="section">
+        <SectionRule label="Measured nearby" note={report.reportingArea} faint />
+        <p className="action-day">⚠ Official air quality Action Day</p>
+      </section>
+    )
+  }
+
+  // AirNow's hours are UTC; the rest of the screen is local to the location.
+  const hour = report.time
+    ? fmtHour(new Date(Date.parse(`${report.time}:00Z`) + utcOffsetSeconds * 1000).getUTCHours(), false)
+    : ''
 
   // AQI points are population vocabulary, and this screen speaks µg/m³. Two
   // numbers both labelled "Ozone" in different unit systems read as a 2×
@@ -1213,7 +1857,7 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
     <section className="section">
       <SectionRule
         label="Measured nearby"
-        note={`${report.reportingArea}${report.time ? ` · ${report.time}` : ''}`}
+        note={`${report.reportingArea}${hour ? ` · ${hour}` : ''}`}
         faint
       />
       {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
@@ -1225,9 +1869,17 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
         ))}
       </div>
       {chips.length > 0 && (
+        // Since spec 22 the rows above are averages too, so "stations report
+        // averages" named nothing that sets the two apart and left the reader
+        // to guess at a gap. What is actually different is the quantity and
+        // the place: a chip is AirNow's NowCast — a weighted multi-hour AQI
+        // for a whole reporting area, walked back to µg/m³ through the EPA
+        // table — and a row is the model's own trailing mean for this spot.
+        // Two honest numbers about different things (specs/27-one-ozone.md).
         <span className="settings-note">
-          Nearby monitor readings from AirNow, in the same µg/m³ as the rows above. Stations
-          report averages — 24 h for particles, 8 h for ozone — so a chip can lag a sharp change.
+          Chips are AirNow&rsquo;s NowCast AQI for that reporting area, walked back to µg/m³.
+          The rows above are the model&rsquo;s own 8- and 24-hour means for this spot — a
+          different quantity from a different place, so a gap is not by itself a contradiction.
         </span>
       )}
       {/* The two disagreements do not mean the same thing, so they do not share

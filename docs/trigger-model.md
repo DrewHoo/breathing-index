@@ -14,18 +14,25 @@ explicitly, instead of pretending a weighted score resolves it.
   "time": "2026-08-06T19:30:00-04:00",
   "rating": 3,                          // Breathing Index 1–4 (behavioral, see SPEC)
   "note": "walk cut short at the park",
-  "confounders": [],                    // e.g. "sick", "allergies", "exercise", "indoors all day"
-  "source": "cams",                     // which feed these numbers are; bounds are scoped to it
+  "confounders": [],                    // e.g. "allergies", "indoors all day" — "sick" is a variable now
+  "source": "cams-w2",                  // which feed *and which windows*; bounds are scoped to it
+  "estimated": ["dry_spore_index"],     // numbers guessed rather than read: ceiling only, never a floor
   "exposure": {                         // captured automatically when the entry is saved
     "location": { "lat": 41.396, "lon": -72.897 },
     "features": {                       // per-variable trailing-window features
-      "pm25": { "now": 14.3, "max8h": 14.3 },          // µg/m³
-      "o3":   { "now": 150.0, "max8h": 168.0 },        // µg/m³
-      "pm10": { "now": 15.5, "max8h": 15.7 },          // µg/m³
-      "no2":  { "now": 12.0, "max8h": 14.0 },          // µg/m³
-      "heat_stress":     { "now": 1.2 },               // °C above 25
-      "cold_dry_stress": { "now": 0.0 },               // °C below 10, gated on low humidity
-      "humidity":        { "mean72h": 68.0 }           // %RH, multi-day (mold/dust-mite lag)
+      "pm25": { "now": 14.3, "mean24h": 11.8 },        // µg/m³
+      "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
+      "so2":  { "now": 38.0 },                         // µg/m³, the hour itself — no window,
+                                                       // and absent below its 20 µg/m³ floor
+      "smoke":      { "now": 2 },                      // 0–3 HMS plume density, gated on the fine fraction
+      "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
+      "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
+      "pollen_graminales": { "max3d": 4 },             // 0–5 index, highest of three local days
+      "mold":               { "max3d": 15000 },        // spores/m³, highest of three *station* days
+      "mold_cladosporium":  { "max3d": 591 },          // only where the station splits the count
+      "dry_spore_index":    { "now": 4 },              // 0–5 weather conditions met; always estimated
+      "viral":      { "now": 1 }                       // the user tapped "sick" — the one key here no
+                                                       // feed produces; absent otherwise, never 0
     }
   }
 }
@@ -33,22 +40,38 @@ explicitly, instead of pretending a weighted score resolves it.
 
 A variable whose window holds no data is **absent** from the vector, never 0: a gap is not a
 clean reading, and recorded as 0 it would put the real trigger below its background floor and
-disqualify it from suspicion. Variables the app cannot show the user (so2, co — no row in the
+disqualify it from suspicion. Variables the app cannot show the user (`co` — no row in the
 air table) are left out of the vector entirely, so no evidence line can ever cite a number
-nobody can check.
+nobody can check. `so2` was in that sentence until specs/29-sulfur-dioxide.md gave it a row.
+The converse also holds: `pm10` has a row and is *not* in the vector
+(specs/24-vector-diet.md), because being visible earns a variable a number on screen, not a
+seat in every candidate set.
 
 For inference, each variable `p` is reduced to one scalar `x_p` per entry, via a per-variable
 window chosen to match its mechanism of action:
 
-| Variable | v1 feature | Why |
+| Variable | feature | Why |
 |---|---|---|
-| o3, no2 | `max(now, max8h)` | acute, acts over hours |
-| pm25, pm10 | `max(now, max8h)` | v1 simplification; consider `mean24h` later |
-| heat_stress, cold_dry_stress | `now` | felt immediately |
-| humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
-| pollen (per species) | `max(now, max8h)` when measured; calendar-region prior otherwise | acts within hours; `max24h` is the later refinement |
+| o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
+| pm25 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
+| pm_coarse | `mean24h` of PM10 − PM2.5, **display only** | same window, no seat in the vector (specs/24-vector-diet.md): coarse PM has weak independent evidence for acute asthma, and PM10 *is* PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set and no clean day can separate the two. The row shows the coarse fraction itself — hour by hour PM10 minus PM2.5, null where either is missing, clamped at 0 — so a person sees how much coarse particulate is outside without the fine particles counted twice; raw `pm10` is still kept because the smoke fingerprint divides by it. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), specs/20-baseline-bad-air.md adds `dust` as its own variable |
+| so2 | `now` | the mechanism is minutes, not hours: exercising asthmatics bronchoconstrict within 2–10 minutes at 0.5 ppm (airway resistance roughly doubling) and measurably at 0.25, and the 1-hour NAAQS exists in that form because of it. A running mean would smear the one thing the variable sees. The mismatch is on the other side — the priors are 24-h guidelines (config.ts) — and the floor is what makes the whole variable free: 20 µg/m³, half the WHO 24-h AQG, against a Connecticut background of 0.2–2.7, so below it SO₂ is never in a candidate set and costs no other variable its identifiability (specs/29-sulfur-dioxide.md). Measured where the nearest AirNow monitor reports it, from CAMS on a model series, and **absent** on a station series whose monitors do not — the air table names that absence rather than filling it. On a station series the number is the newest hour the monitor actually posted within a 2-hour look-back, because AirNow files the NowCast before the raw hourly and a variable with no window has nothing to span that lag with |
+| smoke | `now`, **gated**, past hours only | NOAA HMS is a nowcast — an analyst-drawn plume either is over you this hour or is not, and there is nothing to average. The density enters the vector only when the hour's raw PM says the particulate below the plume is fine-mode (`pm25 ≥ 9.1` and `pm25/pm10 ≥ 0.85`, the fingerprint in `src/ui/smoke.ts`): HMS sees a column from above and flags a plume aloft over clean surface air exactly as it flags one at head height. Gate fails → 0; gate cannot be evaluated, or no density for the hour → absent. Forecast hours are always absent. Alone among the air variables it is **not source-scoped** (below): the density is a satellite product that reads the same whichever feed filled the PM columns, and the gate only asks those columns a yes/no |
+| mold | `max` over the trailing 3 **station** days | Alternaria's asthma lag is 0–2 days and Cladosporium's 0–3, so the window is the same cumulative shape as grass. It counts *station* days rather than calendar ones because every counting station in the directory works weekdays: a calendar window would empty itself every Monday and answer "no mold" on the day after a long weekend, which is a fact about the microscope and not about the air. A day the station reported with a null total (Canton out of season) contributes nothing and is not staleness. The staleness rule is what stops the window reaching back a month: a newest reading more than 3 days behind the hour's local date marks every mold variable `estimated` ([28](../specs/28-mold.md) §6) |
+| mold_alternaria, mold_cladosporium | `max` over the same 3 station days | the two genera with an acute-asthma literature: O'Hollaren 1991 (Alternaria and near-fatal asthma, OR 190, a terrible interval and a robust direction) and the 2023 Leicester event (Cladosporium). Set only from a station that published that *exact* genus key on that day — never from a combined bucket. Children's Mercy publishes `alternaria_aspergillus_penicillium` as one number, and splitting it would be inventing a count |
+| dry_spore_index | `now`, in season, **always estimated** | the proxy for the ~99 % of places with no counting station within reach ([28](../specs/28-mold.md) §7). A count, 0–5, of five weather conditions: temperature > 20 °C, RH < 60 %, wind > 2 m/s, under 0.5 mm of rain in 48 h, at least 5 mm in 7 days. Northern-hemisphere July–October, southern January–April, by the location's latitude and local month; absent out of season, never 0. Estimated by construction, so it can suspect a dry spell and never confirm one — the same standing as the pollen calendar |
+| viral | the tap itself, **no window** | not measured and not modelled: the `sick` chip writes 1 on the day it is tapped (specs/26-sick-as-signal.md). Exacerbations land one to three days after a cold starts and can outlast it, so the honest window is wider than the tap — but the product constraint is one tap and nobody types an onset date, and a field nobody fills is worse than a flag that is slightly too narrow. See Entry-own variables |
+| dry_air, humid_heat | `now` | felt in the hour they are breathed; both are cut from the dew point that hour |
+| grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
+| tree, weed pollen (per plant) | the local day's index | no evidence for a longer window, and tree pollen's asthma signal is weak to begin with (it is mostly a rhinitis story) |
 
-Window choices are an open tuning question; feature extraction is the only place they live.
+One window per mechanism, and **feature extraction is the only place they live**
+(`src/sources/openMeteo.ts`). Two consequences worth keeping in view: the published sources
+Google and AirNow serve pollen by *day*, so the grass window remembers days the app has already
+seen (`src/sources/pollenHistory.ts`) rather than asking for them — nobody backfills pollen — and
+a window that includes a season-calendar day is `estimated` for that hour even when the winning
+day was measured, because "the worst of three days" leans on all three. And changing a window is
+a *source* change: see Thresholds are scoped to their source, below.
 
 **Everything else is derived.** The trigger model is a pure function of the diary: recomputed from
 scratch on every change, never incrementally mutated. This makes inference order-independent — a
@@ -108,7 +131,7 @@ guard_p,L = max(tol_p,L·(1−ε_p), negligible_p) · (1 + ε_p/2)
 
 `negligible_p` is a per-variable background floor (engine config): an exposure below it cannot be
 a suspect even with no tolerance evidence — otherwise every bad day would implicate trace levels
-of all six pollutants (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
+of every pollutant it tracks (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
 health-relevant level; they encode "measurably present," not "harmful" — but they sit *above*
 routine background, or candidate sets never collapse (55 %RH over three days is an ordinary week,
 and a heat-stress floor of 0 made 25.1 °C a suspect).
@@ -220,26 +243,92 @@ The model is deliberately **variable-agnostic**: nothing above is specific to po
 heat, cold-dry air, and pollen species enter the exposure vector as additional dimensions, and
 tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs and consequences:
 
-- **Monotone encoding is mandatory.** The model assumes "more = worse," but temperature is
-  U-shaped for asthma (heat stress *and* cold-dry bronchospasm). Non-monotone variables are split
-  into one-sided stress features before inference: `heat_stress = max(0, T − 25°C)`,
-  `cold_dry_stress = max(0, 10°C − T)` gated on low absolute humidity. The inference engine only
+- **Monotone encoding is mandatory.** The model assumes "more = worse," but the weather is
+  U-shaped for asthma — there is a bad end in each direction and a wide comfortable middle.
+  Non-monotone variables are split into one-sided features before inference, and the number both
+  sides are cut from is the **dew point** rather than the temperature:
+  `dry_air = max(0, 11°C − dew)`, `humid_heat = max(0, dew − 18°C)`. The inference engine only
   ever sees monotone features; U-shapes are a feature-extraction concern.
+
+  The thresholds are mechanisms, not round numbers. What gets called cold-air asthma is airway
+  drying, gated on the water content of inspired air: bronchoconstriction needs air below
+  10 mg H₂O/L, which is a dew point of 11 °C / 52 °F, and Evans et al. found cold adds nothing
+  over dry. A temperature gate gets this wrong in both directions — a 20 °C April day at a 5 °C
+  dew point is drier than most of January and used to read 0. Hot humid air is a *different*
+  reflex, cholinergic rather than osmotic: Hayes 2012 produced bronchoconstriction with hot humid
+  hyperventilation and blocked it completely with ipratropium. A dew point of 18 °C and up only
+  occurs in hot air, so one number encodes hot and humid together. Relative humidity used to ride
+  along as a 72-hour mean; it pools at OR 1.05 on its own, and as an outdoor mould proxy it had
+  the wrong sign — Alternaria and Cladosporium are dry-weather spores — so it left the vector
+  rather than be re-aimed (specs/23-dew-point-air.md, specs/28-mold.md).
+
+  What the engine still cannot see is the other half of the drying dose: airway drying engages
+  only above about 30 L/min of ventilation, and nasal breathing nearly cancels it, so the same
+  dry air is a different exposure depending on what the user was doing in it. `exercising` is
+  recorded as an observation tag for that reason and is not yet read.
 - **The real cost is identifiability, not code.** Each added variable enlarges candidate sets on
   bad days, and disambiguation needs days where variables *decorrelate* — which nature may rarely
   supply (ozone forms photochemically on hot days, so heat and ozone travel together; humidity and
   mold season likewise). Attribution slows; prediction safety does not: a known-bad combination
   still matches via the ambiguous-constraint clause without attribution. You lose explanation
   speed, not conservatism. Keep the vector small and mechanistically plausible for the user rather
-  than throwing every available signal in.
+  than throwing every available signal in. This has been acted on once already:
+  specs/24-vector-diet.md cut `pm10` to display-only (it is PM2.5 plus the coarse fraction, so it
+  could never decorrelate from PM2.5) and dropped `no2` outright (clinically marginal in
+  controlled exposure, with sub-kilometer gradients a 45 km model cell reads as noise), taking
+  the US vector to roughly seven live dimensions.
+- **Smoke is its own dimension, not a label on PM2.5.** The fine-fraction fingerprint has been on the
+  screen since M1 as a sub-label — "PM2.5 · likely smoke" — and a sub-label is invisible to the
+  engine. As long as smoke is only an adjective on a PM2.5 number, there is no way to learn the one
+  thing a person in a smoke season actually wants to know: whether smoke PM2.5 gets them at 15 µg/m³
+  while ordinary PM2.5 does not until 35. A separate variable makes that a bound the diary can hold.
+  The published effect is real but smaller than the folklore: Wang 2025, the largest and cleanest
+  study, puts wildfire PM2.5 at OR 1.016 per µg against 1.002 for non-smoke, and the widely-quoted
+  "10×" from Aguilera is the top of one range divided by the bottom of another — use 2–3×
+  (research/asthma-triggers-evidence.md). The cost is the identifiability cost above, paid honestly:
+  on a smoke day PM2.5 and smoke are co-elevated by construction, so the bad day implicates both and
+  only a smoke-free PM day (or a later clean-air one) separates them. That is a dimension the model
+  was already built to carry, and it is the difference between describing a day and explaining it.
+- **Mold is the best-evidenced acute trigger the app could not see, and the proxy it had pointed
+  the wrong way.** Outdoor spores rival or beat pollen in the ED literature — Dales 2000/2004 found
+  every fungal group larger than any pollen group, and spores are 2–10 µm, small enough to reach the
+  lower airway directly where intact pollen is not. And no vendor sells the number: every consumer
+  pollen API is a model with no mold field, so the measurements live at counting stations that post a
+  figure on a web page once a weekday morning, and the relay scrapes them one publisher at a time
+  ([28](../specs/28-mold.md)). That is why `mold` is the only variable in the vector whose *source is
+  a choice* — stations are 50–100 miles apart, so Settings asks which one, and most people have none
+  within reach.
+
+  Two consequences the model has to live with. A station switch is a scale change the engine cannot
+  see: St. Louis prints a bare number and never names its unit, Houston publishes spores/m³, and the
+  source string on an entry names the *air* feed rather than the microscope, so mold is deliberately
+  not source-scoped and the Settings copy warns instead. And the ceilings in `PRIORS` are a counting
+  convention rather than a dose-response finding — the AAAAI's mold bands for the total, and for the
+  genera the Alternaria > 100 / Cladosporium > 3,000 spores/m³ pair that every allergy site quotes and
+  that traces to a 1979 committee. The best modern study (26 years of Danish data) throws the
+  convention out, uses quartiles, and finds effects well below what it calls a high day, so those rows
+  are a starting ceiling the diary is expected to overwrite downward.
+
+  Where there is no station there is `dry_spore_index`, and it is the first variable in the vector
+  that is an estimate by construction rather than by circumstance. Alternaria and Cladosporium are
+  *dry-weather* spores: production needs a wet spell, release needs warm dry moving air, and rain
+  suppresses them while raising basidiospores instead. The old `humidity mean72h` proxy had that
+  backwards — it was a mould proxy with the wrong sign, which is why spec 23 retired it rather than
+  re-aiming it, and why the honest replacement counts conditions instead of averaging one number.
 - **An empty candidate set is a missing-variable detector.** A bad day where every *modeled*
   variable is already proven tolerable can't be explained by the model — which is exactly the
   signature of an unmodeled trigger (pollen before pollen was added, an indoor exposure, illness).
   Surface it as: "None of the things I track explains today. Was it something else — pollen,
   being sick, indoor air?" Conflicts of this shape are the app's feature-discovery mechanism.
+  Two of the three answers are now variables rather than apologies: tagging the conflict "pollen"
+  attaches the calendar season and tagging it "sick" attaches `viral`, so the day re-enters
+  inference carrying the candidate it was missing instead of leaving it.
 - **Indoor proxies are proxies.** Outdoor humidity drives indoor mold/dust-mite load only roughly
-  (dehumidifiers, AC). v1 accepts outdoor RH with a long window; an indoor sensor source is the
-  honest v2 upgrade.
+  (dehumidifiers, AC), which is half of why it is no longer in the vector — the other half being
+  that it pointed the wrong way for the spores that matter. Nothing proxies indoor air today, and
+  spec 28 did not change that: outdoor mold is counted at a trap on somebody's roof, so a day that
+  was *worse outdoors* is exactly the day it should stay a candidate on. `INDOOR_PROXY_VARIABLES`
+  still holds only the retired `humidity`; an indoor sensor is what would finally fill it.
 - **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
   only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
   prior per species (e.g. CT ragweed ≈ Aug–Oct), with an upgrade path to a measured source
@@ -270,11 +359,30 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
 Confounders are reasons to *distrust* an entry, so inference excludes it. Observation tags record
 something the user noticed that *sharpens* the entry — a within-day dose-response signal.
 
-**`worse-outdoors`** (v1's only observation): symptoms tracked with being outside. Every entry
-already implicitly blames outdoor air (the exposure vector is outdoor data); this tag makes the
-implication explicit, so variables that proxy *indoor* exposure (`humidity`, the mold/dust-mite
-proxy — see `INDOOR_PROXY_VARIABLES` in engine config) are removed from the entry's candidate
-sets. On a muggy smoke day that can collapse {pm25, humidity} to a singleton confirmation.
+**`worse-outdoors`**: symptoms tracked with being outside. Every entry already implicitly blames
+outdoor air (the exposure vector is outdoor data); this tag makes the implication explicit, so
+variables that proxy *indoor* exposure (see `INDOOR_PROXY_VARIABLES` in engine config) are removed
+from the entry's candidate sets. On a muggy smoke day that could collapse {pm25, humidity} to a
+singleton confirmation. The set holds only the retired `humidity` today, because the live vector
+has no indoor proxy in it — the tag strips nothing from a new entry and keeps meaning exactly what
+it meant on an old one, which is the whole reason the name stayed in the set.
+
+**`exercising`**: the user was working hard in this air. Airway drying engages only above about
+30 L/min of ventilation and nasal breathing nearly cancels it, so exertion is the half of a
+`dry_air` dose no feed can measure. v1 records it and the engine ignores it; sharpening on it
+would mean raising a candidate's weight rather than striking one out, which is a different shape
+from the exclusion above.
+
+**`near-traffic`**: the user was beside a road. Karner 2010 pooled 41 roadside studies of
+concentration against distance and found PM2.5 *mass* has essentially no gradient with distance
+from a road, while ultrafines, black carbon, NO₂ and CO decay sharply within a few hundred metres.
+The clinical end of it is the Oxford Street crossover: two hours walking a traffic-heavy street
+cost 6.1 % of FEV₁ against the same walk in Hyde Park, tracking the ultrafines — which no public
+network measures anywhere. So the traffic mixture is invisible in the PM2.5 field the app does
+fetch, and the tag is the only handle v1 has on it. NO₂ was the nearest available proxy and was
+never a usable one at 45 km resolution, which is part of why it left the vector
+(specs/24-vector-diet.md). Recorded and not read, the same shape as `exercising`; later it can
+gate a static road-proximity feature per saved location.
 
 Two consequences worth naming:
 
@@ -290,11 +398,52 @@ Two consequences worth naming:
 Observation tags never affect tolerance extraction — a low rating proves every variable
 tolerable at its exposure regardless of where the user spent the day.
 
+## Entry-own variables: `viral`
+
+One variable in the vector comes from the user's thumb rather than from a feed
+(specs/26-sick-as-signal.md). Tapping the `sick` chip writes `viral: 1`; untapping deletes the key.
+Absent, never 0 — the same rule the measured variables follow, and for the same reason: a 0 is a
+reading, and nobody read anything.
+
+Everything else about it is ordinary. Floor 0, because there is no "a little bit of virus" for a
+background to sit above and the one step the scale has is a real suspect. Prior `{ 2: 1 }` — being
+sick is potentially a 2 for a sensitive person, a ceiling and a heuristic start, because a prior is
+a single number per level and the thing the research actually describes is a product. Default noise
+margin, which never bites on a value that is only ever exactly 1. Not source-scoped: no feed
+produced it, so no source switch can change what it means. Not an indoor proxy.
+
+**No onset date, no decay window, by design.** Exacerbations land one to three days after a cold
+starts and can outlast it, so the honest window is wider than the tap. But the product constraint is
+one tap, and nobody types an onset date: a field nobody fills is worse than a flag that is slightly
+too narrow. The flag lands on the day it is tapped. If diaries later show sick days clustering the
+day *before* bad days, an engine-side window can widen it without touching the UI.
+
+**The interaction is learned, not encoded.** Nothing in the engine knows that a virus multiplies an
+allergen exposure, and nothing needs to. A bad sick day with oak up yields the candidate set
+`{pollen_oak, viral}`; a fine day at more oak with no flag exonerates the oak and leaves `viral`
+holding the bag — with `{pollen_oak: 4}` recorded as the context the claim was seen against, so the
+bound only floors on a day that is at least that loaded. A repeat of sick-plus-oak floors on the
+combo-repeat clause without attributing the day to either half. That is the interaction, expressed
+in the machinery that was already there.
+
+**It is not air, so it has no row in the air table.** It earns a line in the diary's evidence panel
+on the same rule `smoke` does — once the diary holds a verdict on it — and it appears as a tag on
+the entry rather than a number on the exposure line. "sick 1" is not a reading of anything.
+
 ## Conflicts and confounders
 
 - **Confounded entries** (`confounders` non-empty) stay in the diary but are excluded from
   constraint extraction. When the recompute detects a conflict, the first remedy is to ask the
   user whether a confounder applies to one of the clashing entries.
+- **`sick` is not one of them** (specs/26-sick-as-signal.md). It was, and it was the most expensive
+  exclusion the app had: the literature says a virus *alone* is null — Green 2002, OR 1.67 with an
+  interval crossing 1 — and that what multiplies is virus × sensitization × allergen exposure, at
+  OR 8.4 in adults and 19.4 in Murray 2005's children. A sick day with pollen up is therefore the
+  most informative day about allergen triggers a diary will ever hold, and treating it as a reason
+  to distrust the entry threw away exactly those days. It is an entry-own variable now (below), and
+  a day tagged sick is a day with one more candidate in it, not one fewer entry. What is left in
+  the set are reasons the *exposure vector* is wrong about the air the person breathed —
+  "indoors all day" — or a mechanism the app does not model at all — "allergies".
 - **Conflict** = an entry whose candidate set is empty, or a low-rating entry above a confirmed
   threshold. An empty candidate set should be read as a probable *unmodeled trigger* first (see
   the missing-variable detector above) and a contradiction second. Sensitivity also genuinely
@@ -319,7 +468,31 @@ tolerable at its exposure regardless of where the user spent the day.
 CAMS model ozone read 166 µg/m³ in Hamden on 2026-08-07 while the New Haven monitor implied ~82:
 CAMS global carries a known warm-season positive surface-ozone bias in the eastern US. A bound
 learned against a biased source still predicts correctly *on that source*, so per-source learning
-is fine — but the bounds do not transfer. Every learned bound therefore records the source it came
+is fine — but the bounds do not transfer.
+
+The same is true of a **window** change, which is why the source name carries a window generation
+(`cams` → `cams-w2`). Bounds are learned against features, not against readings: when PM2.5 moved
+from an 8-hour max to a 24-hour mean, "PM2.5 was 22" stopped describing the quantity it was
+learned about. The engine cannot version a bound per variable and does not need to — a window
+change *is* a source change, and it already knows what one of those means.
+
+`smoke` sits on the weather side of this line even though it is an air variable
+(specs/25-smoke-variable.md). Its number is a satellite plume density, which reads the same whether
+the PM columns beside it came from CAMS or from a monitor, and the fine-fraction gate in front of
+it asks those columns a yes/no rather than putting their values in the vector. A source switch
+changes what "pm25 was 20" means; it does not change what "Medium plume overhead" means, so a smoke
+bound survives one.
+
+Weather has no such escape hatch: it comes from a different pipe and is deliberately not
+source-scoped, so when a weather variable is retired (`heat_stress`, `cold_dry_stress` and
+`humidity`, replaced by the dew-point pair in specs/23-dew-point-air.md) its bounds stay live in
+the model rather than going inert — harmless only for as long as no exposure vector carries the
+name, which is why a retired variable name is never reused for a different quantity. A pollutant
+dropped from the vector without a source change lands in the same place: `pm10` and `no2`
+(specs/24-vector-diet.md) keep whatever bounds they had learned, and those bounds go quiet
+because no vector names them any more, not because anything retired them.
+
+Every learned bound therefore records the source it came
 from, and a source switch starts a **fresh bound set** for the variables that source measures
 (`SOURCE_SCOPED_VARIABLES` in engine config: the air-quality pollutants; weather comes from a
 different pipe and survives). The old set is retained, inert, never predicted from. Entries logged
@@ -340,9 +513,9 @@ must pass them. Prose versions:
 | 5 | Case 2 + rating 3 @ (pm25 22, o3 6) | The second day is a clean singleton (ozone below its floor) → pm25 confirmed at levels 2–3 — but o3 **stays** suspected: o3-only 150 → [1,3]. Confirmation ≠ exoneration. |
 | 6 | Rating 2 @ (pm25 30, o3 40) | Tolerance for levels 3–4: θ_p,3 > x_p ∀p. Forecast (pm25 30, o3 30) → ceiling 2, never 3; (pm25 28, o3 30) matches no evidence → [1,1] with priors off. |
 | 7 | Confirmed θ_pm25,2 ≤ 12, then rating 1 @ (pm25 18) | Conflict flagged; recency wins: tolerance 18 stands, confirmation dropped from inference. |
-| 8 | Rating 3 @ (pm25 25, o3 10), confounders ["sick"] | No constraints extracted; diary keeps the entry. |
+| 8 | Rating 3 @ (pm25 25, o3 10), confounders ["allergies"] | No constraints extracted; diary keeps the entry. |
 | 9 | Rating 4 @ (pm25 40, o3 20) | Evidence cascades: constraints extracted for levels 2, 3, **and** 4 (a level-4 day also proves levels 2–3 were reached). |
-| 10 | Rating 3 @ (pm25 4, o3 5, cold_dry 8) | U-shape via encoding: cold_dry_stress is the singleton candidate → confirmed. A hot day (heat_stress 6, cold_dry 0) predicts [1,1]; another cold-dry day predicts [3,3]. |
+| 10 | Rating 3 @ (pm25 4, o3 5, dry_air 8) | U-shape via encoding: `dry_air` is the singleton candidate → confirmed. A muggy day (humid_heat 6, dry_air 0) predicts [1,1]; another dry day predicts [3,3]. |
 | 11 | Rating 1 @ (pm25 20, o3 100), then rating 3 @ (pm25 15, o3 80) | Empty candidate set → conflict flagged as probable **unmodeled trigger** (pollen? indoor?); no constraints forced onto modeled variables. |
 | 12 | Rating 3 @ (o3 150, heat_stress 6) | Correlated pair stays ambiguous: o3-only → [1,3], heat-only → [1,3], but the repeat combo → [3,3]. Attribution waits for a hot-clean-air day; prediction doesn't. |
 | 13 | Prior "o3 potentially 3 at 160"; rating 2 @ (o3 168), again @ (o3 170) | *Repeated* personal tolerance suppresses the prior: o3 165 → [1,2], not [1,3]. Above the tolerated exposure (o3 180) the prior reactivates → [2,3]. |
@@ -355,3 +528,6 @@ must pass them. Prose versions:
 | 20 | Rating 1 @ (pm25 4, o3 180), then rating 3 @ (pm25 22, o3 150) and @ (pm25 20, o3 140) | Two days confirm θ_pm25,3 ≤ 20 — with context {o3 140}. Today at (pm25 25, o3 10) → [1,3] (ceiling, not floor); at (pm25 25, o3 150) → [3,3]. |
 | 21 | Rating 1 @ (pm25 20) on source `cams`, then rating 3 @ (pm25 15) on `airnow` | The switch starts a fresh bound set: the airnow day is not silenced by a cams tolerance → confirmed at 15. The cams bounds are kept, inert. |
 | 22 | Rating 3 @ (pm25 3, o3 10, ragweed 10) with ragweed `estimated` | A clean singleton — the one shape that confirms on one day — but the number was never measured, so it caps at `suspected-strong`: the same day repeated → [1,3]. The identical entry *without* the tag confirms θ_ragweed,3 ≤ 10 → [3,3]. |
+| 23 | Rating 3 @ (oak 4, viral 1) | The sick day is evidence, not an excluded entry: C = {pollen_oak, viral} at levels 2 and 3, nothing confirmed. The repeat combo → [3,3]; either half alone → [1,3]. |
+| 24 | Case 23 + rating 1 @ (oak 5) | Oak tolerated at 5, which exonerates to 4.25 and guards at 4.57 — so the bad day's 4 drops out and `viral` is the lone candidate, against a background of {oak 4}. One day with company: `suspected-strong`, ceiling only. (oak 4, viral 1) → [1,3]; oak 4 alone → [1,1]. A fine day at oak *4* would have proved nothing: inside the margin. |
+| 25 | Case 24 + a second rating 3 @ (oak 4, viral 1) | Two days confirm θ_viral,3 ≤ 1 — with context {oak 4}. (oak 4, viral 1) → [3,3]; the flag alone → [1,3]. What the diary saw was a virus *with* oak about, and that is all it claims. |

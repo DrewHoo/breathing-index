@@ -22,14 +22,26 @@ const LAST_GOOD_KEY = 'breathing-index.lastSeries.v1'
 let cache: { key: string; promise: Promise<ExposureSeries>; at: number } | null = null
 
 function getSeries(location: Location): Promise<ExposureSeries> {
-  const key = `${location.lat},${location.lon}`
+  // The AirNow toggle is part of the key, not just of the request: flipping it
+  // in Settings has to produce a different series, and ten minutes of cache
+  // keyed on coordinates alone would quietly serve the old source back. The
+  // mold station is in the key on exactly that argument — picking a different
+  // station has to read a different microscope, not wait out the TTL.
+  const { airnowEnabled: airnow, moldStation } = loadSettings()
+  const key = `${location.lat},${location.lon}${airnow ? ':airnow' : ''}${moldStation ? `:${moldStation}` : ''}`
   if (cache && cache.key === key && Date.now() - cache.at < TTL_MS) return cache.promise
-  const promise = fetchExposureSeries(location.lat, location.lon)
+  const promise = fetchExposureSeries(location.lat, location.lon, { airnow, moldStation })
   cache = { key, promise, at: Date.now() }
   promise
     .then((s) => {
       try {
-        localStorage.setItem(LAST_GOOD_KEY, JSON.stringify({ key, series: s }))
+        // Keyed by place alone: the offline fallback answers "what was the air
+        // here", and a series fetched before the toggle flipped is still the
+        // best answer to that.
+        localStorage.setItem(
+          LAST_GOOD_KEY,
+          JSON.stringify({ key: `${location.lat},${location.lon}`, series: s }),
+        )
       } catch {
         /* storage full — offline fallback just won't refresh */
       }

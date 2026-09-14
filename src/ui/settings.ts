@@ -13,6 +13,15 @@ export interface Settings {
   locations: SavedLocation[]
   /** show AirNow measured comparison (US only) */
   airnowEnabled: boolean
+  /**
+   * The mold counting station this app reads, by relay station id, or null for
+   * none (specs/28-mold.md §5). Stations are 50–100 miles apart, so this is a
+   * choice and not a grid cell: most places have no station within reach, and
+   * the ones that do usually have exactly one. Null is the honest default —
+   * seeding the nearest station would hand somebody in Hamden a count from
+   * Olean, NY and let them grade their lungs on it.
+   */
+  moldStation: string | null
   /** display unit for temperature — stored data is always metric */
   units: UnitPreference
   /** the first-run intro has been dismissed */
@@ -29,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // stranger's list, one tap from becoming the air their diary is graded on.
   locations: [],
   airnowEnabled: true,
+  moldStation: null,
   units: 'auto',
   introSeen: false,
   analyticsEnabled: true,

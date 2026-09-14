@@ -42,6 +42,28 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | 17 | [Content pages](17-content-pages.md) | M | Three prerendered essays so the domain can rank for "AQI moderate but hard to breathe" |
 | 19 | [Pollen content pages](19-pollen-content-pages.md) | M | The first content wave, reshaped: per-plant pages + the region×month calendar, generated from the app's own data |
 
+## Measurement and sources (September 2026 research)
+
+Research in [`research/`](../research/). Order matters for the first three; the rest are independent.
+
+| # | Spec | Effort | One line |
+|---|------|--------|----------|
+| 21 | [AirNow migration](21-airnow-migration.md) | S+M | The relay's two AirNow endpoints retire 2026-09-30; move to `aq/data/`, which returns concentrations, and make AirNow an engine source. Delete the dead PurpleAir route |
+| 22 | [Exposure windows](22-exposure-windows.md) | S | One window per mechanism: ozone mean8h, PM2.5 mean24h, grass 3-day; a window change bumps the source so old bounds go inert |
+| 23 | [Dew-point air](23-dew-point-air.md) | S | `dry_air` and `humid_heat` from dew point replace heat, cold-dry and the 72-h humidity proxy |
+| 24 | [Vector diet](24-vector-diet.md) | S | PM10 display-only, NO₂ out, `near-traffic` chip in |
+| 25 | [Smoke variable](25-smoke-variable.md) | M | NOAA HMS polygons via the relay, gated on the fine-fraction fingerprint, as a variable the engine can learn |
+| 26 | [Sick as signal](26-sick-as-signal.md) | S | The `sick` chip writes `viral: 1` into the vector instead of discarding the day |
+| 27 | [One ozone](27-one-ozone.md) | M | One ozone number, window on the label, station over model when a monitor is near |
+| 28 | [Mold](28-mold.md) | L | Ingest any published spore count, station chosen by distance; a dry-spore weather proxy everywhere else |
+| 29 | [Sulfur dioxide](29-sulfur-dioxide.md) | S | Admit SO₂ everywhere behind a 20 µg/m³ floor; a row only when present; measured from the monitor where one reports it |
+| 30 | [Glossary](30-glossary.md) | M | One content module, a prerendered `/glossary`, and a `?` on every row that opens the same entry in a sheet |
+| 31 | [Temperature swing](31-temperature-swing.md) | S | The day's range, graded only at the tail (RR 1.72 at P95); free, threshold-shaped, lagged |
+| 32 | [Dust](32-dust.md) | S | Open-Meteo's dust column as a second attributed slice of particulate, behind a high floor; supersedes spec 20's Asia-only plan |
+| 33 | [NWS alerts](33-nws-alerts.md) | S | Official warnings as a banner and diary metadata, never a variable |
+| 34 | [Viral season](34-viral-season.md) | S/M | A ceiling-only calendar term around Labor Day + 17.7 days; NREVSS regional rhinovirus as phase 2 |
+| 35 | [Traffic mixture](35-traffic-mixture.md) | S/L | Measured NO₂ from near-road monitors as the tracer; TEMPO satellite NO₂ as phase 2 |
+
 ## Dependency sketch
 
 ```
@@ -49,6 +71,15 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
               │
 01 ──► [12] ─► 13        [deferred: 08, 12, 14]
 02 ──┘   └──► (Plus tier shared)
+
+21 ──► 27
+22 ──► 23 ──► 24 ──► 25
+22 ──► 27
+26, 28 independent (28 wants 23 for the humidity retirement)
+21 ──► 29
+29 ──► 30 (the glossary needs the final row list)
+29 ──► 31, 32, 35 (the floor argument and the absent line)
+33, 34 independent; 30 wants all of them for entries
 ```
 
 Everything in the first table is shippable independently except 03→05 ordering (pollen wants

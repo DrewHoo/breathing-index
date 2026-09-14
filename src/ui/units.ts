@@ -35,6 +35,12 @@ export const TEMPERATURE_FEATURES: Record<
   string,
   { direction: 'over' | 'under'; referenceC: number }
 > = {
+  // Both references are dew points, not air temperatures
+  // (specs/23-dew-point-air.md): 11 °C is where inspired air drops below
+  // 10 mg H₂O/L, 18 °C is where hot-and-humid begins.
+  dry_air: { direction: 'under', referenceC: 11 },
+  humid_heat: { direction: 'over', referenceC: 18 },
+  // Retired (pre-spec-23), kept so an old entry's stored value still converts.
   heat_stress: { direction: 'over', referenceC: 25 },
   cold_dry_stress: { direction: 'under', referenceC: 10 },
 }
