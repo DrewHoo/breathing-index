@@ -58,6 +58,11 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 | 28 | [Mold](28-mold.md) | L | Ingest any published spore count, station chosen by distance; a dry-spore weather proxy everywhere else |
 | 29 | [Sulfur dioxide](29-sulfur-dioxide.md) | S | Admit SO₂ everywhere behind a 20 µg/m³ floor; a row only when present; measured from the monitor where one reports it |
 | 30 | [Glossary](30-glossary.md) | M | One content module, a prerendered `/glossary`, and a `?` on every row that opens the same entry in a sheet |
+| 31 | [Temperature swing](31-temperature-swing.md) | S | The day's range, graded only at the tail (RR 1.72 at P95); free, threshold-shaped, lagged |
+| 32 | [Dust](32-dust.md) | S | Open-Meteo's dust column as a second attributed slice of particulate, behind a high floor; supersedes spec 20's Asia-only plan |
+| 33 | [NWS alerts](33-nws-alerts.md) | S | Official warnings as a banner and diary metadata, never a variable |
+| 34 | [Viral season](34-viral-season.md) | S/M | A ceiling-only calendar term around Labor Day + 17.7 days; NREVSS regional rhinovirus as phase 2 |
+| 35 | [Traffic mixture](35-traffic-mixture.md) | S/L | Measured NO₂ from near-road monitors as the tracer; TEMPO satellite NO₂ as phase 2 |
 
 ## Dependency sketch
 
@@ -73,6 +78,8 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 26, 28 independent (28 wants 23 for the humidity retirement)
 21 ──► 29
 29 ──► 30 (the glossary needs the final row list)
+29 ──► 31, 32, 35 (the floor argument and the absent line)
+33, 34 independent; 30 wants all of them for entries
 ```
 
 Everything in the first table is shippable independently except 03→05 ordering (pollen wants
