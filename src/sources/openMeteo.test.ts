@@ -41,6 +41,8 @@ interface Stubs {
   utcOffsetSeconds?: number
   /** model columns by Open-Meteo's own key, for the window tests */
   air?: Record<string, (number | null)[]>
+  /** weather columns by Open-Meteo's own key — dew point is the only one read */
+  weather?: Record<string, (number | null)[]>
 }
 
 /**
@@ -83,7 +85,15 @@ function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs
                   ...stubs.air,
                 },
               }
-            : { hourly: { time, temperature_2m: column(20), relative_humidity_2m: column(50) } },
+            : {
+                hourly: {
+                  time,
+                  // A 14 °C dew point: between the two thresholds, so neither
+                  // weather feature fires anywhere the test is not asking.
+                  dew_point_2m: column(14),
+                  ...stubs.weather,
+                },
+              },
         ),
     })
   })
@@ -347,6 +357,50 @@ describe('exposure windows', () => {
     // to say, and spec 24 drops the variable outright.
     expect(series.hours[7]!.exposure.no2).toBe(14)
     expect(series.hours[7]!.raw.no2).toBe(14)
+  })
+})
+
+/* --- dew point, both sides (specs/23-dew-point-air.md) --- */
+
+describe('dry air and humid heat', () => {
+  it('counts dry air down from an 11 °C dew point', async () => {
+    // A 20 °C April day at a 5 °C dew point: air drier than most of January,
+    // which the retired T < 10 °C gate read as nothing at all.
+    stubSources('2026-04-14', null, { weather: { dew_point_2m: Array(24).fill(5) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    expect(noon.exposure.dry_air).toBe(6)
+    expect(noon.exposure.humid_heat).toBe(0)
+    expect(noon.raw.dewpoint).toBe(5)
+  })
+
+  it('counts humid heat up from an 18 °C dew point', async () => {
+    // 22 °C of dew point only happens in hot air, so one number carries both.
+    stubSources('2026-07-20', null, { weather: { dew_point_2m: Array(24).fill(22) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    expect(noon.exposure.dry_air).toBe(0)
+    expect(noon.exposure.humid_heat).toBe(4)
+  })
+
+  it('leaves both absent when the dew point is, never zero', async () => {
+    stubSources('2026-07-20', null, { weather: { dew_point_2m: Array(24).fill(null) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    // Zero here would be a comfortable day the feed never reported, and it
+    // would sit under both background floors and disqualify the real trigger.
+    expect(noon.exposure.dry_air).toBeUndefined()
+    expect(noon.exposure.humid_heat).toBeUndefined()
+    expect(noon.raw.dewpoint).toBeUndefined()
+  })
+
+  it('no longer carries relative humidity as an exposure variable', async () => {
+    stubSources('2026-07-20', null)
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // It pooled at OR 1.05 on its own and pointed the wrong way as an outdoor
+    // mould proxy — Alternaria and Cladosporium are dry-weather spores.
+    expect(series.hours[12]!.exposure.humidity).toBeUndefined()
+    expect(series.hours[12]!.raw.humidity).toBeUndefined()
   })
 })
 

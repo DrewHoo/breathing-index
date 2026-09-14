@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PRIORS } from './config'
+import { PRIORS, negligibleFor, noiseMarginFor } from './config'
 import { buildModel, predict } from './infer'
 
 /** No diary at all: predictions come entirely from the population priors. */
@@ -43,5 +43,45 @@ describe('cold-start pollen priors', () => {
     // and ragweed keeps its row on the same reasoning at lower confidence.
     expect(ceilingAt({ pollen_graminales: 3 })).toBe(2)
     expect(ceilingAt({ pollen_ragweed: 3 })).toBe(2)
+  })
+})
+
+describe('cold-start weather priors', () => {
+  it('warns on dry air by the dew point behind it', () => {
+    // dry_air is counted down from an 11 °C dew point: 5 is a 6 °C dew point,
+    // 11 is freezing. Below the floor, a 10 °C dew point claims nothing.
+    expect(ceilingAt({ dry_air: 0.5 })).toBe(1)
+    expect(ceilingAt({ dry_air: 5 })).toBe(2)
+    expect(ceilingAt({ dry_air: 11 })).toBe(3)
+  })
+
+  it('warns on humid heat by the dew point behind it', () => {
+    // humid_heat is counted up from 18 °C: 2 is a 20 °C dew point, 5 is 23 °C.
+    expect(ceilingAt({ humid_heat: 0.5 })).toBe(1)
+    expect(ceilingAt({ humid_heat: 2 })).toBe(2)
+    expect(ceilingAt({ humid_heat: 5 })).toBe(3)
+  })
+
+  it('grades both on measurement noise, not model noise', () => {
+    // Weather comes off an observation network rather than a chemistry model.
+    expect(noiseMarginFor('dry_air')).toBe(0.05)
+    expect(noiseMarginFor('humid_heat')).toBe(0.05)
+    expect(negligibleFor('dry_air')).toBe(1)
+    expect(negligibleFor('humid_heat')).toBe(1)
+  })
+})
+
+describe('retired weather features', () => {
+  it('still resolves everything an old entry is graded against', () => {
+    // An entry logged before spec 23 carries these names, and a recompute has
+    // to keep reading it the way it read when it was saved.
+    for (const variable of ['heat_stress', 'cold_dry_stress', 'humidity']) {
+      expect(PRIORS[variable], variable).toBeDefined()
+      expect(negligibleFor(variable), variable).toBeGreaterThan(0)
+      expect(noiseMarginFor(variable), variable).toBe(0.05)
+    }
+    expect(ceilingAt({ heat_stress: 7 })).toBe(2)
+    expect(ceilingAt({ cold_dry_stress: 18 })).toBe(3)
+    expect(ceilingAt({ humidity: 70 })).toBe(2)
   })
 })

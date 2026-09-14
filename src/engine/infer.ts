@@ -37,6 +37,12 @@ const REPETITIONS = 2
 
 /** Variables an entry's observations rule out as candidates. */
 function excludedCandidates(entry: InferenceEntry): ReadonlySet<string> {
+  // `exercising` is the other observation the app records, and nothing here
+  // reads it yet (specs/23-dew-point-air.md): airway drying engages only above
+  // about 30 L/min of ventilation and nasal breathing nearly cancels it, so
+  // the tag is the missing half of a `dry_air` dose. Sharpening on it is a
+  // later spec's job — it would need to raise a candidate's weight rather than
+  // strike one out, which is not a shape this function has.
   return entry.observations?.includes('worse-outdoors') ? INDOOR_PROXY_VARIABLES : NO_EXCLUSIONS
 }
 

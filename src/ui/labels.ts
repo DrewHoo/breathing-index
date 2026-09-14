@@ -68,6 +68,11 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   no2: { name: 'NO₂', short: 'NO₂', unit: 'µg/m³' },
   so2: { name: 'SO₂', short: 'SO₂', unit: 'µg/m³' },
   co: { name: 'CO', short: 'CO', unit: 'µg/m³' },
+  dry_air: { name: 'Dry air', short: 'dry air', unit: '°' },
+  humid_heat: { name: 'Humid heat', short: 'humid heat', unit: '°' },
+  // Retired weather features (pre-spec-23), kept so old entries still render
+  // wherever they surface — the diary line, the evidence rows, a Why line
+  // quoting a bound that was learned before the dew point replaced them.
   heat_stress: { name: 'Heat', short: 'heat', unit: '°' },
   cold_dry_stress: { name: 'Cold, dry', short: 'cold', unit: '°' },
   humidity: { name: 'Humidity', sub: '3-day', short: 'humidity', unit: '%' },
@@ -90,6 +95,16 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
 
 /** The words the air table's pollen sub-label is built from. */
 export const CALENDAR_ESTIMATE = 'calendar estimate'
+
+/**
+ * The dew-point row's verdict on a day between the two thresholds. The
+ * evidence chips all answer "what does your diary say about this exposure",
+ * and on such a day there is no exposure to have said anything about — the
+ * air is neither drying nor muggy. "Barely present" is the right words for a
+ * trace of ozone and the wrong ones for a 14 °C dew point, which is not a
+ * trace of anything.
+ */
+export const COMFORTABLE = 'comfortable'
 
 export const variableName = (v: string): string => VARIABLE_LABELS[v]?.name ?? v
 

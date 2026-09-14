@@ -18,6 +18,10 @@ const NEGLIGIBLE: Record<string, number> = {
   no2: 10,
   so2: 5,
   co: 500, // µg/m³ — urban background runs 200–400
+  dry_air: 1, // °C below an 11 °C dew point: 10 °C is dry-ish, not drying
+  humid_heat: 1, // °C above an 18 °C dew point, same reasoning on the other side
+  // Retired weather features (pre-spec-23): kept so entries logged against
+  // them still clear — or fail to clear — the same bar they were graded on.
   heat_stress: 1, // °C above 25: 26 °C is warm, not stressful
   cold_dry_stress: 1, // °C below 10, same reasoning on the other side
   humidity: 65, // %RH mean72h below this is not a mold-proxy candidate
@@ -46,6 +50,9 @@ export function negligibleFor(variable: string): number {
  * network rather than a chemistry model, so it gets 5 %.
  */
 const NOISE_MARGIN: Record<string, number> = {
+  dry_air: 0.05,
+  humid_heat: 0.05,
+  // Retired weather features (pre-spec-23), on the same reasoning.
   heat_stress: 0.05,
   cold_dry_stress: 0.05,
   humidity: 0.05,
@@ -81,6 +88,16 @@ export const UNSPECIFIED_SOURCE = 'unspecified'
  * Variables that proxy indoor exposure. The "worse-outdoors" observation
  * removes these from an entry's candidate sets: symptoms tied to being
  * outside can't be blamed on the indoor-air proxy.
+ *
+ * `humidity` stays here after spec 23 retired it from the live vector, for
+ * two reasons. An entry logged before the retirement still carries the
+ * variable *and* may carry the tag, and dropping the name would silently
+ * change what that entry means — the day was read as "not the mould proxy,
+ * then" when it was saved, and a recompute has to keep reading it that way.
+ * And the set is the mechanism itself, not a list about humidity: spec 28
+ * puts a real indoor-relevant variable back in it. An empty set would be a
+ * mechanism with nothing to point at, which is harder to find than a retired
+ * name with a comment on it.
  */
 export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
 
@@ -146,6 +163,19 @@ export const PRIORS: Priors = {
   //   2 = WHO 24-h AQG 4000 · 3 = WHO 8-h guideline 10000 · 4 = hand-set 15000
   co: { 2: 4000, 3: 10000, 4: 15000 }, // µg/m³
   // --- end derived ---
+  // Dew point, the one weather number both mechanisms are gated on
+  // (specs/23-dew-point-air.md). Written as distance from each threshold, so
+  // the rows below read: a 6 °C dew point is potentially a 2, freezing is
+  // potentially a 3; 20 °C of dew point is potentially a 2, 23 °C a 3. Same
+  // epistemic status as the pollen index rows — a heuristic start the diary
+  // is expected to overwrite.
+  dry_air: { 2: 5, 3: 11 }, // °C below an 11 °C dew point
+  humid_heat: { 2: 2, 3: 5 }, // °C above an 18 °C dew point
+  // Retired weather features (pre-spec-23): kept exactly as the retired
+  // grains/m³ pollen rows below are, so an entry that carries one is still
+  // judged against the scale it was logged on. They never rejoin the live
+  // vector — `heat_stress` was a temperature the drying mechanism does not
+  // depend on, and `humidity` was an outdoor mold proxy with the wrong sign.
   heat_stress: { 2: 7, 3: 12 }, // °C above 25
   cold_dry_stress: { 2: 10, 3: 18 }, // °C below 10, dry air
   humidity: { 2: 70 }, // %RH mean72h, indoor mold/dust-mite proxy

@@ -20,6 +20,7 @@ import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
+  COMFORTABLE,
   FORECAST_MEANING,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
@@ -351,6 +352,13 @@ function Header({ place, hour }: { place: string; hour?: string }) {
 
 const SAVED_CHIPS = [
   { label: 'worse outdoors', kind: 'observation', value: 'worse-outdoors' },
+  // An observation, not a confounder: exertion does not make the day
+  // untrustworthy, it makes the dose bigger. Airway drying engages above
+  // about 30 L/min of ventilation and nasal breathing nearly cancels it, so
+  // the same dry air is a different exposure depending on what the user was
+  // doing in it — which only the user knows. v1 writes it down and nothing
+  // reads it (see engine/infer.ts).
+  { label: 'exercising', kind: 'observation', value: 'exercising' },
   { label: 'sick', kind: 'confounder', value: 'sick' },
   { label: 'allergies', kind: 'confounder', value: 'allergies' },
   { label: 'indoors all day', kind: 'confounder', value: 'indoors all day' },
@@ -761,8 +769,15 @@ interface AirRow {
   series: (number | null)[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
-  /** cold side of the temperature row: past-easy is below the waterline */
+  /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
+  /**
+   * A verdict the row supplies itself, in place of the one the evidence would
+   * have spoken. Only the dew-point row does this, and only between the two
+   * thresholds, where there is no exposure for the diary to have a view on.
+   * It wears the unknown chip's styling, because that is what it is.
+   */
+  chip?: string
   /**
    * A line under the row about the *reading* rather than in it: where the
    * number came from, or what the particulate looks like. Its own line
@@ -883,36 +898,49 @@ function buildAirRows(
     })
   }
 
-  // One temperature row backed by the two one-sided stresses; the name
-  // follows the active side. On the cold side "past your easy" is downward,
-  // so the waterline flips and the fill hangs below it.
-  const coldSide = (current.exposure.cold_dry_stress ?? 0) > 0
-  const disp = (c: number): number => Math.round(displayTemperature(c, tempUnit))
-  const tempVar = coldSide ? 'cold_dry_stress' : 'heat_stress'
-  const tolStress = tolerance(tempVar)
-  rows.push({
-    key: 'temp',
-    name: coldSide ? 'Cold, dry' : 'Heat',
-    value: disp(current.raw.temp ?? 0),
-    unit: `°${tempUnit}`,
-    statusVar: tempVar,
-    statusValue: current.exposure[tempVar] ?? 0,
-    series: window.map((h) => disp(h.raw.temp ?? 0)),
-    tol: tolStress !== undefined ? disp(coldSide ? 10 - tolStress : 25 + tolStress) : undefined,
-    invert: coldSide,
-  })
-
-  rows.push({
-    key: 'humidity',
-    name: 'Humidity',
-    sub: '3-day',
-    value: Math.round(current.exposure.humidity ?? 0),
-    unit: '%',
-    statusVar: 'humidity',
-    statusValue: current.exposure.humidity ?? 0,
-    series: window.map((h) => h.raw.humidity ?? 0),
-    tol: tolerance('humidity'),
-  })
+  // One dew-point row backed by the two one-sided features, which are the
+  // same curve folded at 11 °C and 18 °C (specs/23-dew-point-air.md). The
+  // number is the dew point itself rather than either feature: a hinge
+  // sparkline would drop to zero every time the air passed through
+  // comfortable, and "6°" says nothing a person can stand outside and check.
+  // The name follows whichever side is active, and on the dry side "past your
+  // easy" is downward — drier is worse — so the waterline flips and the fill
+  // hangs below it, exactly as the cold side used to.
+  //
+  // An hour with no dew point gets no row, the same rule the pollutants
+  // follow: a series cached by an earlier version has no `dewpoint` in its
+  // raw block, and a row reading 0° would be a reading nobody took.
+  const dewpoint = current.raw.dewpoint
+  if (dewpoint !== undefined) {
+    const disp = (c: number): number => Math.round(displayTemperature(c, tempUnit))
+    const dryAir = current.exposure.dry_air ?? 0
+    const humidHeat = current.exposure.humid_heat ?? 0
+    const drySide = dryAir > 0
+    // Neither side active is its own honest state: the air is between the two
+    // thresholds, so the row names a measurement rather than a stress, and it
+    // draws no waterline — an easy level belongs to one side of the fold, and
+    // hanging the humid side's line over a 14 °C dew point would answer a
+    // question nobody asked.
+    const side = drySide ? 'dry_air' : humidHeat > 0 ? 'humid_heat' : null
+    const tolFeature = side ? tolerance(side) : undefined
+    rows.push({
+      key: 'dewpoint',
+      name: side === 'dry_air' ? 'Dry air' : side === 'humid_heat' ? 'Humid heat' : 'Dew point',
+      // The sub-label says what the number is; on the neutral day the name
+      // already does, and "Dew point · dew point" reads as a stutter.
+      ...(side ? { sub: 'dew point' } : {}),
+      ...(side ? {} : { chip: COMFORTABLE }),
+      value: disp(dewpoint),
+      unit: `°${tempUnit}`,
+      statusVar: side ?? 'humid_heat',
+      statusValue: side ? (current.exposure[side] ?? 0) : 0,
+      series: window.map((h) => (h.raw.dewpoint === undefined ? null : disp(h.raw.dewpoint))),
+      // The waterline is a dew point too, so an easy level learned in feature
+      // space comes back through the same fold it went out by.
+      tol: tolFeature !== undefined ? disp(drySide ? 11 - tolFeature : 18 + tolFeature) : undefined,
+      invert: drySide,
+    })
+  }
   return rows
 }
 
@@ -975,7 +1003,9 @@ function AirTable({
       />
       <div className="air-table">
         {rows.map((row) => {
-          const status = statusChip(model, row.statusVar, row.statusValue)
+          const status = row.chip
+            ? { text: row.chip, cls: '' }
+            : statusChip(model, row.statusVar, row.statusValue)
           return (
             <div key={row.key} className="air-row">
               <div className="air-name-row">
@@ -1027,7 +1057,7 @@ function AirSpark({
   series: (number | null)[]
   /** "your easy level" in the row's display units */
   tol?: number
-  /** cold side of the temperature row: past-easy is below the waterline */
+  /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
   name: string
 }) {
