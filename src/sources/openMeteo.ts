@@ -1,4 +1,9 @@
 import type { Exposure } from '../engine/types'
+// The fine-fraction fingerprint lives in `ui/` because the PM2.5 row's
+// sub-label was its first caller; the gate here is the same question asked of
+// the same two numbers, and duplicating the 0.85 would let the row and the
+// variable drift apart.
+import { smokeFingerprint } from '../ui/smoke'
 import {
   coversExposureVector,
   fetchAirNow,
@@ -8,6 +13,7 @@ import {
   type MonitorSeries,
 } from './airnow'
 import { type PollenDay, fetchPollen } from './googlePollen'
+import { fetchSmoke, recallSmokeHours, rememberSmokeHour, type SmokeDensity } from './hmsSmoke'
 import { calendarPollen, monthOf } from './pollenCalendar'
 import { recallPollenDays, rememberPollenDays } from './pollenHistory'
 import { POLLEN_PLANTS } from './pollenPlants'
@@ -72,6 +78,13 @@ export interface ExposureSeries {
   utcOffsetSeconds: number
   /** which source these numbers are: learned bounds are scoped to it */
   source: string
+  /**
+   * When the smoke plume behind the current hour's density stopped being
+   * observed, ISO UTC. Satellite smoke detection needs daylight, so overnight
+   * the newest HMS analysis is yesterday afternoon's — the row says "as of"
+   * with this rather than letting an 8 am reading pass for an 11 pm one.
+   */
+  smokeAsOf?: string
   /**
    * Variable -> the monitor that produced it, when a monitor did. The air
    * table names the station on the row rather than in a caption somewhere
@@ -284,6 +297,44 @@ export function grassWindow(
   return value === null ? null : { value, estimated }
 }
 
+/**
+ * How far back the smoke gate may look for an hour with both PM readings on
+ * it. Two hours, and the reason is AirNow's publishing order: the NowCast goes
+ * out first and the raw hourly concentrations follow it, so the current hour
+ * routinely has neither `pm25` nor `pm10` in `raw` while the hour before it
+ * has both. Without the look-back, the smoke row would blink out for the top
+ * of every hour and come back when the monitors caught up.
+ */
+const SMOKE_GATE_LOOKBACK_HOURS = 2
+
+/**
+ * Does the particulate at this hour look like smoke — yes, no, or unanswerable?
+ *
+ * HMS sees a column from above: a plume aloft over clean surface air is flagged
+ * exactly as one at head height is. The fine-fraction fingerprint (ui/smoke.ts:
+ * enough fine mass to mean anything, and almost all of the mass fine) is what
+ * turns "smoke somewhere overhead" into "smoke in the air you are breathing"
+ * without a surface smoke model (specs/25-smoke-variable.md).
+ *
+ * Null is the third answer and it matters: an hour with no raw PM on it, and
+ * none in the two hours behind it, has not said the smoke is harmless — it has
+ * said nothing, and the variable goes absent rather than recording a 0 the
+ * engine would read as a tolerated clean hour.
+ */
+function fineFractionGate(
+  pm25: (number | null)[],
+  pm10: (number | null)[],
+  i: number,
+): boolean | null {
+  for (let j = i; j >= 0 && j > i - 1 - SMOKE_GATE_LOOKBACK_HOURS; j--) {
+    const fine = pm25[j]
+    const coarse = pm10[j]
+    if (fine == null || coarse == null) continue
+    return smokeFingerprint({ pm25: fine, pm10: coarse })
+  }
+  return null
+}
+
 /** What the caller wants consulted beyond the model feeds. */
 export interface ExposureOptions {
   /**
@@ -303,7 +354,10 @@ export interface ExposureOptions {
  * the same 24-hour mean and lands in `display` rather than `exposure`: the
  * row shows it, the engine never grades it (specs/24-vector-diet.md). This
  * function is the only place windows live, and
- * changing one renames the source (EXPOSURE_SOURCE). Pollen rides a separate
+ * changing one renames the source (EXPOSURE_SOURCE). `smoke` is the one
+ * variable with no window at all: HMS is a nowcast, so the hour either has a
+ * plume over it or does not, and the forecast hours have none either way
+ * (specs/25-smoke-variable.md). Pollen rides a separate
  * pipe (googlePollen.ts via the relay, today forward) with what earlier
  * fetches wrote down (pollenHistory.ts) behind it and the season calendar
  * behind that — a fallback day is estimated-tagged, never silently
@@ -326,7 +380,18 @@ export async function fetchExposureSeries(
 ): Promise<ExposureSeries> {
   const common = `latitude=${lat}&longitude=${lon}&past_days=3&forecast_days=2&timezone=auto`
   const wantsMonitors = options.airnow === true && inAirNowCoverage(lat, lon)
-  const [airRes, weatherRes, pollenDays, monitors] = await Promise.all([
+  // HMS's domain is North America, and `inAirNowCoverage` is the only
+  // North-America-shaped box this app has — drawn for the monitors, already
+  // tested, already the footprint the US-only half of the app lives in. Its
+  // edges are not HMS's: Canada and Mexico are inside the analysis and outside
+  // this box, and a Vancouver user gets no smoke variable because of it. That
+  // is the deliberate trade — outside the box the variable is *absent*, which
+  // is what a satellite that never looked at you actually says, where always
+  // fetching would write a 0 into a Paris vector and call it "no smoke". A
+  // second coverage box is the honest fix on the day someone north of the
+  // border wants one.
+  const wantsSmoke = inAirNowCoverage(lat, lon)
+  const [airRes, weatherRes, pollenDays, monitors, smokeNow] = await Promise.all([
     fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${common}&hourly=${AIR_VARS}`),
     fetch(`https://api.open-meteo.com/v1/forecast?${common}&hourly=${WEATHER_VARS}`),
     fetchPollen(lat, lon),
@@ -335,6 +400,8 @@ export async function fetchExposureSeries(
     wantsMonitors
       ? fetchAirNow(lat, lon).catch((): AirNowObservations | null => null)
       : Promise.resolve(null),
+    // `fetchSmoke` answers null rather than throwing, for the same reason.
+    wantsSmoke ? fetchSmoke(lat, lon) : Promise.resolve(null),
   ])
   if (!airRes.ok || !weatherRes.ok) {
     throw new Error(`Open-Meteo fetch failed (${airRes.status}/${weatherRes.status})`)
@@ -376,6 +443,15 @@ export async function fetchExposureSeries(
     }
     return day
   }
+
+  // Today's smoke is this evening's history, on exactly the pollen argument:
+  // HMS publishes the latest analysis and nothing behind it, so the trailing
+  // hours of the sparkline — and of the variable — exist only because earlier
+  // fetches wrote them down (hmsSmoke.ts). The key is the UTC hour, because
+  // the answer is about now and the series' own hour strings are local.
+  const nowUtcHour = `${new Date().toISOString().slice(0, 13)}:00`
+  if (smokeNow) rememberSmokeHour(lat, lon, nowUtcHour, smokeNow.density)
+  const smokeHours = recallSmokeHours(lat, lon)
 
   const measured = monitors !== null && coversExposureVector(monitors) ? monitors : null
   // Everything the monitors do not measure leaves the series with them: one
@@ -473,6 +549,34 @@ export async function fetchExposureSeries(
     // about the one thing it was standing in for — traffic, which
     // `near-traffic` now records as an observation instead.
     putDisplay('pm10', windowMean(pm10, i, 24))
+    // Smoke: a satellite density, gated on what the PM columns say about the
+    // air at ground level (specs/25-smoke-variable.md). No window — HMS is a
+    // nowcast and the plume either is overhead this hour or is not — and no
+    // seat for the forecast hours, which is why this is the one variable the
+    // curve stops at now.
+    //
+    // Three states, and the third is the point. A density with a gate that
+    // fires is the density; a density with a gate that refuses is 0, because
+    // the satellite did look and the air below the plume is not fine-mode; a
+    // density nobody has for this hour, or an hour whose PM cannot answer, is
+    // *absent* — the vector never carries a smoke reading that no instrument
+    // stands behind.
+    //
+    // Deliberately not source-scoped (engine/config.ts): the density is a
+    // satellite product that reads the same whether the PM columns came from
+    // CAMS or from a monitor, and the gate asks those columns a yes/no rather
+    // than putting their numbers in the vector. A source switch changes what
+    // "pm25 was 20" means; it does not change what "Medium plume overhead"
+    // means.
+    const utcHour = utcHourKey(time, air.utc_offset_seconds)
+    const hmsDensity: SmokeDensity | undefined =
+      i > currentIndex
+        ? undefined
+        : (smokeHours.get(utcHour) ?? (utcHour === nowUtcHour ? smokeNow?.density : undefined))
+    if (hmsDensity !== undefined) {
+      const gate = fineFractionGate(pm25, pm10, i)
+      if (gate !== null) put('smoke', gate ? hmsDensity : 0)
+    }
     // Both felt in the hour they are breathed, so no window. Relative
     // humidity used to ride along as a 72-hour mean stand-in for indoor mold
     // load; it pools at OR 1.05 on its own and pointed the wrong way as a
@@ -522,6 +626,11 @@ export async function fetchExposureSeries(
     putRaw('co', coColumn[i] ?? null)
     putRaw('dry_air', dryAir)
     putRaw('humid_heat', humidHeat)
+    // The density *before* the gate, which is what the smoke row's sparkline
+    // draws: the shape a person can check against the sky is "was there a
+    // plume", and a curve of the gated value would flatten every hour the PM
+    // columns had not posted yet into something that looked like clear air.
+    putRaw('hms_density', hmsDensity ?? null)
     // The dew-point row draws the reading itself, not either feature: the two
     // are one curve folded at 11 and 18, and a sparkline of a hinge would jump
     // to zero every time the air passed through comfortable.
@@ -545,6 +654,7 @@ export async function fetchExposureSeries(
     utcOffsetSeconds: air.utc_offset_seconds,
     source: measured ? AIRNOW_SOURCE : EXPOSURE_SOURCE,
     ...(measured ? { siteNames: siteNamesOf(measured) } : {}),
+    ...(smokeNow?.end ? { smokeAsOf: smokeNow.end } : {}),
   }
 }
 

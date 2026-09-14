@@ -12,6 +12,21 @@ The code being public is part of the privacy promise: read `src/index.ts`.
 | --- | --- | --- |
 | `GET /v1/airnow?lat=&lon=` | AirNow monitoring-site observations, 48 h of hourly concentrations in a ±0.25° box, plus today's reporting-area forecast for its Action Day flag | free |
 | `GET /v1/pollen?lat=&lon=` | Google Pollen 3-day forecast | metered |
+| `GET /v1/smoke?lat=&lon=` | NOAA HMS smoke plumes (USFS AirFire GeoJSON), point-in-polygon for the cell centre | free |
+
+`/v1/smoke` is the odd one out: its upstream is keyless, and it goes through the
+relay because the file is a ~230 KB national GeoJSON and the answer is one
+number. The file is cached whole under a single key (`smoke:file:v1`, one hour
+— it is republished at :37 past), and each cell's answer is cached under its
+own, so the common path never parses the file at all. It answers
+`{ density: 0|1|2|3, start, end, fetched }`, where 0 is "no plume over this
+cell", the density is the *worst* of the plumes containing it (they overlap),
+and start/end are that plume's observation window converted from HMS's
+`YYYYDDD HHMM`. Satellites need daylight to see smoke, so overnight the latest
+analysis is yesterday afternoon's and the client says "as of" with `end`. A
+file that does not parse answers density 0 with `stale: true` rather than an
+error — see `src/geo.ts`, which holds the geometry and is unit-tested off the
+root vitest config.
 
 AirNow allows 500 requests an hour per key per service and will not raise it;
 the hour of KV holds a grid cell to one call, well under. The route used to

@@ -10,6 +10,7 @@
  * the promise holds structurally from both ends — a bug in one is caught by
  * the other. Keys live in Wrangler secrets; nothing here reads them from git.
  */
+import { smokeAt } from './geo'
 
 export interface Env {
   AIRNOW_API_KEY: string
@@ -126,6 +127,61 @@ function forecastRequest(env: Env, lat: string, lon: string): Request {
   return new Request(u)
 }
 
+/**
+ * NOAA's Hazard Mapping System smoke analysis, republished hourly as GeoJSON
+ * by the Forest Service's AirFire group. No key, no auth, ~230 KB, updated at
+ * :37 past the hour — the one upstream here that is neither keyed nor metered,
+ * and it goes through the relay anyway because a browser cannot usefully pull
+ * a quarter-megabyte national file to answer one yes/no about one point.
+ */
+const HMS_SMOKE_URL =
+  'https://airfire-data-exports.s3.us-west-2.amazonaws.com/hms/v1/geojson/latest_smoke.geojson'
+
+/**
+ * The file itself, cached under one key for the whole planet — it is national
+ * and hourly, so per-cell file copies would be the same 230 KB written a dozen
+ * times. The per-cell answer is cached separately by `relay()`, which is what
+ * keeps the common path from parsing the file at all.
+ */
+const SMOKE_FILE_KEY = 'smoke:file:v1'
+
+/**
+ * One cell's smoke answer, built from the cached file when there is one.
+ *
+ * An upstream failure is returned as the upstream response so `relay()` passes
+ * its status through uncached, exactly as a dead AirNow does. A file that
+ * arrives but does not parse is *not* that case: it answers density 0 with
+ * `stale`, because "the bucket served something odd" and "there is no smoke
+ * claim for you" reach the client as the same silence either way, and an error
+ * status would make the client retry a file that is fine for everyone else.
+ */
+async function smokeAnswer(env: Env, lat: string, lon: string): Promise<Response> {
+  let text = (await env.CACHE?.get(SMOKE_FILE_KEY)) ?? null
+  if (text === null) {
+    const upstream = await fetch(HMS_SMOKE_URL)
+    if (!upstream.ok) return upstream
+    text = await upstream.text()
+    await env.CACHE?.put(SMOKE_FILE_KEY, text, { expirationTtl: TTL })
+  }
+  let file: unknown = null
+  try {
+    file = JSON.parse(text)
+  } catch {
+    file = null
+  }
+  return new Response(
+    JSON.stringify({
+      ...smokeAt(file, Number(lat), Number(lon)),
+      // When this answer was computed, which after an hour of KV is not when
+      // it was served. The client shows the polygon's own `end` to a person;
+      // this is here for the same reason `fetchedAt` is on the series — debug
+      // metadata, never a freshness claim.
+      fetched: new Date().toISOString(),
+    }),
+    { headers: { 'content-type': 'application/json' } },
+  )
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -239,6 +295,19 @@ export default {
           cors,
         )
       }
+
+      // Is there smoke over this cell, and how thick (specs/25-smoke-variable.md).
+      // The answer is the densest HMS plume containing the cell centre, with
+      // the window that plume was observed in — satellite smoke detection needs
+      // daylight, so overnight the newest analysis is yesterday afternoon's and
+      // the client has to be able to say "as of".
+      //
+      // Two caches, one hour each: the national file under one key, this cell's
+      // answer under its own. The second is what matters — point-in-polygon
+      // over 114 plumes is cheap, but parsing 230 KB of GeoJSON on every home
+      // screen is not.
+      case '/v1/smoke':
+        return relay(env, `smoke:v1:${lat},${lon}`, () => smokeAnswer(env, lat, lon), cors)
 
       default:
         return json({ error: 'unknown route' }, 404, cors)

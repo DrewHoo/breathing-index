@@ -58,13 +58,21 @@ export interface VariableLabel {
  * Particulate rows are named by size, not by source. "Smoke" and "Dust" were
  * causes the data cannot support — most metro PM2.5 is traffic and industry —
  * and the app's first rule is to describe the air without inventing a reason
- * for it. The one exception is the fine-fraction fingerprint in `ui/smoke.ts`,
- * which earns a row the sub-label "likely smoke" for as long as it holds.
+ * for it. The exceptions both come from the fine-fraction fingerprint in
+ * `ui/smoke.ts`: it earns the PM2.5 row the sub-label "likely smoke" for as
+ * long as it holds, and — where a satellite has drawn a plume over the place
+ * as well — it lets `smoke` be a row of its own (specs/25-smoke-variable.md).
+ * The row names a source because two independent instruments agreed on one,
+ * which is a different thing from a number wearing a guess about its origin.
  */
 export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   pm25: { name: 'Fine particles', sub: 'PM2.5', short: 'PM2.5', unit: 'µg/m³', plural: true },
   pm10: { name: 'Coarse particles', sub: 'PM10', short: 'PM10', unit: 'µg/m³', plural: true },
   o3: { name: 'Ozone', sub: 'O₃', short: 'ozone', unit: 'µg/m³' },
+  // "of 3" because the source's scale is three analyst-drawn steps — Light,
+  // Medium, Heavy — and nobody publishes a µg/m³ of smoke at a point. The one
+  // other row with an index for a unit is pollen, for the same reason.
+  smoke: { name: 'Smoke', short: 'smoke', unit: 'of 3' },
   // Retired from the vector (spec 24), kept for the same reason the retired
   // weather names below are: an entry logged before the diet still carries its
   // NO₂, and the diary line that prints it needs the words.

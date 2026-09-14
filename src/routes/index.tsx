@@ -819,6 +819,29 @@ interface AirRow {
  */
 const WINDOW_LABELS: Record<string, string> = { pm25: '24-h', pm10: '24-h', o3: '8-h' }
 
+/** HMS's three analyst-drawn steps, indexed by the density the relay returns. */
+const SMOKE_DENSITY_WORDS = ['', 'Light', 'Medium', 'Heavy']
+
+/**
+ * How old the plume behind the smoke row may be before the row says so. Three
+ * hours is roughly the span of one HMS analysis, so anything past it is a
+ * *previous* one — and overnight that is yesterday afternoon's, because the
+ * satellites need daylight to see smoke at all.
+ */
+const SMOKE_AS_OF_HOURS = 3
+
+/**
+ * An instant as the hour it was at the *place* being shown, not in the reader's
+ * own timezone: the rest of the table is on the location's local clock (the
+ * hourly curve, the freshness line), and a saved place three timezones away
+ * would otherwise carry an "as of" nobody there would recognise.
+ */
+const localHour = (iso: string, utcOffsetSeconds: number): string =>
+  new Date(Date.parse(iso) + utcOffsetSeconds * 1000).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    timeZone: 'UTC',
+  })
+
 function buildAirRows(
   data: ExposureSeries,
   model: TriggerModel,
@@ -838,6 +861,14 @@ function buildAirRows(
   // tomorrow.
   const likelySmoke = smokeFingerprint(current.raw)
 
+  // The gated satellite density (specs/25-smoke-variable.md). When it is above
+  // zero the table grows a Smoke row, and the PM2.5 row gives up its "likely
+  // smoke" sub-label: one claim belongs in one place, and the row with a named
+  // satellite behind it is the better place for it. Where HMS says nothing and
+  // the fingerprint still fires — a plume too thin to draw, or a place the
+  // analysis does not reach — the sub-label stays exactly as it was.
+  const smokeDensity = current.exposure.smoke ?? 0
+
   // Composable, because these say different things and a row can need all of
   // them: what the pollutant is, what span its number covers, what the
   // particulate looks like, and which instrument saw it.
@@ -845,7 +876,7 @@ function buildAirRows(
     [
       meta.sub,
       WINDOW_LABELS[key],
-      key === 'pm25' && likelySmoke ? 'likely smoke' : null,
+      key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null,
       data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : null,
     ]
       .filter((part): part is string => Boolean(part))
@@ -901,6 +932,42 @@ function buildAirRows(
       unit: meta.unit,
       status: { chip: NOT_GRADED },
       series: window.map((h) => h.raw.pm10 ?? null),
+    })
+  }
+
+  // Smoke, after the pollutants it is cut from and before the pollen
+  // (specs/25-smoke-variable.md). The row exists only when two instruments
+  // agree — HMS drew a plume over this cell *and* the particulate underneath
+  // it is fine-mode — so a zero never draws one: "no plume" is not a reading
+  // worth a row, it is the ordinary state of the sky.
+  //
+  // The number is the density itself, 1–3, because that is the whole scale the
+  // source publishes; the sub-label spends the words the number cannot on what
+  // Light means and who says so. "as of" appears only when the plume behind it
+  // has aged past three hours, which is most of every night: smoke detection
+  // needs daylight, so after dark the newest analysis is the afternoon's and a
+  // row that did not say so would be quietly claiming a live reading.
+  if (smokeDensity > 0) {
+    const meta = VARIABLE_LABELS.smoke!
+    const asOf = data.smokeAsOf
+    const aged = asOf !== undefined && Date.now() - Date.parse(asOf) > SMOKE_AS_OF_HOURS * 3_600_000
+    rows.push({
+      key: 'smoke',
+      name: meta.name,
+      sub: [
+        SMOKE_DENSITY_WORDS[smokeDensity],
+        'satellite',
+        aged ? `as of ${localHour(asOf!, data.utcOffsetSeconds)}` : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(' · '),
+      value: smokeDensity,
+      unit: meta.unit,
+      status: { variable: 'smoke', value: smokeDensity },
+      // The ungated density, so the curve draws the plume overhead rather than
+      // the hours the PM columns happened to have posted by.
+      series: window.map((h) => h.raw.hms_density ?? null),
+      tol: tolerance('smoke'),
     })
   }
 
