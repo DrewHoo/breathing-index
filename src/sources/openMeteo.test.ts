@@ -949,6 +949,8 @@ describe('mold from a counting station', () => {
     // Raw is what was read on the day itself, so the sparkline is a staircase
     // of daily counts rather than a flat line at the window's max.
     expect(now.raw.mold).toBe(3000)
+    // Counted today, so the hour is a reading and not a copy of one.
+    expect(now.carried).toBeUndefined()
     // Measured, current, counted: an entry logged here may confirm a bound.
     // (September ragweed is a calendar guess in this stub, which is why the
     // assertion is about the mold key rather than about the set being empty.)
@@ -994,6 +996,19 @@ describe('mold from a counting station', () => {
     // Nothing anywhere carries the bucket: not as Alternaria, not as itself.
     expect(now.exposure.mold_alternaria_aspergillus_penicillium).toBeUndefined()
     expect(now.exposure.mold_ascospores).toBeUndefined()
+  })
+
+  it('says which hours carry a count forward from an earlier day', async () => {
+    // The newest count is yesterday's. Every hour of today shows it — the
+    // best number there is — and says it is a copy, so the sparkline draws
+    // today dotted rather than as a count nobody took.
+    stubMoldDay({ mold: moldReading({ date: '2026-09-12', total: 5116 }) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    const now = series.hours[series.currentIndex]!
+    expect(now.raw.mold).toBe(5116)
+    expect(now.carried).toEqual(['mold'])
+    // Yesterday's count is a day old, not three: a copy, and not an estimate.
+    expect(now.estimated ?? []).not.toContain('mold')
   })
 
   it('marks every mold variable estimated when the newest count has aged out', async () => {

@@ -834,6 +834,14 @@ interface AirRow {
    * pulled every other hour's shape flat with it.
    */
   series: (number | null)[]
+  /**
+   * Parallel to `series`: true where the hour's number is the last reading
+   * copied forward rather than one taken that day (`Hour.carried`). The
+   * sparkline draws those hours dotted and ends in an open circle — "I don't
+   * know what it is yet" — instead of a solid line that claims a count nobody
+   * took. Only the mold row sets it today.
+   */
+  carried?: boolean[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
@@ -1158,6 +1166,7 @@ function buildAirRows(
       // a day is what a once-a-morning instrument looks like on an hourly axis,
       // and smoothing it would be drawing hours nobody counted.
       series: window.map((h) => h.raw.mold ?? null),
+      carried: window.map((h) => h.carried?.includes('mold') ?? false),
       tol: tolerance('mold'),
     })
   }
@@ -1477,7 +1486,13 @@ function AirTable({
                     {row.note.text}
                   </span>
                 ))}
-              <AirSpark series={row.series} tol={row.tol} invert={row.invert} name={row.name} />
+              <AirSpark
+                series={row.series}
+                carried={row.carried}
+                tol={row.tol}
+                invert={row.invert}
+                name={row.name}
+              />
               <div className="air-ticks" aria-hidden="true">
                 <span>−48 h</span>
                 <span>−24 h</span>
@@ -1502,11 +1517,14 @@ function AirTable({
  */
 function AirSpark({
   series,
+  carried,
   tol,
   invert,
   name,
 }: {
   series: (number | null)[]
+  /** parallel to `series`: hours whose number is a copy of the last reading */
+  carried?: boolean[]
   /** "your easy level" in the row's display units */
   tol?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
@@ -1533,20 +1551,35 @@ function AirSpark({
   // One sub-path per unbroken run of hours. The line simply stops where a
   // monitor did, which is the truth; joining across the gap would draw a
   // reading nobody took, and dropping to the floor would invent a clean hour.
-  const runs: { x: number; y: number }[][] = []
+  //
+  // A run also breaks where the hours turn from readings into copies of the
+  // last reading (`carried`), and the copied run is drawn dotted from the last
+  // real point — the two share that point so the line stays joined — because
+  // a solid line across a day nobody counted claims a count. Dotted, not
+  // dashed: dashes on this sparkline already mean the waterline.
+  const runs: { points: { x: number; y: number }[]; carried: boolean }[] = []
   let run: { x: number; y: number }[] = []
+  let runCarried = false
   series.forEach((v, i) => {
+    const isCarried = carried?.[i] ?? false
     if (v === null) {
-      if (run.length > 0) runs.push(run)
+      if (run.length > 0) runs.push({ points: run, carried: runCarried })
       run = []
     } else {
+      if (run.length > 0 && isCarried !== runCarried) {
+        runs.push({ points: run, carried: runCarried })
+        run = [run[run.length - 1]!]
+      }
+      if (run.length === 0) runCarried = isCarried
       run.push({ x: x(i), y: y(v) })
     }
   })
-  if (run.length > 0) runs.push(run)
+  if (run.length > 0) runs.push({ points: run, carried: runCarried })
   const trace = (points: { x: number; y: number }[]): string =>
     points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
-  const line = runs.map(trace).join(' ')
+  const line = runs.filter((r) => !r.carried).map((r) => trace(r.points)).join(' ')
+  const copied = runs.filter((r) => r.carried).map((r) => trace(r.points)).join(' ')
+  const endsCarried = carried?.[series.length - 1] ?? false
   const past = tol !== undefined && readings.some((v) => (invert ? v < tol : v > tol))
   const yTol = tol !== undefined ? y(tol) : 0
   return (
@@ -1555,11 +1588,11 @@ function AirSpark({
       viewBox="0 0 340 40"
       role="img"
       aria-label={
-        tol === undefined
+        (tol === undefined
           ? `${name}, past 48 hours.`
           : `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
               past ? ' The air was past it during this window.' : ''
-            }`
+            }`) + (copied ? ' The dotted end is the last count carried forward, not a new one.' : '')
       }
     >
       {past && (
@@ -1573,7 +1606,7 @@ function AirSpark({
           </clipPath>
           <path
             d={runs
-              .map((points) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
+              .map(({ points }) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
               .join(' ')}
             fill="var(--l3)"
             clipPath={`url(#${clip})`}
@@ -1611,15 +1644,38 @@ function AirSpark({
           </text>
         </>
       )}
-      <path
-        d={line}
-        fill="none"
-        stroke="var(--secondary)"
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
-      <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      {line && (
+        <path
+          d={line}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      )}
+      {copied && (
+        <path
+          d={copied}
+          fill="none"
+          stroke="var(--secondary)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeDasharray="0.1 4"
+        />
+      )}
+      {endsCarried ? (
+        <circle
+          cx={x(series.length - 1)}
+          cy={y(series[series.length - 1]!)}
+          r={3.5}
+          fill="var(--paper)"
+          stroke="var(--ink)"
+          strokeWidth={1.5}
+        />
+      ) : (
+        <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
+      )}
     </svg>
   )
 }

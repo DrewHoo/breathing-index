@@ -62,6 +62,14 @@ export interface Hour {
    */
   estimated?: string[]
   /**
+   * Raw keys whose value on this hour is the last reading copied forward from
+   * an earlier day rather than one taken on the hour's own day — `mold` on
+   * the Saturday after a Friday count. The number is still the best one
+   * there is, which is why `raw` carries it; this is what lets the sparkline
+   * draw the copy as a copy (dotted, open end) instead of as a reading.
+   */
+  carried?: string[]
+  /**
    * Set on the hours of a measured series whose air is still a model forecast.
    * AirNow has no hourly forecast — it publishes a daily category and nothing
    * that would draw a curve — and the home screen's "walk before 10 am" needs
@@ -1012,11 +1020,16 @@ export async function fetchExposureSeries(
     // the station posted — which is what a daily instrument honestly looks
     // like on an hourly axis.
     putRaw('mold', mold?.newest.total ?? null)
+    // A step's flat run is honest across the day the count was taken and a
+    // copy on every later day until the next count; the hour says which so
+    // the line can look different there.
+    const carried = mold && mold.newest.total !== null && mold.newest.date !== date ? ['mold'] : []
     putRaw('dry_spore_index', drySpore)
     return {
       time,
       ...(Object.keys(pollenTypes).length > 0 ? { pollenDisplay: pollenTypes } : {}),
       ...(estimatedKeys.size > 0 ? { estimated: [...estimatedKeys] } : {}),
+      ...(carried.length > 0 ? { carried } : {}),
       ...(measured && i > currentIndex ? { forecastSource: 'cams' as const } : {}),
       exposure,
       ...(Object.keys(display).length > 0 ? { display } : {}),
