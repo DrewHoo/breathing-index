@@ -103,7 +103,13 @@ export const AIRNOW_SOURCE = 'airnow'
 
 const AIR_VARS =
   'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
-const WEATHER_VARS = 'temperature_2m,relative_humidity_2m,dew_point_2m'
+/**
+ * Dew point is the whole weather ask (specs/23-dew-point-air.md). Temperature
+ * and relative humidity left with the features that were derived from them:
+ * both mechanisms this app models are about the water in the air, and a column
+ * no row shows and no variable is graded on is one nobody can check.
+ */
+const WEATHER_VARS = 'dew_point_2m'
 
 interface HourlyBlock {
   time: string[]
@@ -274,10 +280,10 @@ export interface ExposureOptions {
 /**
  * Fetch air quality + weather and derive per-hour exposure vectors using the
  * per-variable windows from docs/trigger-model.md — one window per mechanism
- * (o3: mean8h; pm25/pm10: mean24h; no2: the hour itself; heat/cold:
- * instantaneous; humidity: mean72h; grass pollen: the highest of the trailing
- * three local days; other pollen: its local day's index, daily being all any
- * pollen source resolves). This function is the only place windows live, and
+ * (o3: mean8h; pm25/pm10: mean24h; no2: the hour itself; dry air and humid
+ * heat: instantaneous; grass pollen: the highest of the trailing three local
+ * days; other pollen: its local day's index, daily being all any pollen
+ * source resolves). This function is the only place windows live, and
  * changing one renames the source (EXPOSURE_SOURCE). Pollen rides a separate
  * pipe (googlePollen.ts via the relay, today forward) with what earlier
  * fetches wrote down (pollenHistory.ts) behind it and the season calendar
@@ -331,8 +337,6 @@ export async function fetchExposureSeries(
   const co = series(air.hourly, 'carbon_monoxide')
   const usAqi = series(air.hourly, 'us_aqi')
   const eaqi = series(air.hourly, 'european_aqi')
-  const temp = series(weather.hourly, 'temperature_2m')
-  const rh = series(weather.hourly, 'relative_humidity_2m')
   const dew = series(weather.hourly, 'dew_point_2m')
 
   // Today's pollen is tomorrow's history: the only way the 3-day grass window
@@ -383,10 +387,26 @@ export async function fetchExposureSeries(
 
   const hours: Hour[] = times.map((time, i) => {
     const wi = weatherTimeIndex.get(time) ?? i
-    const t = temp[wi] ?? null
     const d = dew[wi] ?? null
-    const heatStress = t != null ? Math.max(0, t - 25) : null
-    const coldDryStress = t == null ? null : t < 10 && d != null && d < 2 ? 10 - t : 0
+    // Two one-sided features off one number (specs/23-dew-point-air.md).
+    //
+    // `dry_air`: the mechanism behind what everyone calls cold-air asthma is
+    // airway drying, and it is gated on the water content of inspired air
+    // rather than on temperature — bronchoconstriction needs air below
+    // 10 mg H₂O/L, which is a dew point of 11 °C / 52 °F. Evans et al. found
+    // cold adds nothing over dry. The feature this replaces gated on T < 10 °C,
+    // so a 20 °C April day with a 5 °C dew point read 0 while the air it
+    // described was drier than most of January.
+    //
+    // `humid_heat`: a separate reflex, not the other end of the same one —
+    // Hayes 2012 produced bronchoconstriction with hot humid hyperventilation
+    // and blocked it completely with ipratropium, so it is cholinergic. A dew
+    // point of 18 °C and up only occurs in hot air, so one number encodes hot
+    // and humid together and the vector keeps a dimension.
+    //
+    // Both absent when the dew point is, never 0: a gap is not a mild day.
+    const dryAir = d == null ? null : Math.max(0, 11 - d)
+    const humidHeat = d == null ? null : Math.max(0, d - 18)
     // The engine may only reason about variables the app can show the user, so
     // so2 and co stay out of the exposure vector until the air table has rows
     // for them: an evidence line must never cite a number nobody can check.
@@ -405,9 +425,13 @@ export async function fetchExposureSeries(
     put('pm10', windowMean(pm10, i, 24))
     put('o3', windowMean(o3, i, 8))
     put('no2', no2Column[i] ?? null)
-    put('heat_stress', heatStress)
-    put('cold_dry_stress', coldDryStress)
-    put('humidity', windowMean(rh, wi, 72))
+    // Both felt in the hour they are breathed, so no window. Relative
+    // humidity used to ride along as a 72-hour mean stand-in for indoor mold
+    // load; it pools at OR 1.05 on its own and pointed the wrong way as a
+    // mold proxy — Alternaria and Cladosporium are dry-weather spores
+    // (specs/28-mold.md) — so it leaves the vector rather than be re-aimed.
+    put('dry_air', dryAir)
+    put('humid_heat', humidHeat)
     // Pollen resolves by local day, not hour, so a day's index stands in for
     // every hour of it. Grass is the exception on the other axis: its exposure
     // is the highest of the trailing three days, because that is the shape of
@@ -449,10 +473,12 @@ export async function fetchExposureSeries(
     putRaw('no2', no2Column[i] ?? null)
     putRaw('so2', so2Column[i] ?? null)
     putRaw('co', coColumn[i] ?? null)
-    putRaw('heat_stress', heatStress)
-    putRaw('cold_dry_stress', coldDryStress)
-    putRaw('humidity', rh[wi] ?? null)
-    putRaw('temp', t)
+    putRaw('dry_air', dryAir)
+    putRaw('humid_heat', humidHeat)
+    // The dew-point row draws the reading itself, not either feature: the two
+    // are one curve folded at 11 and 18, and a sparkline of a hinge would jump
+    // to zero every time the air passed through comfortable.
+    putRaw('dewpoint', d)
     return {
       time,
       ...(Object.keys(pollenTypes).length > 0 ? { pollenDisplay: pollenTypes } : {}),

@@ -108,16 +108,16 @@
       ]
     },
     {
-      "name": "U-shaped temperature via one-sided encoding: cold-dry day attributes cleanly",
-      "why": "Expectation widened for exact matching: the level-2 bound this day always implied is now written down.",
-      "$comment": "Inference only ever sees monotone features; heat_stress and cold_dry_stress are separate dimensions, so a cold trigger says nothing about hot days.",
+      "name": "U-shaped dew point via one-sided encoding: dry-air day attributes cleanly",
+      "why": "Rewritten on dry_air/humid_heat (spec 23); the shape is unchanged, because the U was always a feature-extraction concern and never an engine one. Expectation widened for exact matching: the level-2 bound this day always implied is now written down.",
+      "$comment": "Inference only ever sees monotone features; dry_air and humid_heat are separate dimensions cut from one dew point, so a dry-air trigger says nothing about muggy days. dry_air 8 is a 3 °C dew point; humid_heat 6 is a 24 °C one.",
       "diary": [
-        { "rating": 3, "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 8 } }
+        { "rating": 3, "exposure": { "pm25": 4, "o3": 5, "humid_heat": 0, "dry_air": 8 } }
       ],
-      "expectConfirmed": { "cold_dry_stress": { "2": 8, "3": 8 } },
+      "expectConfirmed": { "dry_air": { "2": 8, "3": 8 } },
       "predict": [
-        { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 6, "cold_dry_stress": 0 }, "expect": [1, 1] },
-        { "exposure": { "pm25": 4, "o3": 5, "heat_stress": 0, "cold_dry_stress": 9 }, "expect": [3, 3] }
+        { "exposure": { "pm25": 4, "o3": 5, "humid_heat": 6, "dry_air": 0 }, "expect": [1, 1] },
+        { "exposure": { "pm25": 4, "o3": 5, "humid_heat": 0, "dry_air": 9 }, "expect": [3, 3] }
       ]
     },
     {

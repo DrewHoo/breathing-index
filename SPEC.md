@@ -61,9 +61,10 @@ examples: **[docs/trigger-model.md](docs/trigger-model.md)**; test fixtures the 
 pass: `tests/fixtures/trigger-cases.json`. The short version:
 
 - A **diary entry** = a 1–4 rating + the full exposure vector captured at log time. The vector is
-  **not just pollutants**: heat stress, cold-dry stress, humidity (multi-day window, as an indoor
-  mold/dust-mite proxy), and pollen enter as additional dimensions under the same semantics —
-  non-monotone variables like temperature are split into one-sided stress features first.
+  **not just pollutants**: dry air and humid heat — two one-sided features cut from the hour's
+  dew point, which is the number both mechanisms are actually gated on — and pollen enter as
+  additional dimensions under the same semantics; non-monotone variables like the weather are
+  split into one-sided features first.
 - Per variable and level, the user has unknown thresholds; the model learns **bounds** on them.
 - A *fine* day is unambiguous tolerance evidence for **every** pollutant (nothing triggered you).
   A *bad* day is an ambiguous constraint over its elevated pollutants — resolved only when later
@@ -84,7 +85,7 @@ pass: `tests/fixtures/trigger-cases.json`. The short version:
 | **Open-Meteo Air Quality API** | CAMS *model* data | none | ✅ yes | Default source. Free, no key, returns per-pollutant µg/m³ + US AQI + EU AQI, hourly, worldwide. Being model output, it can miss hyper-local smoke. |
 | **AirNow API** (EPA) | Station measurements | free API key | key exposed client-side (acceptable: free tier, user-owned key) | Ground truth for US. User pastes their own key in settings → localStorage. |
 | **PurpleAir** | ~~Crowdsourced sensors~~ | — | — | **Removed on licence grounds** ([21](specs/21-airnow-migration.md)): its terms forbid combining the data with open-source code, and this repo is public. If hyper-local PM is ever wanted, AirGradient's public world endpoint is keyless and licence-clean. |
-| **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Temperature, humidity, dew point — feeds the heat/cold-dry/humidity exposure variables. Free, global. |
+| **Open-Meteo Weather API** | Model/observations | none | ✅ yes | Dew point — feeds the `dry_air` and `humid_heat` exposure variables, the one number both weather mechanisms are gated on ([23](specs/23-dew-point-air.md)). Free, global. |
 | **Pollen** | CAMS model (EU) / calendar prior (US) | none | ✅ yes | Open-Meteo serves per-species pollen for **Europe only** (verified `null` for US). US fallback: calendar-region priors in `src/sources/pollenCalendar.ts` (NOAA climate region × month × species, at NAB band low edges — e.g. CT ragweed ≈ Aug–Oct), recorded as `estimated` so they can suspect but never confirm. Upgrade path: Google Pollen API or Ambee as user-keyed plugins, same variable names. |
 
 Architecture treats sources as plugins behind one interface: `fetch(lat, lon) → { pollutant: {value, unit, time} }`. The UI can display sources side-by-side ("model says 18 µg/m³, nearest sensor says 34") — disagreement is itself signal that smoke is hyper-local.

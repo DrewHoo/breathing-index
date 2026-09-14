@@ -152,10 +152,11 @@ interface EvidenceRowData {
 }
 
 function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceRowData[] {
-  const fmtTempStress = (side: 'heat_stress' | 'cold_dry_stress', stress: number): string => {
-    const celsius = side === 'heat_stress' ? 25 + stress : 10 - stress
-    return `${Math.round(displayTemperature(celsius, tempUnit))} °${tempUnit}`
-  }
+  // Every weather feature is a distance from a threshold, and nobody can
+  // picture a distance. Fold it back through the threshold it was measured
+  // from and the row reads as air a person could stand outside in.
+  const fmtAt = (celsius: number): string =>
+    `${Math.round(displayTemperature(celsius, tempUnit))} °${tempUnit}`
   const summarize = (variable: string, fmt: (v: number) => string): Omit<EvidenceRowData, 'name'> => {
     const confirmed = model.confirmed[variable]
     const level = ([4, 3, 2] as const).find((l) => confirmed?.[l] !== undefined)
@@ -195,11 +196,23 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
     { name: variableName('o3'), ...summarize('o3', bare) },
     { name: variableName('pm10'), ...summarize('pm10', bare) },
     { name: variableName('no2'), ...summarize('no2', bare) },
-    { name: 'Heat', ...summarize('heat_stress', (v) => fmtTempStress('heat_stress', v)) },
-    { name: 'Humidity', ...summarize('humidity', (v) => `${Math.round(v)}%`) },
+    // Both bounds are dew points once folded back: dry air is counted down
+    // from 11 °C, humid heat up from 18 °C (specs/23-dew-point-air.md).
+    { name: variableName('dry_air'), ...summarize('dry_air', (v) => fmtAt(11 - v)) },
+    { name: variableName('humid_heat'), ...summarize('humid_heat', (v) => fmtAt(18 + v)) },
   ]
-  const cold = summarize('cold_dry_stress', (v) => fmtTempStress('cold_dry_stress', v))
-  if (cold.cls !== '') rows.splice(5, 0, { name: 'Cold, dry', ...cold })
+  // Retired weather features (pre-spec-23). They earn a row only while an old
+  // entry still has something to say about one — the same rule pollen follows,
+  // and the reason the names survive in config and labels at all.
+  const retired: [string, (v: number) => string][] = [
+    ['heat_stress', (v) => fmtAt(25 + v)],
+    ['cold_dry_stress', (v) => fmtAt(10 - v)],
+    ['humidity', (v) => `${Math.round(v)}%`],
+  ]
+  for (const [variable, fmt] of retired) {
+    const row = summarize(variable, fmt)
+    if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
+  }
   // Pollen earns a line once the diary has a verdict on a species — named by
   // species, since that is what the evidence is about. Outside Europe it is
   // usually a calendar estimate, which can reach "suspect" and no further.
@@ -300,7 +313,10 @@ function groupByDay(diary: DiaryEntry[]): { label: string; entries: DiaryEntry[]
   return groups
 }
 
-const OBSERVATION_LABELS: Record<string, string> = { 'worse-outdoors': 'worse outdoors' }
+const OBSERVATION_LABELS: Record<string, string> = {
+  'worse-outdoors': 'worse outdoors',
+  exercising: 'exercising',
+}
 
 /** "PM2.5 38 · ozone 165 — “walk cut short at the park”" */
 function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
@@ -324,13 +340,28 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
       parts.push({ ratio: v / prior, text: `${VARIABLE_LABELS[key]!.short} ${Math.round(v)}` })
     }
   }
+  // The weather part of the line is one dew point, folded back out of
+  // whichever side is active. An entry logged before spec 23 has neither
+  // feature and falls through to the temperature it was logged with, off the
+  // old 25/10 anchors — the number it showed the day it was saved.
+  const dry = entry.exposure.dry_air ?? 0
+  const humid = entry.exposure.humid_heat ?? 0
   const heat = entry.exposure.heat_stress ?? 0
   const cold = entry.exposure.cold_dry_stress ?? 0
-  if (heat > 0 || cold > 0) {
-    const celsius = heat > 0 ? 25 + heat : 10 - cold
+  const weather: { stress: number; variable: string; celsius: number } | null =
+    dry > 0
+      ? { stress: dry, variable: 'dry_air', celsius: 11 - dry }
+      : humid > 0
+        ? { stress: humid, variable: 'humid_heat', celsius: 18 + humid }
+        : heat > 0
+          ? { stress: heat, variable: 'heat_stress', celsius: 25 + heat }
+          : cold > 0
+            ? { stress: cold, variable: 'cold_dry_stress', celsius: 10 - cold }
+            : null
+  if (weather) {
     parts.push({
-      ratio: (heat > 0 ? heat : cold) / 7,
-      text: `${Math.round(displayTemperature(celsius, tempUnit))}°${tempUnit}`,
+      ratio: weather.stress / (PRIORS[weather.variable]?.[2] ?? 1),
+      text: `${Math.round(displayTemperature(weather.celsius, tempUnit))}°${tempUnit}`,
     })
   }
   const line = parts

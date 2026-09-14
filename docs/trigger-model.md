@@ -23,9 +23,8 @@ explicitly, instead of pretending a weighted score resolves it.
       "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
       "pm10": { "now": 15.5, "mean24h": 13.1 },        // µg/m³
       "no2":  { "now": 12.0 },                         // µg/m³
-      "heat_stress":     { "now": 1.2 },               // °C above 25
-      "cold_dry_stress": { "now": 0.0 },               // °C below 10, gated on low humidity
-      "humidity":        { "mean72h": 68.0 },          // %RH, multi-day (mold/dust-mite lag)
+      "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
+      "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
       "pollen_graminales": { "max3d": 4 }              // 0–5 index, highest of three local days
     }
   }
@@ -46,8 +45,7 @@ window chosen to match its mechanism of action:
 | o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
 | pm25, pm10 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
 | no2 | `now` | acts within the hour it is breathed; a 45 km model cell has nothing longer to say about a gas whose gradients are sub-kilometer |
-| heat_stress, cold_dry_stress | `now` | felt immediately |
-| humidity | `mean72h` | drives indoor mold/dust-mite load, which builds over days |
+| dry_air, humid_heat | `now` | felt in the hour they are breathed; both are cut from the dew point that hour |
 | grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
 | tree, weed pollen (per plant) | the local day's index | no evidence for a longer window, and tree pollen's asthma signal is weak to begin with (it is mostly a rhinitis story) |
 
@@ -229,11 +227,29 @@ The model is deliberately **variable-agnostic**: nothing above is specific to po
 heat, cold-dry air, and pollen species enter the exposure vector as additional dimensions, and
 tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs and consequences:
 
-- **Monotone encoding is mandatory.** The model assumes "more = worse," but temperature is
-  U-shaped for asthma (heat stress *and* cold-dry bronchospasm). Non-monotone variables are split
-  into one-sided stress features before inference: `heat_stress = max(0, T − 25°C)`,
-  `cold_dry_stress = max(0, 10°C − T)` gated on low absolute humidity. The inference engine only
+- **Monotone encoding is mandatory.** The model assumes "more = worse," but the weather is
+  U-shaped for asthma — there is a bad end in each direction and a wide comfortable middle.
+  Non-monotone variables are split into one-sided features before inference, and the number both
+  sides are cut from is the **dew point** rather than the temperature:
+  `dry_air = max(0, 11°C − dew)`, `humid_heat = max(0, dew − 18°C)`. The inference engine only
   ever sees monotone features; U-shapes are a feature-extraction concern.
+
+  The thresholds are mechanisms, not round numbers. What gets called cold-air asthma is airway
+  drying, gated on the water content of inspired air: bronchoconstriction needs air below
+  10 mg H₂O/L, which is a dew point of 11 °C / 52 °F, and Evans et al. found cold adds nothing
+  over dry. A temperature gate gets this wrong in both directions — a 20 °C April day at a 5 °C
+  dew point is drier than most of January and used to read 0. Hot humid air is a *different*
+  reflex, cholinergic rather than osmotic: Hayes 2012 produced bronchoconstriction with hot humid
+  hyperventilation and blocked it completely with ipratropium. A dew point of 18 °C and up only
+  occurs in hot air, so one number encodes hot and humid together. Relative humidity used to ride
+  along as a 72-hour mean; it pools at OR 1.05 on its own, and as an outdoor mould proxy it had
+  the wrong sign — Alternaria and Cladosporium are dry-weather spores — so it left the vector
+  rather than be re-aimed (specs/23-dew-point-air.md, specs/28-mold.md).
+
+  What the engine still cannot see is the other half of the drying dose: airway drying engages
+  only above about 30 L/min of ventilation, and nasal breathing nearly cancels it, so the same
+  dry air is a different exposure depending on what the user was doing in it. `exercising` is
+  recorded as an observation tag for that reason and is not yet read.
 - **The real cost is identifiability, not code.** Each added variable enlarges candidate sets on
   bad days, and disambiguation needs days where variables *decorrelate* — which nature may rarely
   supply (ozone forms photochemically on hot days, so heat and ozone travel together; humidity and
@@ -247,8 +263,9 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   Surface it as: "None of the things I track explains today. Was it something else — pollen,
   being sick, indoor air?" Conflicts of this shape are the app's feature-discovery mechanism.
 - **Indoor proxies are proxies.** Outdoor humidity drives indoor mold/dust-mite load only roughly
-  (dehumidifiers, AC). v1 accepts outdoor RH with a long window; an indoor sensor source is the
-  honest v2 upgrade.
+  (dehumidifiers, AC), which is half of why it is no longer in the vector — the other half being
+  that it pointed the wrong way for the spores that matter. Nothing proxies indoor air today; a
+  measured mould source (specs/28-mold.md) and an indoor sensor are the honest upgrades.
 - **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
   only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
   prior per species (e.g. CT ragweed ≈ Aug–Oct), with an upgrade path to a measured source
@@ -279,11 +296,19 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
 Confounders are reasons to *distrust* an entry, so inference excludes it. Observation tags record
 something the user noticed that *sharpens* the entry — a within-day dose-response signal.
 
-**`worse-outdoors`** (v1's only observation): symptoms tracked with being outside. Every entry
-already implicitly blames outdoor air (the exposure vector is outdoor data); this tag makes the
-implication explicit, so variables that proxy *indoor* exposure (`humidity`, the mold/dust-mite
-proxy — see `INDOOR_PROXY_VARIABLES` in engine config) are removed from the entry's candidate
-sets. On a muggy smoke day that can collapse {pm25, humidity} to a singleton confirmation.
+**`worse-outdoors`**: symptoms tracked with being outside. Every entry already implicitly blames
+outdoor air (the exposure vector is outdoor data); this tag makes the implication explicit, so
+variables that proxy *indoor* exposure (see `INDOOR_PROXY_VARIABLES` in engine config) are removed
+from the entry's candidate sets. On a muggy smoke day that could collapse {pm25, humidity} to a
+singleton confirmation. The set holds only the retired `humidity` today, because the live vector
+has no indoor proxy in it — the tag strips nothing from a new entry and keeps meaning exactly what
+it meant on an old one, which is the whole reason the name stayed in the set.
+
+**`exercising`**: the user was working hard in this air. Airway drying engages only above about
+30 L/min of ventilation and nasal breathing nearly cancels it, so exertion is the half of a
+`dry_air` dose no feed can measure. v1 records it and the engine ignores it; sharpening on it
+would mean raising a candidate's weight rather than striking one out, which is a different shape
+from the exclusion above.
 
 Two consequences worth naming:
 
@@ -336,6 +361,12 @@ from an 8-hour max to a 24-hour mean, "PM2.5 was 22" stopped describing the quan
 learned about. The engine cannot version a bound per variable and does not need to — a window
 change *is* a source change, and it already knows what one of those means.
 
+Weather has no such escape hatch: it comes from a different pipe and is deliberately not
+source-scoped, so when a weather variable is retired (`heat_stress`, `cold_dry_stress` and
+`humidity`, replaced by the dew-point pair in specs/23-dew-point-air.md) its bounds stay live in
+the model rather than going inert — harmless only for as long as no exposure vector carries the
+name, which is why a retired variable name is never reused for a different quantity.
+
 Every learned bound therefore records the source it came
 from, and a source switch starts a **fresh bound set** for the variables that source measures
 (`SOURCE_SCOPED_VARIABLES` in engine config: the air-quality pollutants; weather comes from a
@@ -359,7 +390,7 @@ must pass them. Prose versions:
 | 7 | Confirmed θ_pm25,2 ≤ 12, then rating 1 @ (pm25 18) | Conflict flagged; recency wins: tolerance 18 stands, confirmation dropped from inference. |
 | 8 | Rating 3 @ (pm25 25, o3 10), confounders ["sick"] | No constraints extracted; diary keeps the entry. |
 | 9 | Rating 4 @ (pm25 40, o3 20) | Evidence cascades: constraints extracted for levels 2, 3, **and** 4 (a level-4 day also proves levels 2–3 were reached). |
-| 10 | Rating 3 @ (pm25 4, o3 5, cold_dry 8) | U-shape via encoding: cold_dry_stress is the singleton candidate → confirmed. A hot day (heat_stress 6, cold_dry 0) predicts [1,1]; another cold-dry day predicts [3,3]. |
+| 10 | Rating 3 @ (pm25 4, o3 5, dry_air 8) | U-shape via encoding: `dry_air` is the singleton candidate → confirmed. A muggy day (humid_heat 6, dry_air 0) predicts [1,1]; another dry day predicts [3,3]. |
 | 11 | Rating 1 @ (pm25 20, o3 100), then rating 3 @ (pm25 15, o3 80) | Empty candidate set → conflict flagged as probable **unmodeled trigger** (pollen? indoor?); no constraints forced onto modeled variables. |
 | 12 | Rating 3 @ (o3 150, heat_stress 6) | Correlated pair stays ambiguous: o3-only → [1,3], heat-only → [1,3], but the repeat combo → [3,3]. Attribution waits for a hot-clean-air day; prediction doesn't. |
 | 13 | Prior "o3 potentially 3 at 160"; rating 2 @ (o3 168), again @ (o3 170) | *Repeated* personal tolerance suppresses the prior: o3 165 → [1,2], not [1,3]. Above the tolerated exposure (o3 180) the prior reactivates → [2,3]. |
