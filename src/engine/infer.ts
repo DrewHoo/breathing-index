@@ -37,12 +37,26 @@ const REPETITIONS = 2
 
 /** Variables an entry's observations rule out as candidates. */
 function excludedCandidates(entry: InferenceEntry): ReadonlySet<string> {
-  // `exercising` is the other observation the app records, and nothing here
-  // reads it yet (specs/23-dew-point-air.md): airway drying engages only above
+  // Two other observations are recorded and nothing here reads either yet.
+  // They are the same shape of problem: each says the *dose* differed from
+  // what the feed measured, which would mean raising a candidate's weight
+  // rather than striking one out — not a shape this function has. Sharpening
+  // on them is a later spec's job.
+  //
+  // `exercising` (specs/23-dew-point-air.md): airway drying engages only above
   // about 30 L/min of ventilation and nasal breathing nearly cancels it, so
-  // the tag is the missing half of a `dry_air` dose. Sharpening on it is a
-  // later spec's job — it would need to raise a candidate's weight rather than
-  // strike one out, which is not a shape this function has.
+  // the tag is the missing half of a `dry_air` dose.
+  //
+  // `near-traffic` (specs/24-vector-diet.md): the traffic mixture is invisible
+  // in everything this app fetches. Karner 2010 pooled 41 roadside studies and
+  // found PM2.5 *mass* has essentially no gradient with distance from a road,
+  // while ultrafines, black carbon, NO₂ and CO decay sharply within a few
+  // hundred metres — and the Oxford Street crossover, where two hours on a
+  // traffic street cost 6.1 % of FEV₁ against the same walk in Hyde Park,
+  // tracked the ultrafines. No public network measures those, so the PM2.5 row
+  // can be perfectly honest and still miss the exposure. NO₂ was the nearest
+  // proxy and never a usable one at 45 km, which is part of why it left the
+  // vector in the same spec. The tag is the only handle v1 has on any of it.
   return entry.observations?.includes('worse-outdoors') ? INDOOR_PROXY_VARIABLES : NO_EXCLUSIONS
 }
 

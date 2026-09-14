@@ -96,8 +96,9 @@ describe('choosing a monitor', () => {
   })
 
   it('will not carry a series without both particles and ozone', () => {
-    // NO₂ is absent from every AirNow series by design, so it is not on the
-    // list; ozone is, and without it the series falls back to the model.
+    // PM2.5 and ozone are the whole vector a station series has to carry
+    // (specs/24-vector-diet.md), so the bar is both of them: without ozone the
+    // series falls back to the model.
     const particlesOnly = parseAirNow({ observations: [row({})] }, HAMDEN.lat, HAMDEN.lon)!
     expect(particlesOnly.monitors.o3).toBeUndefined()
     expect(coversExposureVector(particlesOnly)).toBe(false)

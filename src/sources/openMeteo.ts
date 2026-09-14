@@ -20,6 +20,16 @@ export interface Hour {
   exposure: Exposure
   /** raw instantaneous values for display, keyed like exposure variables */
   raw: Record<string, number>
+  /**
+   * Window features for variables the app shows and the engine does not grade
+   * — `pm10` alone today (specs/24-vector-diet.md). A display-only row still
+   * owes the reader the same quantity a graded row shows, a trailing mean
+   * rather than the top of the hour, or one column would be carrying two
+   * different claims. Same null discipline as `exposure`: a window holding no
+   * data is absent, never 0. Optional because series cached by earlier
+   * versions are re-read from localStorage and predate the field.
+   */
+  display?: Record<string, number>
   /** official composite indices, for scoreboard receipts only */
   official: { usAqi: number | null; eaqi: number | null }
   /**
@@ -101,8 +111,15 @@ export const EXPOSURE_SOURCE = 'cams-w2'
  */
 export const AIRNOW_SOURCE = 'airnow'
 
-const AIR_VARS =
-  'pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
+/**
+ * `nitrogen_dioxide` left with the variable (specs/24-vector-diet.md): nothing
+ * reads the column any more, so asking for it would be a field nobody parses.
+ * `sulphur_dioxide` and `carbon_monoxide` stay — they have never been in the
+ * vector either, but they are fetched against the day spec 20 admits them by
+ * region, and until then they sit in `raw` where the region rule can find
+ * them.
+ */
+const AIR_VARS = 'pm2_5,pm10,ozone,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
 /**
  * Dew point is the whole weather ask (specs/23-dew-point-air.md). Temperature
  * and relative humidity left with the features that were derived from them:
@@ -280,10 +297,12 @@ export interface ExposureOptions {
 /**
  * Fetch air quality + weather and derive per-hour exposure vectors using the
  * per-variable windows from docs/trigger-model.md — one window per mechanism
- * (o3: mean8h; pm25/pm10: mean24h; no2: the hour itself; dry air and humid
- * heat: instantaneous; grass pollen: the highest of the trailing three local
- * days; other pollen: its local day's index, daily being all any pollen
- * source resolves). This function is the only place windows live, and
+ * (o3: mean8h; pm25: mean24h; dry air and humid heat: instantaneous; grass
+ * pollen: the highest of the trailing three local days; other pollen: its
+ * local day's index, daily being all any pollen source resolves). PM10 gets
+ * the same 24-hour mean and lands in `display` rather than `exposure`: the
+ * row shows it, the engine never grades it (specs/24-vector-diet.md). This
+ * function is the only place windows live, and
  * changing one renames the source (EXPOSURE_SOURCE). Pollen rides a separate
  * pipe (googlePollen.ts via the relay, today forward) with what earlier
  * fetches wrote down (pollenHistory.ts) behind it and the season calendar
@@ -332,7 +351,6 @@ export async function fetchExposureSeries(
     pm10: series(air.hourly, 'pm10'),
     o3: series(air.hourly, 'ozone'),
   }
-  const no2 = series(air.hourly, 'nitrogen_dioxide')
   const so2 = series(air.hourly, 'sulphur_dioxide')
   const co = series(air.hourly, 'carbon_monoxide')
   const usAqi = series(air.hourly, 'us_aqi')
@@ -360,11 +378,20 @@ export async function fetchExposureSeries(
   }
 
   const measured = monitors !== null && coversExposureVector(monitors) ? monitors : null
-  // Everything the monitors do not measure leaves the series with them. NO₂ is
-  // the one that matters: AirNow rarely reports it, and under the null
-  // discipline an absent variable is unknown, not clean — a CAMS number
+  // Everything the monitors do not measure leaves the series with them: one
+  // source per series is what learned bounds are scoped to, and a CAMS number
   // smuggled into a station series would be a bound learned against the wrong
-  // instrument. SO₂ and CO are display-only leftovers and go for company.
+  // instrument. Under the null discipline the absence says "unknown", which is
+  // the truth, rather than a zero that would read as clean.
+  //
+  // SO₂ and CO are all that is left here. They are fetched, they land in `raw`,
+  // and they are deliberately *not* in the exposure vector: an evidence line
+  // may only cite a number the user can check, and neither has a row in the
+  // air table. specs/20-baseline-bad-air.md admits them where they actually
+  // drive asthma — SO₂ near smelters and volcanic haze, CO in cookstove
+  // regions — by region, and that region rule is the guard. Absent one, they
+  // stay out of the US vector rather than arriving as two more dimensions
+  // nobody in Connecticut has a bad day from.
   const modelOnly = (column: (number | null)[]): (number | null)[] =>
     measured ? times.map(() => null) : column
   const column = (variable: AirNowVariable): (number | null)[] =>
@@ -381,7 +408,6 @@ export async function fetchExposureSeries(
   const pm25 = column('pm25')
   const pm10 = column('pm10')
   const o3 = column('o3')
-  const no2Column = modelOnly(no2)
   const so2Column = modelOnly(so2)
   const coColumn = modelOnly(co)
 
@@ -414,17 +440,39 @@ export async function fetchExposureSeries(
     const put = (variable: string, x: number | null): void => {
       if (x !== null) exposure[variable] = x
     }
+    // The display half of the same discipline: a number the row prints and no
+    // candidate set ever contains (specs/24-vector-diet.md).
+    const display: Record<string, number> = {}
+    const putDisplay = (variable: string, x: number | null): void => {
+      if (x !== null) display[variable] = x
+    }
     // One window per mechanism (specs/22-exposure-windows.md). PM's published
     // breakpoints are 24-hour means and the ED-visit epidemiology runs at lag
     // 0–2 days, so the day is the unit. Ozone's are 8-hour means, and AirNow's
     // ozone number is a NowCast of the same shape — a max of hourlies graded
-    // against a mean prior over-warns by construction. NO₂ acts within the
-    // hour it is breathed, and a 45 km model cell has nothing longer to say
-    // about a gas whose gradients are sub-kilometer.
+    // against a mean prior over-warns by construction.
     put('pm25', windowMean(pm25, i, 24))
-    put('pm10', windowMean(pm10, i, 24))
     put('o3', windowMean(o3, i, 8))
-    put('no2', no2Column[i] ?? null)
+    // PM10 is computed on PM2.5's window and then kept out of the vector
+    // (specs/24-vector-diet.md). Coarse PM has weak independent evidence for
+    // acute asthma, and PM10 is *PM2.5 plus the coarse fraction* — so it
+    // co-moves with PM2.5 by construction and inflated every candidate set
+    // with a variable no clean day could ever separate from it. The row keeps
+    // the number, because a person should be able to see how much coarse
+    // particulate is outside; the engine keeps its identifiability. Where
+    // coarse PM matters on its own — dust storms, RR 1.06 at lag 0–3 —
+    // specs/20-baseline-bad-air.md adds `dust` as its own variable rather than
+    // asking this one to mean two things.
+    //
+    // NO₂ left the vector in the same spec and left nothing behind: no row, no
+    // column, no fetch. Controlled-exposure meta-analyses find it
+    // statistically significant and clinically marginal, with no dose-response
+    // between 100 and 600 ppb; where it earns its keep is as an amplifier
+    // after allergen challenge, which is not a dimension this model has. And
+    // NO₂ gradients are sub-kilometer, so a 45 km CAMS cell reads as noise
+    // about the one thing it was standing in for — traffic, which
+    // `near-traffic` now records as an observation instead.
+    putDisplay('pm10', windowMean(pm10, i, 24))
     // Both felt in the hour they are breathed, so no window. Relative
     // humidity used to ride along as a 72-hour mean stand-in for indoor mold
     // load; it pools at OR 1.05 on its own and pointed the wrong way as a
@@ -470,7 +518,6 @@ export async function fetchExposureSeries(
     putRaw('pm25', pm25[i] ?? null)
     putRaw('pm10', pm10[i] ?? null)
     putRaw('o3', o3[i] ?? null)
-    putRaw('no2', no2Column[i] ?? null)
     putRaw('so2', so2Column[i] ?? null)
     putRaw('co', coColumn[i] ?? null)
     putRaw('dry_air', dryAir)
@@ -485,6 +532,7 @@ export async function fetchExposureSeries(
       ...(estimatedPollen.size > 0 ? { estimated: [...estimatedPollen] } : {}),
       ...(measured && i > currentIndex ? { forecastSource: 'cams' as const } : {}),
       exposure,
+      ...(Object.keys(display).length > 0 ? { display } : {}),
       raw,
       official: { usAqi: usAqi[i] ?? null, eaqi: eaqi[i] ?? null },
     }

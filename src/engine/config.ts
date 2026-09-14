@@ -113,18 +113,29 @@ export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
  * no2/so2/co are WHO (and one EU) guideline values, which are stricter than EPA's
  * breakpoints for those gases. Weather/pollen rows below are heuristic starts.
  *
+ * Several rows here name variables no exposure vector carries any more — `pm10`
+ * and `no2` since specs/24-vector-diet.md, `humidity` and the two weather
+ * stresses since spec 23. They stay, and they are inert by construction: a
+ * prior is compared against `exposure[variable] ?? 0`, so a row nobody's air
+ * mentions can never clear its own bound. Deleting the pollutant ones would
+ * mean editing the derivation script to disagree with the published tables it
+ * exists to transcribe, which is a worse lie than a row that does nothing —
+ * and they still cover old entries, which do carry the names.
+ *
  * Two honesty notes about comparing these to what the app actually measures:
  *
  * 1. **Which average.** The published breakpoints are averages — 24-h means for PM,
  *    8-h for ozone and CO, 1-h or 24-h for the WHO gases — and since
  *    specs/22-exposure-windows.md the engine's features are the matching running
  *    means: 24-h for PM, 8-h for ozone (docs/trigger-model.md). PM and ozone are
- *    therefore compared like with like. The gases are not: no2/so2/co are the hour
- *    itself against a 1-h or 24-h guideline, so a single bad hour can cross a 24-h
- *    number a real 24-h mean would not. The bias is toward warning early, which is
- *    the right direction for a ceiling that only ever *raises* a prediction and is
- *    superseded by the user's own diary — but the numbers are not AQI categories,
- *    and nothing in the UI should claim they are.
+ *    therefore compared like with like. The gas rows would not be — so2/co would be
+ *    the hour itself against a 1-h or 24-h guideline, and a single bad hour can cross
+ *    a 24-h number a real 24-h mean would not — but no vector carries a gas today, so
+ *    that only becomes a live question on the day spec 20 admits them by region. The
+ *    bias would be toward warning early, which is the right direction for a ceiling
+ *    that only ever *raises* a prediction and is superseded by the user's own diary —
+ *    but the numbers are not AQI categories, and nothing in the UI should claim they
+ *    are.
  * 2. **Which end of the category.** Every row is the *lower* bound of its category:
  *    the exposure at which a category begins, not its midpoint. That is what makes
  *    "potentially at this level" true at the threshold rather than halfway past it.

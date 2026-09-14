@@ -65,6 +65,9 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   pm25: { name: 'Fine particles', sub: 'PM2.5', short: 'PM2.5', unit: 'µg/m³', plural: true },
   pm10: { name: 'Coarse particles', sub: 'PM10', short: 'PM10', unit: 'µg/m³', plural: true },
   o3: { name: 'Ozone', sub: 'O₃', short: 'ozone', unit: 'µg/m³' },
+  // Retired from the vector (spec 24), kept for the same reason the retired
+  // weather names below are: an entry logged before the diet still carries its
+  // NO₂, and the diary line that prints it needs the words.
   no2: { name: 'NO₂', short: 'NO₂', unit: 'µg/m³' },
   so2: { name: 'SO₂', short: 'SO₂', unit: 'µg/m³' },
   co: { name: 'CO', short: 'CO', unit: 'µg/m³' },
@@ -105,6 +108,18 @@ export const CALENDAR_ESTIMATE = 'calendar estimate'
  * trace of anything.
  */
 export const COMFORTABLE = 'comfortable'
+
+/**
+ * The PM10 row's verdict — the second row to speak for itself, after the dew
+ * point's `comfortable` (spec 24). The number is on the screen because a
+ * person is entitled to see how much coarse particulate is outside; it is
+ * deliberately outside the exposure vector because PM10 *is* PM2.5 plus the
+ * coarse fraction, so it co-moves with PM2.5 in every candidate set and no
+ * clean day can ever tell the two apart. The chip says so rather than leaving
+ * the row wearing "no logs yet", which would promise a verdict that is never
+ * coming.
+ */
+export const NOT_GRADED = 'not graded'
 
 export const variableName = (v: string): string => VARIABLE_LABELS[v]?.name ?? v
 
