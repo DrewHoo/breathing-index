@@ -120,6 +120,44 @@ describe('choosing a monitor', () => {
   })
 })
 
+describe('sulfur dioxide', () => {
+  it('reads SO₂ off the monitor, converting its PPB at 2.62', () => {
+    // The New Haven site reports SO₂ hourly (specs/29-sulfur-dioxide.md). The
+    // factor is the gas's own — 2.62 µg/m³ per ppb, not ozone's 1.96 — because
+    // the molecule is heavier, and using the wrong one would be a third of the
+    // way off on the one variable whose floor decides whether it exists at all.
+    const observations = parseAirNow(
+      {
+        observations: [
+          row({ Parameter: 'SO2', Unit: 'PPB', RawConcentration: 10, SiteName: 'New Haven' }),
+        ],
+      },
+      HAMDEN.lat,
+      HAMDEN.lon,
+    )!
+    expect(observations.monitors.so2?.siteName).toBe('New Haven')
+    expect(observations.monitors.so2?.byHour.get('2026-09-14T02:00')).toBeCloseTo(26.2, 6)
+  })
+
+  it('leaves SO₂ out of the measured strip, which has no bridge for it', () => {
+    // The strip's chips are AQI points walked back through `aqi.ts`, whose
+    // tables cover PM and ozone only. A fourth chip would be a point with no
+    // concentration behind it (specs/29-sulfur-dioxide.md).
+    const observations = parseAirNow(
+      {
+        observations: [
+          row({}),
+          row({ Parameter: 'SO2', Unit: 'PPB', RawConcentration: 10, AQI: 90, Category: 2 }),
+        ],
+      },
+      HAMDEN.lat,
+      HAMDEN.lon,
+    )!
+    expect(observations.monitors.so2).toBeDefined()
+    expect(airNowReport(observations)!.observations.map((o) => o.parameter)).toEqual(['PM2.5'])
+  })
+})
+
 describe('the measured strip report', () => {
   it('takes one AQI point per parameter from its monitor’s newest hour', () => {
     const report = airNowReport(parseAirNow(payload, HAMDEN.lat, HAMDEN.lon)!)!

@@ -1,6 +1,6 @@
 # Sulfur dioxide — admit the best-proven acute trigger, gated by its floor
 
-**Status:** proposed · **Effort:** S · **Deps:** [21-airnow-migration.md](21-airnow-migration.md) (AirNow as a source), [24-vector-diet.md](24-vector-diet.md) (which this partly reverses) · **Priority:** medium. Rarely elevated in Connecticut; decisive where it is.
+**Status:** built 2026-09-14 (branch `claude/spec-29-sulfur-dioxide`) · **Effort:** S · **Deps:** [21-airnow-migration.md](21-airnow-migration.md) (AirNow as a source), [24-vector-diet.md](24-vector-diet.md) (which this partly reverses) · **Priority:** medium. Rarely elevated in Connecticut; decisive where it is.
 
 ## Problem
 
@@ -14,7 +14,7 @@ The app fetches SO₂ from CAMS, keeps it in `raw`, and never lets it into the v
 
 2. **Floor 20 µg/m³** (half the WHO 24-h AQG), up from 5. Below it the variable is absent from candidate sets by construction. Priors stay as derived: `{2: 40, 3: 125, 4: 350}` (WHO 24-h AQG; WHO 2005 IT-1; EU 1-h limit).
 
-3. **Measured where a monitor reports it.** Add `SO2` to the AirNow `aq/data/` parameters. The New Haven monitor reports it hourly. The airnow-series rule (pm25 and o3 present) is unchanged; SO₂ rides along when the nearest monitor has it, absent otherwise. CAMS fills the model series. Units: AirNow reports SO₂ in PPB; convert at 2.62 µg/m³ per ppb (EPA reference conditions) next to the ozone constant.
+3. **Measured where a monitor reports it.** *(As built: the station feature is the newest posted hour within a 2-hour look-back — see §7 on AirNow's publishing lag.)* Add `SO2` to the AirNow `aq/data/` parameters. The New Haven monitor reports it hourly. The airnow-series rule (pm25 and o3 present) is unchanged; SO₂ rides along when the nearest monitor has it, absent otherwise. CAMS fills the model series. Units: AirNow reports SO₂ in PPB; convert at 2.62 µg/m³ per ppb (EPA reference conditions) next to the ozone constant.
 
 4. **A row only when present.** Like smoke: the SO₂ row appears when `exposure.so2` is above the floor, sub-label `SO₂ · 1-h · New Haven monitor` / `· model`. Below the floor there is no row; a "0 µg/m³" row on every screen would teach people to ignore the one that matters.
 
@@ -27,7 +27,9 @@ The app fetches SO₂ from CAMS, keeps it in `raw`, and never lets it into the v
    > Also checked, too low to matter: SO₂ 1 µg/m³ · smoke none
    > Not measured here: SO₂
 
-   "Too low to matter" is the floor: the variable was read and sits below the level at which it could be a suspect. The number is shown because it was measured. "Not measured here" is the other absence — a station series whose nearest monitor does not report the variable, where the model is deliberately not consulted for it. The two never share a line. Smoke reads "none" when the satellite answered and saw no plume, and is absent from both lines when it did not answer. NO₂ is gone from the vector entirely and appears on neither. [30-glossary.md](30-glossary.md) puts a `?` on each name in these lines.
+   "Too low to matter" is the floor: the variable was read and sits below the level at which it could be a suspect. The number is shown because it was measured. "Not measured here" is the other absence — a station series whose nearest monitor does not report the variable, where the model is deliberately not consulted for it. The two never share a line.
+
+   A third absence is neither of those and is on no line at all: the hour the monitor has not posted yet. AirNow publishes the NowCast before the raw hourly, so on a station series the current hour's SO₂ is routinely blank on a monitor that works — the windowed variables span it and SO₂, having no window, cannot. So the station feature is the newest reading the monitor actually posted inside a 2-hour look-back (the same one the smoke gate uses, and for the same publishing lag), absent only when nothing posted across it; and "Not measured here" is decided by whether any monitor reports the variable at all, never by the hour's value being missing. A station that is merely late says nothing on either line. Smoke reads "none" when the satellite answered and saw no plume, and is absent from both lines when it did not answer. NO₂ is gone from the vector entirely and appears on neither. [30-glossary.md](30-glossary.md) puts a `?` on each name in these lines.
 
 8. **Glossary entry** ([30-glossary.md](30-glossary.md)) says what SO₂ is and why the row is usually absent.
 

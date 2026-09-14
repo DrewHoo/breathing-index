@@ -399,7 +399,11 @@ export default {
             (Number(lon) + BBOX_DEGREES).toFixed(2),
             (Number(lat) + BBOX_DEGREES).toFixed(2),
           ].join(','),
-          parameters: 'OZONE,PM25,PM10',
+          // SO₂ joins the three in spec 29: it is the acute asthma trigger
+          // with the sharpest controlled-exposure literature behind it, and
+          // the New Haven monitor reports it hourly. AirNow serves it in PPB;
+          // the client converts (specs/29-sulfur-dioxide.md).
+          parameters: 'OZONE,PM25,PM10,SO2',
           // B = both the AQI point and the concentration behind it.
           dataType: 'B',
           includerawconcentrations: '1',
@@ -415,10 +419,13 @@ export default {
         }).toString()
         return relay(
           env,
-          // v3: aq/data/ rows and camelCase forecast rows. The version rides
-          // the key so a shape change never serves an hour of stale-shape
-          // cache — v2 was the retired reporting-area observation endpoints.
-          `airnow:v3:${lat},${lon}`,
+          // v4: the same rows with SO₂ among the parameters. The version
+          // rides the key so a shape change never serves an hour of
+          // stale-shape cache — and a cached v3 payload is exactly that, a
+          // payload with a column missing rather than a column at zero.
+          // v3 was aq/data/ without SO₂; v2, the retired reporting-area
+          // observation endpoints.
+          `airnow:v4:${lat},${lon}`,
           async () => {
             const [o, f] = await Promise.all([fetch(obs), fetch(forecastRequest(env, lat, lon))])
             if (!o.ok) return o

@@ -637,6 +637,16 @@ a.air-note {
   color: var(--ink-2);
 }
 
+/* What the table checked and has no row for (specs/29-sulfur-dioxide.md).
+   Deliberately the quietest register on the screen — the same one the section
+   captions and the settings notes use — because it is housekeeping: the point
+   is that the app looked, not that anything happened. */
+.air-absent {
+  font: 400 12px/1.5 var(--sans);
+  color: var(--secondary);
+  margin-top: 6px;
+}
+
 .air-spacer {
   flex: 1;
 }

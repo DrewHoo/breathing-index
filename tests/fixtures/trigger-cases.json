@@ -522,6 +522,18 @@
       ]
     },
     {
+      "name": "a sulfur dioxide hour confirms on a clean day",
+      "$comment": "The day the variable exists for (specs/29-sulfur-dioxide.md): 150 \u00b5g/m\u00b3 of SO\u2082 \u2014 a port, a refinery, a volcanic plume \u2014 on air that is otherwise nothing at all. pm25 4 and o3 10 are both under their floors, so the candidate set is the singleton the engine can confirm from one entry, and the floor of 20 is what makes that true: at a Connecticut background of 1 \u00b5g/m\u00b3 the name would never have been in the set to begin with.",
+      "diary": [
+        { "rating": 3, "exposure": { "so2": 150, "pm25": 4, "o3": 10 } }
+      ],
+      "expectConfirmed": { "so2": { "2": 150, "3": 150 } },
+      "predict": [
+        { "exposure": { "so2": 150 }, "expect": [3, 3] },
+        { "exposure": { "so2": 10 }, "expect": [1, 1] }
+      ]
+    },
+    {
       "name": "the same mold day from a stale reading only ever suspects",
       "$comment": "The identical vector with `mold` tagged estimated \u2014 a count more than three days old, or the dry-spore proxy, which is always one. The clean singleton stops at suspected-strong regardless of repetition: repeating a guess repeats the guess. Ceiling 3, floor 1, forever.",
       "diary": [
