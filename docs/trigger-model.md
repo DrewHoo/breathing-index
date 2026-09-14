@@ -16,6 +16,7 @@ explicitly, instead of pretending a weighted score resolves it.
   "note": "walk cut short at the park",
   "confounders": [],                    // e.g. "allergies", "indoors all day" — "sick" is a variable now
   "source": "cams-w2",                  // which feed *and which windows*; bounds are scoped to it
+  "estimated": ["dry_spore_index"],     // numbers guessed rather than read: ceiling only, never a floor
   "exposure": {                         // captured automatically when the entry is saved
     "location": { "lat": 41.396, "lon": -72.897 },
     "features": {                       // per-variable trailing-window features
@@ -25,6 +26,9 @@ explicitly, instead of pretending a weighted score resolves it.
       "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
       "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
       "pollen_graminales": { "max3d": 4 },             // 0–5 index, highest of three local days
+      "mold":               { "max3d": 15000 },        // spores/m³, highest of three *station* days
+      "mold_cladosporium":  { "max3d": 591 },          // only where the station splits the count
+      "dry_spore_index":    { "now": 4 },              // 0–5 weather conditions met; always estimated
       "viral":      { "now": 1 }                       // the user tapped "sick" — the one key here no
                                                        // feed produces; absent otherwise, never 0
     }
@@ -49,6 +53,9 @@ window chosen to match its mechanism of action:
 | pm25 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
 | pm10 | `mean24h`, **display only** | same window, no seat in the vector (specs/24-vector-diet.md): coarse PM has weak independent evidence for acute asthma, and PM10 *is* PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set and no clean day can separate the two. The row still shows the number — a person is entitled to see how much coarse particulate is outside, and the smoke fingerprint divides by it. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), specs/20-baseline-bad-air.md adds `dust` as its own variable |
 | smoke | `now`, **gated**, past hours only | NOAA HMS is a nowcast — an analyst-drawn plume either is over you this hour or is not, and there is nothing to average. The density enters the vector only when the hour's raw PM says the particulate below the plume is fine-mode (`pm25 ≥ 9.1` and `pm25/pm10 ≥ 0.85`, the fingerprint in `src/ui/smoke.ts`): HMS sees a column from above and flags a plume aloft over clean surface air exactly as it flags one at head height. Gate fails → 0; gate cannot be evaluated, or no density for the hour → absent. Forecast hours are always absent. Alone among the air variables it is **not source-scoped** (below): the density is a satellite product that reads the same whichever feed filled the PM columns, and the gate only asks those columns a yes/no |
+| mold | `max` over the trailing 3 **station** days | Alternaria's asthma lag is 0–2 days and Cladosporium's 0–3, so the window is the same cumulative shape as grass. It counts *station* days rather than calendar ones because every counting station in the directory works weekdays: a calendar window would empty itself every Monday and answer "no mold" on the day after a long weekend, which is a fact about the microscope and not about the air. A day the station reported with a null total (Canton out of season) contributes nothing and is not staleness. The staleness rule is what stops the window reaching back a month: a newest reading more than 3 days behind the hour's local date marks every mold variable `estimated` ([28](../specs/28-mold.md) §6) |
+| mold_alternaria, mold_cladosporium | `max` over the same 3 station days | the two genera with an acute-asthma literature: O'Hollaren 1991 (Alternaria and near-fatal asthma, OR 190, a terrible interval and a robust direction) and the 2023 Leicester event (Cladosporium). Set only from a station that published that *exact* genus key on that day — never from a combined bucket. Children's Mercy publishes `alternaria_aspergillus_penicillium` as one number, and splitting it would be inventing a count |
+| dry_spore_index | `now`, in season, **always estimated** | the proxy for the ~99 % of places with no counting station within reach ([28](../specs/28-mold.md) §7). A count, 0–5, of five weather conditions: temperature > 20 °C, RH < 60 %, wind > 2 m/s, under 0.5 mm of rain in 48 h, at least 5 mm in 7 days. Northern-hemisphere July–October, southern January–April, by the location's latitude and local month; absent out of season, never 0. Estimated by construction, so it can suspect a dry spell and never confirm one — the same standing as the pollen calendar |
 | viral | the tap itself, **no window** | not measured and not modelled: the `sick` chip writes 1 on the day it is tapped (specs/26-sick-as-signal.md). Exacerbations land one to three days after a cold starts and can outlast it, so the honest window is wider than the tap — but the product constraint is one tap and nobody types an onset date, and a field nobody fills is worse than a flag that is slightly too narrow. See Entry-own variables |
 | dry_air, humid_heat | `now` | felt in the hour they are breathed; both are cut from the dew point that hour |
 | grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
@@ -278,6 +285,32 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   on a smoke day PM2.5 and smoke are co-elevated by construction, so the bad day implicates both and
   only a smoke-free PM day (or a later clean-air one) separates them. That is a dimension the model
   was already built to carry, and it is the difference between describing a day and explaining it.
+- **Mold is the best-evidenced acute trigger the app could not see, and the proxy it had pointed
+  the wrong way.** Outdoor spores rival or beat pollen in the ED literature — Dales 2000/2004 found
+  every fungal group larger than any pollen group, and spores are 2–10 µm, small enough to reach the
+  lower airway directly where intact pollen is not. And no vendor sells the number: every consumer
+  pollen API is a model with no mold field, so the measurements live at counting stations that post a
+  figure on a web page once a weekday morning, and the relay scrapes them one publisher at a time
+  ([28](../specs/28-mold.md)). That is why `mold` is the only variable in the vector whose *source is
+  a choice* — stations are 50–100 miles apart, so Settings asks which one, and most people have none
+  within reach.
+
+  Two consequences the model has to live with. A station switch is a scale change the engine cannot
+  see: St. Louis prints a bare number and never names its unit, Houston publishes spores/m³, and the
+  source string on an entry names the *air* feed rather than the microscope, so mold is deliberately
+  not source-scoped and the Settings copy warns instead. And the ceilings in `PRIORS` are a counting
+  convention rather than a dose-response finding — the AAAAI's mold bands for the total, and for the
+  genera the Alternaria > 100 / Cladosporium > 3,000 spores/m³ pair that every allergy site quotes and
+  that traces to a 1979 committee. The best modern study (26 years of Danish data) throws the
+  convention out, uses quartiles, and finds effects well below what it calls a high day, so those rows
+  are a starting ceiling the diary is expected to overwrite downward.
+
+  Where there is no station there is `dry_spore_index`, and it is the first variable in the vector
+  that is an estimate by construction rather than by circumstance. Alternaria and Cladosporium are
+  *dry-weather* spores: production needs a wet spell, release needs warm dry moving air, and rain
+  suppresses them while raising basidiospores instead. The old `humidity mean72h` proxy had that
+  backwards — it was a mould proxy with the wrong sign, which is why spec 23 retired it rather than
+  re-aiming it, and why the honest replacement counts conditions instead of averaging one number.
 - **An empty candidate set is a missing-variable detector.** A bad day where every *modeled*
   variable is already proven tolerable can't be explained by the model — which is exactly the
   signature of an unmodeled trigger (pollen before pollen was added, an indoor exposure, illness).
@@ -288,8 +321,10 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   inference carrying the candidate it was missing instead of leaving it.
 - **Indoor proxies are proxies.** Outdoor humidity drives indoor mold/dust-mite load only roughly
   (dehumidifiers, AC), which is half of why it is no longer in the vector — the other half being
-  that it pointed the wrong way for the spores that matter. Nothing proxies indoor air today; a
-  measured mould source (specs/28-mold.md) and an indoor sensor are the honest upgrades.
+  that it pointed the wrong way for the spores that matter. Nothing proxies indoor air today, and
+  spec 28 did not change that: outdoor mold is counted at a trap on somebody's roof, so a day that
+  was *worse outdoors* is exactly the day it should stay a candidate on. `INDOOR_PROXY_VARIABLES`
+  still holds only the retired `humidity`; an indoor sensor is what would finally fill it.
 - **Pollen data availability is regional.** Open-Meteo/CAMS serves per-species pollen for Europe
   only (verified: real values for Amsterdam, `null` for Hamden). US strategy: a calendar-region
   prior per species (e.g. CT ragweed ≈ Aug–Oct), with an upgrade path to a measured source

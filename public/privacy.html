@@ -49,7 +49,10 @@
       </p>
       <ul>
         <li><code>breathing-index.diary.v1</code> — your entries</li>
-        <li><code>breathing-index.settings.v1</code> — places, sources, units, usage-ping opt-out</li>
+        <li>
+          <code>breathing-index.settings.v1</code> — places, sources, your chosen mold counting
+          station, units, usage-ping opt-out
+        </li>
         <li><code>breathing-index.lastSeries.v1</code> — the last air reading, for offline</li>
         <li><code>breathing-index.place.v1</code> — the place name for your coordinates</li>
         <li>
@@ -61,6 +64,15 @@
           <code>breathing-index.smokeHistory.v1</code> — the satellite smoke density for the hours
           already seen, per coarse grid cell, because the smoke analysis publishes only the latest
           hour and the app draws the last two days of it
+        </li>
+        <li>
+          <code>breathing-index.moldStations.v1</code> — the list of mold counting stations the
+          relay can read, kept for a day so the Settings picker opens without a round trip
+        </li>
+        <li>
+          <code>breathing-index.moldHistory.v1</code> — the spore counts for days already seen, per
+          station, because a station publishes one day and replaces it and the count is graded over
+          three of them
         </li>
         <li>
           <code>breathing-index.durability.v1</code>, <code>breathing-index.sentinel.v1</code>,
@@ -91,7 +103,12 @@
             the relay described above, so those sources see the relay's request, not your browser —
             and the relay itself never receives your location sharper than about 11 km. Its routes
             are <code>/v1/pollen</code>, <code>/v1/airnow</code> and <code>/v1/smoke</code>, each
-            taking nothing but those rounded coordinates.
+            taking nothing but those rounded coordinates, plus
+            <code>/v1/mold/stations</code> and <code>/v1/mold</code>, which take no coordinates at
+            all. Mold counts come from health departments and hospitals that post a number on a web
+            page once a weekday morning; you choose a counting station by name in Settings, and the
+            relay is told that station's id and nothing else. Every reader of that station gets the
+            same answer, so the request says nothing about which of them you are.
           </td>
         </tr>
         <tr>

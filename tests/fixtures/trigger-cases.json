@@ -508,6 +508,31 @@
         { "exposure": { "viral": 1 }, "expect": [1, 3] },
         { "exposure": { "pollen_oak": 4 }, "expect": [1, 1] }
       ]
+    },
+    {
+      "name": "a measured mold count confirms on a clean day",
+      "$comment": "Houston in September: 15,000 spores/m\u00b3, which the AAAAI's bands call High, on air that is otherwise nothing at all. The lone candidate on a clean day is the one shape that confirms from a single entry, and a count read off a microscope is exactly the provenance that earns it \u2014 the trailing floors are there so the clean day really is clean (pm25 5, o3 20, mold 500).",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 } }
+      ],
+      "expectConfirmed": { "mold": { "2": 15000, "3": 15000 } },
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "expect": [3, 3] },
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 400 }, "expect": [1, 1] }
+      ]
+    },
+    {
+      "name": "the same mold day from a stale reading only ever suspects",
+      "$comment": "The identical vector with `mold` tagged estimated \u2014 a count more than three days old, or the dry-spore proxy, which is always one. The clean singleton stops at suspected-strong regardless of repetition: repeating a guess repeats the guess. Ceiling 3, floor 1, forever.",
+      "diary": [
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "estimated": ["mold"] },
+        { "rating": 3, "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "estimated": ["mold"] }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "mold": { "2": 15000, "3": 15000 } },
+      "predict": [
+        { "exposure": { "pm25": 3, "o3": 10, "mold": 15000 }, "expect": [1, 3] }
+      ]
     }
   ]
 }

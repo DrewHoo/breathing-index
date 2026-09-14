@@ -24,11 +24,13 @@ let cache: { key: string; promise: Promise<ExposureSeries>; at: number } | null 
 function getSeries(location: Location): Promise<ExposureSeries> {
   // The AirNow toggle is part of the key, not just of the request: flipping it
   // in Settings has to produce a different series, and ten minutes of cache
-  // keyed on coordinates alone would quietly serve the old source back.
-  const airnow = loadSettings().airnowEnabled
-  const key = `${location.lat},${location.lon}${airnow ? ':airnow' : ''}`
+  // keyed on coordinates alone would quietly serve the old source back. The
+  // mold station is in the key on exactly that argument — picking a different
+  // station has to read a different microscope, not wait out the TTL.
+  const { airnowEnabled: airnow, moldStation } = loadSettings()
+  const key = `${location.lat},${location.lon}${airnow ? ':airnow' : ''}${moldStation ? `:${moldStation}` : ''}`
   if (cache && cache.key === key && Date.now() - cache.at < TTL_MS) return cache.promise
-  const promise = fetchExposureSeries(location.lat, location.lon, { airnow })
+  const promise = fetchExposureSeries(location.lat, location.lon, { airnow, moldStation })
   cache = { key, promise, at: Date.now() }
   promise
     .then((s) => {

@@ -1,6 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { searchPlaces, type PlaceResult } from '../sources/geocodeSearch'
+import { fetchMoldStations, milesOf, nearestStations, type MoldStation } from '../sources/mold'
 import { setAnalyticsEnabled } from '../ui/analytics'
 import { SectionRule } from '../ui/bits'
 import { DISCLAIMER } from '../ui/labels'
@@ -14,7 +15,7 @@ import {
   type UnitPreference,
 } from '../ui/settings'
 import { detectTemperatureUnit } from '../ui/units'
-import { useExposureSeries } from '../ui/useExposureSeries'
+import { useExposureSeries, type Location } from '../ui/useExposureSeries'
 
 export const Route = createFileRoute('/settings')({ component: SettingsScreen })
 
@@ -146,6 +147,12 @@ function SettingsScreen() {
         </div>
       </section>
 
+      <MoldStationSection
+        settings={settings}
+        location={location}
+        onPick={(moldStation) => update({ ...settings, moldStation })}
+      />
+
       <section className="section">
         <SectionRule label="Sources" />
         <div className="row-card">
@@ -275,6 +282,80 @@ function SettingsScreen() {
         <a href="/terms">Terms</a>
       </span>
     </>
+  )
+}
+
+/**
+ * Pick a mold counting station, or none (specs/28-mold.md §5).
+ *
+ * A select rather than the radio list the places use, and that is the shape of
+ * the problem rather than a style choice: saved places are two or three rows a
+ * person made themselves, and this is a national directory sorted by a
+ * distance most readers will find disappointing. Nearest first, with the miles
+ * on the row, so "none" stays the obvious answer for the majority of the
+ * country that has no station within reach.
+ *
+ * The list is the relay's, cached for a day (sources/mold.ts). With nothing
+ * cached and the relay unreachable the section does not render at all: an
+ * empty picker is worse than no picker, and the app has no second way to learn
+ * that a health department in Ohio exists.
+ */
+function MoldStationSection({
+  settings,
+  location,
+  onPick,
+}: {
+  settings: Settings
+  location: Location | null
+  onPick: (stationId: string | null) => void
+}) {
+  const [stations, setStations] = useState<MoldStation[]>([])
+  useEffect(() => {
+    let cancelled = false
+    void fetchMoldStations().then((found) => {
+      if (!cancelled) setStations(found)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (stations.length === 0) return null
+  // Without a fix there is nothing to be near, so the directory lists in the
+  // order the relay gave it and the rows go without a distance — still enough
+  // to keep a station already chosen visible and changeable.
+  const nearby = location ? nearestStations(stations, location.lat, location.lon) : null
+  const listed = nearby ?? stations.map((station) => ({ ...station, km: Number.NaN }))
+
+  return (
+    <section className="section">
+      <SectionRule label="Mold station" />
+      <select
+        className="note-input"
+        aria-label="Mold station"
+        value={settings.moldStation ?? ''}
+        onChange={(e) => onPick(e.target.value === '' ? null : e.target.value)}
+      >
+        <option value="">None</option>
+        {listed.map((station) => (
+          <option key={station.id} value={station.id}>
+            {[
+              station.name,
+              `${station.city}, ${station.state}`,
+              Number.isFinite(station.km) ? `${milesOf(station.km)} mi` : null,
+            ]
+              .filter((part): part is string => Boolean(part))
+              .join(' · ')}
+          </option>
+        ))}
+      </select>
+      <span className="settings-note">
+        Counting stations are 50–100 miles apart, so pick the nearest one that actually counts
+        mold — or none. Switching stations starts mold&rsquo;s learned bounds over in practice:
+        two stations count different air with different microscopes, and nothing in the model can
+        see that they disagree.
+      </span>
+    </section>
   )
 }
 

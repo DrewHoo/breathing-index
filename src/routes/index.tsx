@@ -21,8 +21,10 @@ import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
   COMFORTABLE,
+  DRY_SPORE_ESTIMATE,
   FORECAST_MEANING,
   MODEL_OZONE_BIAS,
+  MOLD_ESTIMATE,
   NOT_GRADED,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
@@ -874,6 +876,19 @@ const localHour = (iso: string, utcOffsetSeconds: number): string =>
   })
 
 /**
+ * A mold reading's date as "Sep 11". Pinned to noon UTC before formatting,
+ * because the string is the *station's* local day and has no time in it — fed
+ * to `Date` as a bare date it would be parsed as midnight UTC and slide to the
+ * 10th for every reader west of Greenwich.
+ */
+const readingDay = (date: string): string =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
+
+/**
  * Where "eastern US" starts for the model-ozone note: the 100th meridian. The
  * documented CAMS warm-season ozone bias is an eastern-US finding (the 2026-08-07
  * Hamden case), and a note that says "eastern US" should not fire in Honolulu.
@@ -1034,6 +1049,84 @@ function buildAirRows(
       // the hours the PM columns happened to have posted by.
       series: window.map((h) => h.raw.hms_density ?? null),
       tol: tolerance('smoke'),
+    })
+  }
+
+  // Mold, after the smoke it is nothing like and before the pollen it is
+  // usually confused with (specs/28-mold.md). Two rows, and they are two
+  // different claims: a count somebody made with a microscope 50 miles away,
+  // and a weather pattern that would put dry-weather spores in the air if
+  // there were any. Both can be on the screen at once, and should be — the
+  // engine grades both, and an evidence line may only cite a number the reader
+  // can see.
+  //
+  // The note carries the station and the day it counted, because those are
+  // what make the number checkable: a spore count is an integration over one
+  // day at one building, and "5,116" with neither of those on it is exactly
+  // the unsourced number this app exists to stop printing. When the count has
+  // aged past three days the note says "estimate" as well, which is the same
+  // word the vector is carrying (`estimated`) rather than a second opinion
+  // about it.
+  const moldReading = current.exposure.mold
+  if (moldReading !== undefined && data.mold) {
+    const meta = VARIABLE_LABELS.mold!
+    // The genus numbers the engine actually grades, not the station's whole
+    // list: Cladosporium first because it is the larger of the two by an order
+    // of magnitude nearly everywhere, so it reads as the headline of the split.
+    const split = (['mold_cladosporium', 'mold_alternaria'] as const)
+      .filter((variable) => current.exposure[variable] !== undefined)
+      .map((variable) => `${VARIABLE_LABELS[variable]!.short} ${Math.round(current.exposure[variable]!)}`)
+    // A station with no split has its own band word to spend instead. It is
+    // the publisher's, verbatim and lowercased to sit in a sub-label — never
+    // this app's reading of the number beside it.
+    const band = data.mold.category?.toLowerCase()
+    const sub = [...(split.length > 0 ? split : band ? [band] : []), '3-day'].join(' · ')
+    rows.push({
+      key: 'mold',
+      name: meta.name,
+      sub,
+      value: Math.round(moldReading),
+      // St. Louis prints a number and never names its unit, so the row says
+      // "count" rather than inventing a per-cubic-metre it was not given.
+      unit: data.mold.units === 'count' ? 'count' : meta.unit,
+      note: {
+        text: [
+          data.mold.name,
+          readingDay(data.mold.date),
+          current.estimated?.includes('mold') ? MOLD_ESTIMATE : null,
+        ]
+          .filter((part): part is string => Boolean(part))
+          .join(' · '),
+      },
+      status: { variable: 'mold', value: moldReading },
+      // The station's own daily totals, which draw as a staircase. Flat within
+      // a day is what a once-a-morning instrument looks like on an hourly axis,
+      // and smoothing it would be drawing hours nobody counted.
+      series: window.map((h) => h.raw.mold ?? null),
+      tol: tolerance('mold'),
+    })
+  }
+
+  // The proxy. It is on the screen in season whether or not a station is, and
+  // for most people it is the only mold signal there will ever be: Hamden's
+  // nearest live counting stations are Olean, NY and Silver Spring, MD.
+  const drySpore = current.exposure.dry_spore_index
+  if (drySpore !== undefined) {
+    const meta = VARIABLE_LABELS.dry_spore_index!
+    rows.push({
+      key: 'dry_spore_index',
+      name: meta.name,
+      sub: 'estimate from weather',
+      value: drySpore,
+      unit: meta.unit,
+      // Quiet rather than a claim: the row is not asserting that there are
+      // spores, it is saying what kind of number it is. The sentence is the
+      // mechanism in eight words, because "3 of 5" on its own is a score in a
+      // game nobody explained.
+      note: { text: DRY_SPORE_ESTIMATE },
+      status: { variable: 'dry_spore_index', value: drySpore },
+      series: window.map((h) => h.raw.dry_spore_index ?? null),
+      tol: tolerance('dry_spore_index'),
     })
   }
 

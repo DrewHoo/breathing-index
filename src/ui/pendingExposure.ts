@@ -152,7 +152,13 @@ export async function backfillPending(
     const place = entry.pendingExposure!
     elsewhere.set(placeKey(place), place)
   }
-  const options: ExposureOptions = { airnow: loadSettings().airnowEnabled }
+  // The mold station rides along for the same reason the AirNow toggle does: a
+  // backfilled entry should carry the vector a live one would have carried, and
+  // the window reads days the app already wrote down — so an entry logged on
+  // Tuesday and resolved on Wednesday picks up Tuesday's count rather than a
+  // hole where one variable should be.
+  const { airnowEnabled: airnow, moldStation } = loadSettings()
+  const options: ExposureOptions = { airnow, moldStation }
   for (const place of elsewhere.values()) {
     try {
       next = resolvePending(next, await fetchSeries(place.lat, place.lon, options), place)
