@@ -176,8 +176,8 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     meta: 'PM10 − PM2.5 · µg/m³ · 24-h average',
     image: {
       src: 'pm_coarse.jpg',
-      alt: 'A wall of dust rolling over a city',
-      caption: 'A wall of dust rolling over Phoenix. Photo: Junebug172, public domain.',
+      alt: 'Dust from a building demolition rolling toward a crowd',
+      caption: 'The dust from a building demolition rolling toward the crowd. Photo: David Richards, CC BY 2.0.',
     },
     what: 'Particles between 2.5 and 10 µm (micrometers, millionths of a meter): dust, road grit, soil, bits of pollen. Counted by taking everything under 10 µm and subtracting the fine particles, so this number is the coarse part alone.',
     breathing: `Weak for asthma. Coarse particles land in the nose, throat and the big airways rather than the deep lung, so they irritate more than they trigger, and the EPA rates the evidence for sudden breathing effects as suggestive, not established. The diary does not grade this number. How likely: a read on how gritty the air is to be out in, a cough and a scratchy throat more than tightness. It climbs on dust-storm days, beside construction and on dry windy days, and settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
