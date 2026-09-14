@@ -239,6 +239,15 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   // verdict word is the whole content of the row.
   const viral = summarize('viral', bare)
   if (viral.cls !== '') rows.push({ name: variableName('viral'), ...viral })
+  // SO₂ on the smoke rule and for a fourth version of the same reason
+  // (specs/29-sulfur-dioxide.md). Its floor is 20 µg/m³ and the air here runs
+  // between 0.2 and 2.7, so nearly every entry anybody logs sits under it: a
+  // standing row would say "no evidence yet either way" for years, which is
+  // the panel advertising a verdict that is not coming. It appears the day an
+  // entry is logged in air that actually had SO₂ in it — a port, a refinery, a
+  // volcanic plume — which is the day the diary has something to say.
+  const so2 = summarize('so2', bare)
+  if (so2.cls !== '') rows.push({ name: variableName('so2'), ...so2 })
   // Mold and its two genera, on the same rule and for a third version of the
   // same reason (specs/28-mold.md). Most people have no counting station
   // within a hundred miles, and the ones who do have picked one; a standing
@@ -413,8 +422,12 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
   // variables stay off it — they are inside the total by construction, and
   // three mold parts would crowd out everything else the line has to say. The
   // proxy stays off it too: it is an index of weather conditions, and a
-  // read-back line is for the numbers somebody measured.
-  for (const key of ['pm25', 'o3', 'smoke', 'mold', 'pm10', 'no2'] as const) {
+  // read-back line is for the numbers somebody measured. `so2` joins on the
+  // live reason as of spec 29, and the ranking is what keeps it honest: a
+  // background hour is a fortieth of its level-2 prior and never survives the
+  // top three, so the name shows up in the read-back exactly when the day it
+  // is reading back had SO₂ in it.
+  for (const key of ['pm25', 'o3', 'so2', 'smoke', 'mold', 'pm10', 'no2'] as const) {
     const v = entry.exposure[key] ?? 0
     const prior = PRIORS[key]?.[2] ?? 1
     if (v > 0) {

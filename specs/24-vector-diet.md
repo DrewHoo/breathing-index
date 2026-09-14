@@ -14,9 +14,9 @@ The trigger-model doc's identifiability argument: every variable enlarges candid
 
 3. **Traffic is what NO₂ was standing in for, and PM2.5 can't see it.** Karner 2010: PM2.5 mass shows no gradient with distance from a road, while ultrafines, black carbon, NO₂ and CO decay sharply. The Oxford Street crossover (FEV₁ down 6.1% after two hours) tracked ultrafines, which no public network measures. So add `near-traffic` as an observation chip. v1: a note, like `exercising`. Later it can gate a static road-proximity feature per saved location. NASA TEMPO (2 × 4.5 km hourly NO₂, free with an Earthdata login) is the measured route if anyone wants it; it's NetCDF and a scheduled job, not a relay request.
 
-4. **`so2` and `co` stay out of the US vector.** [20-baseline-bad-air.md](20-baseline-bad-air.md) adds them by region. The region rule is the guard.
+4. **`so2` and `co` stay out of the US vector.** [20-baseline-bad-air.md](20-baseline-bad-air.md) adds them by region. The region rule is the guard. **Reversed for `so2` by [29-sulfur-dioxide.md](29-sulfur-dioxide.md)**, which admits it everywhere behind a floor of 20 µg/m³ — the identifiability argument does not apply to a variable that is below its floor on 99 % of days, and SO₂ has the sharpest controlled-exposure evidence of any trigger here; `co` alone stays out, having no airway mechanism at all.
 
-After [23-dew-point-air.md](23-dew-point-air.md) and this spec the US vector is `pm25`, `o3`, `dry_air`, `humid_heat`, the in-season pollen plants, `viral` ([26](26-sick-as-signal.md)) and `smoke` ([25](25-smoke-variable.md)). Roughly seven live dimensions instead of nine or more.
+After [23-dew-point-air.md](23-dew-point-air.md) and this spec the US vector is `pm25`, `o3`, `dry_air`, `humid_heat`, the in-season pollen plants, `viral` ([26](26-sick-as-signal.md)), `smoke` ([25](25-smoke-variable.md)) and — above its floor, which is almost never — `so2` ([29](29-sulfur-dioxide.md)). Roughly seven live dimensions instead of nine or more.
 
 ## Acceptance
 

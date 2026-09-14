@@ -26,6 +26,22 @@ describe('cold-start pollutant priors', () => {
   })
 })
 
+describe('sulfur dioxide', () => {
+  it('sits below a floor of 20, half the WHO 24-hour guideline', () => {
+    // The floor is the whole reason SO₂ can be in the vector at all
+    // (specs/29-sulfur-dioxide.md): Connecticut's air runs 0.2–2.7 µg/m³, so
+    // below the line it is never a candidate and costs nothing. The
+    // controlled-exposure evidence behind the variable sits two orders of
+    // magnitude above it — 0.25 ppm ≈ 655 µg/m³ is where asthmatics respond.
+    expect(negligibleFor('so2')).toBe(20)
+    expect(ceilingAt({ so2: 20 })).toBe(1)
+    // The priors stay as derived: WHO 24-h AQG, WHO 2005 IT-1, EU 1-h limit.
+    expect(ceilingAt({ so2: 40 })).toBe(2)
+    expect(ceilingAt({ so2: 125 })).toBe(3)
+    expect(ceilingAt({ so2: 350 })).toBe(4)
+  })
+})
+
 describe('cold-start pollen priors', () => {
   it('says nothing about a tree plant at Moderate, and warns at High', () => {
     // Population evidence for tree pollen and asthma is weak — London's tree

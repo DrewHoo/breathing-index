@@ -222,7 +222,7 @@ const NEW_HAVEN = { lat: 41.301288, lon: -72.902685 }
  * whose mean is a different number from every hour inside it.
  */
 function monitorRows(
-  parameter: 'PM2.5' | 'PM10' | 'OZONE',
+  parameter: 'PM2.5' | 'PM10' | 'OZONE' | 'SO2',
   raw: number | ((utcHour: number) => number),
   fromUtcHour: number,
   throughUtcHour: number,
@@ -237,7 +237,7 @@ function monitorRows(
       Longitude: NEW_HAVEN.lon,
       UTC: `2026-09-13T${String(h).padStart(2, '0')}:00`,
       Parameter: parameter,
-      Unit: parameter === 'OZONE' ? 'PPB' : 'UG/M3',
+      Unit: parameter === 'OZONE' || parameter === 'SO2' ? 'PPB' : 'UG/M3',
       Value: value,
       RawConcentration: value,
       AQI: 30,
@@ -261,6 +261,9 @@ const EDT_OFFSET = -4 * 3600
  * test that reuses the module's own constant cannot catch it changing.
  */
 const UG_M3_PER_PPB_O3 = 1.96
+
+/** The same, for SO₂ — a heavier molecule and therefore a different factor. */
+const UG_M3_PER_PPB_SO2 = 2.62
 
 /** The mean of a window, for tests that compute their expectation from the fixture. */
 const meanOf = (values: number[]): number => values.reduce((a, b) => a + b, 0) / values.length
@@ -377,6 +380,95 @@ describe('AirNow as the exposure source', () => {
     expect(series.source).toBe(EXPOSURE_SOURCE)
     expect(series.siteNames).toBeUndefined()
     expect(series.hours[series.currentIndex]!.raw.pm25).toBe(3)
+  })
+
+  // SO₂ rides the station series wherever a monitor reports it, and is absent
+  // — not modelled — where none does (specs/29-sulfur-dioxide.md).
+  it('takes the monitor’s SO₂ when the nearest one reports it', async () => {
+    stubHamden([...covering(), ...monitorRows('SO2', 30, 4, 18)], {
+      sulphur_dioxide: Array.from({ length: 24 }, () => 2),
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const now = series.hours[series.currentIndex]!
+
+    expect(series.source).toBe(AIRNOW_SOURCE)
+    expect(series.siteNames?.so2).toBe('New Haven')
+    // The hour itself, with no window over it, converted at SO₂'s own factor.
+    expect(now.exposure.so2).toBeCloseTo(30 * UG_M3_PER_PPB_SO2, 6)
+    expect(now.raw.so2).toBeCloseTo(30 * UG_M3_PER_PPB_SO2, 6)
+    // And the forecast hours come from CAMS, like every other pollutant's.
+    expect(series.hours[18]!.exposure.so2).toBe(2)
+  })
+
+  it('grades SO₂ on the last hour the monitor posted, not on the blank one', async () => {
+    // AirNow publishes the NowCast first and the raw hourly behind it, so the
+    // current hour is routinely empty on a monitor that is working perfectly.
+    // PM and ozone have windows that span the gap; SO₂ has none, so it takes
+    // the newest posted reading inside the two-hour look-back instead of going
+    // absent and telling the reader nobody measures SO₂ here.
+    const so2 = monitorRows('SO2', 30, 4, 18).filter((r) => r.UTC !== '2026-09-13T18:00')
+    stubHamden([...covering(), ...so2])
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const now = series.hours[series.currentIndex]!
+
+    // Local 14:00 is 18:00 UTC — the hour the monitor has not filed yet.
+    expect(now.raw.so2).toBeUndefined()
+    expect(now.exposure.so2).toBeCloseTo(30 * UG_M3_PER_PPB_SO2, 6)
+    expect(series.siteNames?.so2).toBe('New Haven')
+  })
+
+  it('gives up on SO₂ once the monitor has been silent past the look-back', async () => {
+    // Two hours is the whole allowance: a station that has filed nothing since
+    // late morning is not telling us about this afternoon's air.
+    const so2 = monitorRows('SO2', 30, 4, 15)
+    stubHamden([...covering(), ...so2])
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+
+    expect(series.hours[series.currentIndex]!.exposure.so2).toBeUndefined()
+    // The site is still named, because the monitor does report SO₂ — which is
+    // what keeps "not measured here" off the screen for a station that is
+    // merely late (specs/29-sulfur-dioxide.md §7).
+    expect(series.siteNames?.so2).toBe('New Haven')
+  })
+
+  it('leaves SO₂ absent on a station series whose monitors are silent on it', async () => {
+    // Absent, never the model's number: one CAMS column inside a series of
+    // monitor readings would be a bound learned against the wrong instrument.
+    // The air table names the absence instead of filling it.
+    stubHamden(covering(), { sulphur_dioxide: Array.from({ length: 24 }, () => 2) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const now = series.hours[series.currentIndex]!
+
+    expect(series.source).toBe(AIRNOW_SOURCE)
+    expect(now.exposure.so2).toBeUndefined()
+    expect(now.raw.so2).toBeUndefined()
+    // No monitor answered for SO₂ at all, which is the absence the table names
+    // out loud — and the one the unposted hour above must not be confused with.
+    expect(series.siteNames?.so2).toBeUndefined()
+  })
+
+  it('carries the model’s SO₂ when the series is the model’s', async () => {
+    stubHamden(undefined, { sulphur_dioxide: ramp(3) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const ci = series.currentIndex
+
+    expect(series.source).toBe(EXPOSURE_SOURCE)
+    // The hour's own number, not a mean of anything: the mechanism is minutes.
+    expect(series.hours[ci]!.exposure.so2).toBe(ci * 3)
+    expect(series.hours[ci]!.raw.so2).toBe(ci * 3)
+  })
+
+  it('still keeps CO out of the vector on both kinds of series', async () => {
+    // CO has no airway mechanism at all, so spec 29 left it exactly where the
+    // vector diet put it: fetched, in `raw`, and never a candidate.
+    stubHamden(undefined, { carbon_monoxide: Array.from({ length: 24 }, () => 300) })
+    const model = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    expect(model.hours[model.currentIndex]!.raw.co).toBe(300)
+    expect(model.hours[model.currentIndex]!.exposure.co).toBeUndefined()
+
+    stubHamden([...covering(), ...monitorRows('SO2', 30, 4, 18)])
+    const station = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    expect(station.hours[station.currentIndex]!.exposure.co).toBeUndefined()
   })
 
   it('never asks AirNow unless the caller wants it', async () => {

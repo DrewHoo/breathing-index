@@ -22,6 +22,8 @@ explicitly, instead of pretending a weighted score resolves it.
     "features": {                       // per-variable trailing-window features
       "pm25": { "now": 14.3, "mean24h": 11.8 },        // µg/m³
       "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
+      "so2":  { "now": 38.0 },                         // µg/m³, the hour itself — no window,
+                                                       // and absent below its 20 µg/m³ floor
       "smoke":      { "now": 2 },                      // 0–3 HMS plume density, gated on the fine fraction
       "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
       "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
@@ -38,9 +40,10 @@ explicitly, instead of pretending a weighted score resolves it.
 
 A variable whose window holds no data is **absent** from the vector, never 0: a gap is not a
 clean reading, and recorded as 0 it would put the real trigger below its background floor and
-disqualify it from suspicion. Variables the app cannot show the user (so2, co — no row in the
+disqualify it from suspicion. Variables the app cannot show the user (`co` — no row in the
 air table) are left out of the vector entirely, so no evidence line can ever cite a number
-nobody can check. The converse also holds: `pm10` has a row and is *not* in the vector
+nobody can check. `so2` was in that sentence until specs/29-sulfur-dioxide.md gave it a row.
+The converse also holds: `pm10` has a row and is *not* in the vector
 (specs/24-vector-diet.md), because being visible earns a variable a number on screen, not a
 seat in every candidate set.
 
@@ -52,6 +55,7 @@ window chosen to match its mechanism of action:
 | o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
 | pm25 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
 | pm10 | `mean24h`, **display only** | same window, no seat in the vector (specs/24-vector-diet.md): coarse PM has weak independent evidence for acute asthma, and PM10 *is* PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set and no clean day can separate the two. The row still shows the number — a person is entitled to see how much coarse particulate is outside, and the smoke fingerprint divides by it. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), specs/20-baseline-bad-air.md adds `dust` as its own variable |
+| so2 | `now` | the mechanism is minutes, not hours: exercising asthmatics bronchoconstrict within 2–10 minutes at 0.5 ppm (airway resistance roughly doubling) and measurably at 0.25, and the 1-hour NAAQS exists in that form because of it. A running mean would smear the one thing the variable sees. The mismatch is on the other side — the priors are 24-h guidelines (config.ts) — and the floor is what makes the whole variable free: 20 µg/m³, half the WHO 24-h AQG, against a Connecticut background of 0.2–2.7, so below it SO₂ is never in a candidate set and costs no other variable its identifiability (specs/29-sulfur-dioxide.md). Measured where the nearest AirNow monitor reports it, from CAMS on a model series, and **absent** on a station series whose monitors do not — the air table names that absence rather than filling it. On a station series the number is the newest hour the monitor actually posted within a 2-hour look-back, because AirNow files the NowCast before the raw hourly and a variable with no window has nothing to span that lag with |
 | smoke | `now`, **gated**, past hours only | NOAA HMS is a nowcast — an analyst-drawn plume either is over you this hour or is not, and there is nothing to average. The density enters the vector only when the hour's raw PM says the particulate below the plume is fine-mode (`pm25 ≥ 9.1` and `pm25/pm10 ≥ 0.85`, the fingerprint in `src/ui/smoke.ts`): HMS sees a column from above and flags a plume aloft over clean surface air exactly as it flags one at head height. Gate fails → 0; gate cannot be evaluated, or no density for the hour → absent. Forecast hours are always absent. Alone among the air variables it is **not source-scoped** (below): the density is a satellite product that reads the same whichever feed filled the PM columns, and the gate only asks those columns a yes/no |
 | mold | `max` over the trailing 3 **station** days | Alternaria's asthma lag is 0–2 days and Cladosporium's 0–3, so the window is the same cumulative shape as grass. It counts *station* days rather than calendar ones because every counting station in the directory works weekdays: a calendar window would empty itself every Monday and answer "no mold" on the day after a long weekend, which is a fact about the microscope and not about the air. A day the station reported with a null total (Canton out of season) contributes nothing and is not staleness. The staleness rule is what stops the window reaching back a month: a newest reading more than 3 days behind the hour's local date marks every mold variable `estimated` ([28](../specs/28-mold.md) §6) |
 | mold_alternaria, mold_cladosporium | `max` over the same 3 station days | the two genera with an acute-asthma literature: O'Hollaren 1991 (Alternaria and near-fatal asthma, OR 190, a terrible interval and a robust direction) and the 2023 Leicester event (Cladosporium). Set only from a station that published that *exact* genus key on that day — never from a combined bucket. Children's Mercy publishes `alternaria_aspergillus_penicillium` as one number, and splitting it would be inventing a count |

@@ -155,10 +155,11 @@ export const AIRNOW_SOURCE = 'airnow'
 /**
  * `nitrogen_dioxide` left with the variable (specs/24-vector-diet.md): nothing
  * reads the column any more, so asking for it would be a field nobody parses.
- * `sulphur_dioxide` and `carbon_monoxide` stay — they have never been in the
- * vector either, but they are fetched against the day spec 20 admits them by
- * region, and until then they sit in `raw` where the region rule can find
- * them.
+ * `sulphur_dioxide` is now the model half of a graded variable
+ * (specs/29-sulfur-dioxide.md), so the column has a reader on every series
+ * that is not a station's. `carbon_monoxide` stays on the old terms: never in
+ * the vector, fetched against the day spec 20 admits it by region, and until
+ * then sitting in `raw` where the region rule can find it.
  */
 const AIR_VARS = 'pm2_5,pm10,ozone,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
 /**
@@ -505,14 +506,32 @@ function drySporeIndex(
 }
 
 /**
- * How far back the smoke gate may look for an hour with both PM readings on
- * it. Two hours, and the reason is AirNow's publishing order: the NowCast goes
- * out first and the raw hourly concentrations follow it, so the current hour
- * routinely has neither `pm25` nor `pm10` in `raw` while the hour before it
- * has both. Without the look-back, the smoke row would blink out for the top
- * of every hour and come back when the monitors caught up.
+ * How far back a feature with no window of its own may look for an hour a
+ * monitor actually posted. Two hours, and the reason is AirNow's publishing
+ * order: the NowCast goes out first and the raw hourly concentrations follow
+ * it, so the current hour routinely has nothing in `raw` while the hour before
+ * it is complete. Without the look-back, the smoke gate would blink out for
+ * the top of every hour and come back when the monitors caught up — and SO₂,
+ * which is graded on the hour itself, would go absent every time the station
+ * was merely late (specs/29-sulfur-dioxide.md).
+ *
+ * The windowed variables need none of this: a 24-hour PM mean and an 8-hour
+ * ozone mean span a missing hour on their own.
  */
-const SMOKE_GATE_LOOKBACK_HOURS = 2
+const MONITOR_LAG_LOOKBACK_HOURS = 2
+
+/**
+ * The newest number this column actually carries at or before hour `i`, inside
+ * that look-back — null when the monitor has been silent across the whole
+ * span, which is the honest "unknown" rather than a zero.
+ */
+function latestPosted(column: (number | null)[], i: number): number | null {
+  for (let j = i; j >= 0 && j > i - 1 - MONITOR_LAG_LOOKBACK_HOURS; j--) {
+    const value = column[j]
+    if (value != null) return value
+  }
+  return null
+}
 
 /**
  * Does the particulate at this hour look like smoke — yes, no, or unanswerable?
@@ -533,7 +552,7 @@ function fineFractionGate(
   pm10: (number | null)[],
   i: number,
 ): boolean | null {
-  for (let j = i; j >= 0 && j > i - 1 - SMOKE_GATE_LOOKBACK_HOURS; j--) {
+  for (let j = i; j >= 0 && j > i - 1 - MONITOR_LAG_LOOKBACK_HOURS; j--) {
     const fine = pm25[j]
     const coarse = pm10[j]
     if (fine == null || coarse == null) continue
@@ -649,8 +668,8 @@ export async function fetchExposureSeries(
     pm25: series(air.hourly, 'pm2_5'),
     pm10: series(air.hourly, 'pm10'),
     o3: series(air.hourly, 'ozone'),
+    so2: series(air.hourly, 'sulphur_dioxide'),
   }
-  const so2 = series(air.hourly, 'sulphur_dioxide')
   const co = series(air.hourly, 'carbon_monoxide')
   const usAqi = series(air.hourly, 'us_aqi')
   const eaqi = series(air.hourly, 'european_aqi')
@@ -713,14 +732,17 @@ export async function fetchExposureSeries(
   // instrument. Under the null discipline the absence says "unknown", which is
   // the truth, rather than a zero that would read as clean.
   //
-  // SO₂ and CO are all that is left here. They are fetched, they land in `raw`,
-  // and they are deliberately *not* in the exposure vector: an evidence line
-  // may only cite a number the user can check, and neither has a row in the
-  // air table. specs/20-baseline-bad-air.md admits them where they actually
-  // drive asthma — SO₂ near smelters and volcanic haze, CO in cookstove
-  // regions — by region, and that region rule is the guard. Absent one, they
-  // stay out of the US vector rather than arriving as two more dimensions
-  // nobody in Connecticut has a bad day from.
+  // CO is all that is left here. It is fetched, it lands in `raw`, and it is
+  // deliberately *not* in the exposure vector: it has no airway mechanism at
+  // all — it is a cardiovascular poison — so a row for it would be the app
+  // grading a number that cannot make anybody wheeze.
+  // specs/20-baseline-bad-air.md admits it where it does drive symptoms, in
+  // cookstove regions, by region, and that region rule is the guard.
+  //
+  // SO₂ left this paragraph in spec 29. It has a row of its own now, above its
+  // floor, so the rule that kept it out — an evidence line may only cite a
+  // number the user can check — is satisfied rather than waived, and it rides
+  // the station series wherever a monitor reports it.
   const modelOnly = (column: (number | null)[]): (number | null)[] =>
     measured ? times.map(() => null) : column
   const column = (variable: AirNowVariable): (number | null)[] =>
@@ -737,7 +759,12 @@ export async function fetchExposureSeries(
   const pm25 = column('pm25')
   const pm10 = column('pm10')
   const o3 = column('o3')
-  const so2Column = modelOnly(so2)
+  // SO₂ takes the same route as the pollutants above (specs/29-sulfur-dioxide
+  // .md): the nearest monitor reporting it where the series is a station's,
+  // CAMS where it is the model's, and — where a station series' monitors are
+  // silent on SO₂ — a column of nulls, which is the vector saying "nobody
+  // measured this here" rather than "there was none".
+  const so2Column = column('so2')
   const coColumn = modelOnly(co)
 
   const hours: Hour[] = times.map((time, i) => {
@@ -763,8 +790,9 @@ export async function fetchExposureSeries(
     const dryAir = d == null ? null : Math.max(0, 11 - d)
     const humidHeat = d == null ? null : Math.max(0, d - 18)
     // The engine may only reason about variables the app can show the user, so
-    // so2 and co stay out of the exposure vector until the air table has rows
-    // for them: an evidence line must never cite a number nobody can check.
+    // `co` stays out of the exposure vector until the air table has a row for
+    // it: an evidence line must never cite a number nobody can check. SO₂
+    // earned its row in spec 29 and is in the vector below.
     const exposure: Exposure = {}
     const put = (variable: string, x: number | null): void => {
       if (x !== null) exposure[variable] = x
@@ -782,6 +810,25 @@ export async function fetchExposureSeries(
     // against a mean prior over-warns by construction.
     put('pm25', windowMean(pm25, i, 24))
     put('o3', windowMean(o3, i, 8))
+    // SO₂ is the hour itself, with no window (specs/29-sulfur-dioxide.md). The
+    // mechanism runs in minutes — exercising asthmatics bronchoconstrict
+    // within 2–10 of them at 0.5 ppm — and the standard written around that
+    // finding is the 1-hour NAAQS, so an averaging window would smear the one
+    // thing the variable is good at seeing. Its floor of 20 µg/m³ is what
+    // makes admitting it free: below that it can never be a candidate, which
+    // is where Connecticut's air sits on essentially every day.
+    //
+    // Having no window costs it the thing a window quietly buys the PM and
+    // ozone rows: cover for AirNow's publishing lag. The NowCast posts before
+    // the raw hourly, so on a station series the current hour's SO₂ is
+    // routinely blank while the hour behind it is filled — and "blank" is the
+    // same word the vector uses for "no monitor here reports SO₂ at all",
+    // which is a completely different fact about the world. So a station
+    // series takes the newest reading the monitor has actually posted inside
+    // the same two-hour look-back the smoke gate uses, and is absent only when
+    // nothing posted across it. The model has no lag and no such problem: its
+    // column is the hour, as it was.
+    put('so2', measured ? latestPosted(so2Column, i) : (so2Column[i] ?? null))
     // PM10 is computed on PM2.5's window and then kept out of the vector
     // (specs/24-vector-diet.md). Coarse PM has weak independent evidence for
     // acute asthma, and PM10 is *PM2.5 plus the coarse fraction* — so it

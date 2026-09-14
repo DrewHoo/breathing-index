@@ -16,7 +16,19 @@ const NEGLIGIBLE: Record<string, number> = {
   pm10: 10,
   o3: 20,
   no2: 10,
-  so2: 5,
+  // SO₂, at half the WHO 24-h guideline of 40 (specs/29-sulfur-dioxide.md).
+  // The controlled-exposure literature is the sharpest in this table and it
+  // sits two orders of magnitude above this line: exercising asthmatics
+  // bronchoconstrict within 2–10 minutes at 0.5 ppm (≈ 1,300 µg/m³, airway
+  // resistance roughly doubling) and measurably at 0.25 ppm, while healthy
+  // people barely respond at ten times that. Nothing near 20 is a documented
+  // trigger — and that is the point of the number rather than an argument
+  // against it. The floor is what makes admitting the variable free: Hamden's
+  // SO₂ runs 0.2–2.7 µg/m³, so below the line it is never a candidate, never
+  // earns a bound, and costs the other variables no identifiability. It only
+  // appears on the day a refinery, a port or a volcanic plume puts it in the
+  // air, which is the day it explains everything.
+  so2: 20,
   co: 500, // µg/m³ — urban background runs 200–400
   // Light smoke is a suspect (specs/25-smoke-variable.md). The scale has three
   // steps and the bottom one already means "an analyst drew a plume over you
@@ -185,14 +197,15 @@ export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
  *    8-h for ozone and CO, 1-h or 24-h for the WHO gases — and since
  *    specs/22-exposure-windows.md the engine's features are the matching running
  *    means: 24-h for PM, 8-h for ozone (docs/trigger-model.md). PM and ozone are
- *    therefore compared like with like. The gas rows would not be — so2/co would be
- *    the hour itself against a 1-h or 24-h guideline, and a single bad hour can cross
- *    a 24-h number a real 24-h mean would not — but no vector carries a gas today, so
- *    that only becomes a live question on the day spec 20 admits them by region. The
- *    bias would be toward warning early, which is the right direction for a ceiling
- *    that only ever *raises* a prediction and is superseded by the user's own diary —
- *    but the numbers are not AQI categories, and nothing in the UI should claim they
- *    are.
+ *    therefore compared like with like. SO₂ is not, and knowingly so
+ *    (specs/29-sulfur-dioxide.md): its feature is the hour itself, graded against a
+ *    24-h guideline at level 2 and an EU 1-h limit at level 4, so a single bad hour
+ *    can cross a 24-h number a real 24-h mean would not. Averaging it away is the
+ *    worse error — the mechanism is minutes — and the bias is toward warning early,
+ *    which is the right direction for a ceiling that only ever *raises* a prediction
+ *    and is superseded by the user's own diary. `co` would carry the same mismatch on
+ *    the day spec 20 admits it by region; no vector carries it today. The numbers are
+ *    not AQI categories either way, and nothing in the UI should claim they are.
  * 2. **Which end of the category.** Every row is the *lower* bound of its category:
  *    the exposure at which a category begins, not its midpoint. That is what makes
  *    "potentially at this level" true at the threshold rather than halfway past it.

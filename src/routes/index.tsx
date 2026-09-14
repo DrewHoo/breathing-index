@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
@@ -850,7 +850,16 @@ interface AirRow {
  * (specs/24-vector-diet.md): ungraded is not the same as unaveraged, and the
  * row still owes the reader the span its number covers.
  */
-const WINDOW_LABELS: Record<string, string> = { pm25: '24-h', pm10: '24-h', o3: '8-h' }
+const WINDOW_LABELS: Record<string, string> = {
+  pm25: '24-h',
+  pm10: '24-h',
+  o3: '8-h',
+  // SO₂ has no window — the number is the hour (specs/29-sulfur-dioxide.md) —
+  // and it says "1-h" anyway, because that is the span the reading covers and
+  // a row that named a span for every neighbour and not for itself would read
+  // as an oversight rather than as a claim.
+  so2: '1-h',
+}
 
 /** HMS's three analyst-drawn steps, indexed by the density the relay returns. */
 const SMOKE_DENSITY_WORDS = ['', 'Light', 'Medium', 'Heavy']
@@ -988,6 +997,33 @@ function buildAirRows(
       status: { variable: key, value: reading },
       series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
+    })
+  }
+
+  // SO₂, after the two pollutants that are always on the screen and before the
+  // one that is never graded (specs/29-sulfur-dioxide.md). The row appears
+  // only above the floor, on the smoke rule and for the smoke reason: the
+  // variable sits at 0.2–2.7 µg/m³ in Connecticut against a floor of 20, so a
+  // standing "1 µg/m³ · barely present" row on every screen for years would
+  // teach people to skip past the one row that matters on the day it means
+  // something. What the table owes the reader instead is a line saying the app
+  // did look — which is what `AbsentNames` below is for.
+  //
+  // Absent is a third state and not this one: an airnow series whose monitors
+  // do not report SO₂ has no number at all, and that line says so separately.
+  const so2 = current.exposure.so2
+  if (so2 !== undefined && so2 > negligibleFor('so2')) {
+    const meta = VARIABLE_LABELS.so2!
+    const sub = subLabel('so2', meta)
+    rows.push({
+      key: 'so2',
+      name: meta.name,
+      ...(sub ? { sub } : {}),
+      value: Math.round(so2),
+      unit: meta.unit,
+      status: { variable: 'so2', value: so2 },
+      series: window.map((h) => h.raw.so2 ?? null),
+      tol: tolerance('so2'),
     })
   }
 
@@ -1240,6 +1276,95 @@ function statusChip(
   }
 }
 
+/** One name under the air table, with whatever the app can say about it. */
+interface AbsentName {
+  name: string
+  /** the reading, where there is one to show ("1 µg/m³", "none") */
+  detail?: string
+}
+
+/**
+ * The two lines under the air table that name what has no row
+ * (specs/29-sulfur-dioxide.md §7). A variable the app carries and does not
+ * draw has to say so somewhere, or the day its row does appear reads as a bug
+ * rather than as news.
+ *
+ * They are two lines and never one, because the two silences are different
+ * claims. "Too low to matter" is the floor: the number was read, and it sits
+ * below the level at which the variable could be a suspect at all — so the
+ * number is printed, because somebody measured it. "Not measured here" is the
+ * other absence: a station series whose nearest monitor does not report the
+ * variable, where the model is deliberately not consulted for it, since one
+ * CAMS number inside a series of monitor readings would be a bound learned
+ * against the wrong instrument.
+ *
+ * A name with a row is in neither line, by construction rather than by a
+ * check: each line's condition is the exact complement of the row's — the
+ * floor for SO₂, a zero for smoke. NO₂ is in neither because it left the
+ * vector outright (specs/24-vector-diet.md), and naming it would promise a
+ * check nobody is performing.
+ */
+function AbsentNames({ data }: { data: ExposureSeries }) {
+  const current = data.hours[data.currentIndex]!
+  const so2 = current.exposure.so2
+  const so2Meta = VARIABLE_LABELS.so2!
+
+  const tooLow: AbsentName[] = []
+  if (so2 !== undefined && so2 <= negligibleFor('so2')) {
+    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}` })
+  }
+  // Smoke says "none" rather than "0 of 3": the scale is analyst-drawn steps,
+  // and the honest reading of a zero is that the satellite looked and there
+  // was no plume over this place. An hour nobody has an answer for carries no
+  // `smoke` key at all and appears on neither line — unknown is not none.
+  if (current.exposure.smoke === 0) {
+    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none' })
+  }
+
+  // "Not measured here" is a fact about the network, not about this hour, so
+  // it is decided by whether a monitor reports SO₂ at all — `siteNames` holds
+  // one entry per variable some monitor answered for. An hour whose reading
+  // has not posted yet is a different absence entirely (AirNow publishes the
+  // NowCast before the raw hourly) and belongs on neither line: the station
+  // does measure SO₂, and it is about to say so. Only ever a station series
+  // either way — on the model every variable has a number, so the line would
+  // be false wherever it could be printed.
+  const notMeasured: AbsentName[] =
+    data.source === AIRNOW_SOURCE && data.siteNames?.so2 === undefined
+      ? [{ name: so2Meta.name }]
+      : []
+
+  if (tooLow.length === 0 && notMeasured.length === 0) return null
+  return (
+    <div className="air-absent">
+      <AbsentLine label="Also checked, too low to matter" names={tooLow} />
+      <AbsentLine label="Not measured here" names={notMeasured} />
+    </div>
+  )
+}
+
+/**
+ * One of those lines, or nothing when it has no names. Each name is its own
+ * element because [30-glossary.md] hangs a `?` off it — the line is a list of
+ * things a person may not know the meaning of, which is most of why it is
+ * worth printing at all.
+ */
+function AbsentLine({ label, names }: { label: string; names: AbsentName[] }) {
+  if (names.length === 0) return null
+  return (
+    <div>
+      {label}:{' '}
+      {names.map((item, i) => (
+        <Fragment key={item.name}>
+          {i > 0 ? ' · ' : ''}
+          <span className="air-absent-name">{item.name}</span>
+          {item.detail ? ` ${item.detail}` : ''}
+        </Fragment>
+      ))}
+    </div>
+  )
+}
+
 function AirTable({
   data,
   model,
@@ -1311,6 +1436,7 @@ function AirTable({
           )
         })}
       </div>
+      <AbsentNames data={data} />
     </section>
   )
 }

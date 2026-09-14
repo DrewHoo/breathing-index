@@ -21,7 +21,7 @@
 import { RELAY_BASE, coarse } from './relay'
 
 /** The AirNow parameters this app has rows for, under the app's own names. */
-export type AirNowVariable = 'pm25' | 'o3' | 'pm10'
+export type AirNowVariable = 'pm25' | 'o3' | 'pm10' | 'so2'
 
 /** AirNow's `Parameter` spellings, mapped to the app's variable names. */
 const VARIABLES: Record<string, AirNowVariable> = {
@@ -29,6 +29,7 @@ const VARIABLES: Record<string, AirNowVariable> = {
   PM10: 'pm10',
   OZONE: 'o3',
   O3: 'o3',
+  SO2: 'so2',
 }
 
 /**
@@ -40,6 +41,7 @@ export const AIRNOW_PARAMETER: Record<AirNowVariable, string> = {
   pm25: 'PM2.5',
   pm10: 'PM10',
   o3: 'OZONE',
+  so2: 'SO2',
 }
 
 /**
@@ -49,6 +51,16 @@ export const AIRNOW_PARAMETER: Record<AirNowVariable, string> = {
  * converted here and nothing downstream has to know a unit changed hands.
  */
 const UG_M3_PER_PPB_O3 = 1.96
+
+/**
+ * The same conversion for SO₂ at the same reference conditions — a different
+ * number because it is a different molecule (64.06 g/mol against ozone's
+ * 48.00), and one place where reusing the ozone constant would be wrong by a
+ * third. AirNow reports SO₂ in PPB like ozone, so the same rule applies: the
+ * unit changes hands here and the vector stays metric throughout
+ * (specs/29-sulfur-dioxide.md).
+ */
+const UG_M3_PER_PPB_SO2 = 2.62
 
 /** AirNow writes −999 where a concentration is missing; monitors legitimately
  * report small negatives near zero, so the floor sits between the two. */
@@ -150,9 +162,12 @@ function distanceKm(aLat: number, aLon: number, bLat: number, bLon: number): num
 /** The concentration a row carries, in µg/m³, or null when it carries none. */
 function concentration(row: AirNowRow): number | null {
   if (!Number.isFinite(row.RawConcentration) || row.RawConcentration <= MISSING) return null
-  return row.Unit.toUpperCase() === 'PPB'
-    ? row.RawConcentration * UG_M3_PER_PPB_O3
-    : row.RawConcentration
+  if (row.Unit.toUpperCase() !== 'PPB') return row.RawConcentration
+  // Which gas it is decides the factor, so the row's own parameter name picks
+  // it: both particle sizes arrive in UG/M3 and never reach this line, and the
+  // two gases the app reads are the two that do.
+  const ppb = VARIABLES[row.Parameter.toUpperCase()] === 'so2' ? UG_M3_PER_PPB_SO2 : UG_M3_PER_PPB_O3
+  return row.RawConcentration * ppb
 }
 
 /**
@@ -291,6 +306,13 @@ export function parseAirNow(
  * for the opposite reason: monitors do report it and the air table shows it,
  * but it is display-only, so a station series missing it is still carrying a
  * complete vector.
+ *
+ * SO₂ is off the list for a third reason (specs/29-sulfur-dioxide.md). It is
+ * in the vector, and the bar still does not name it: the nearest monitor
+ * reporting SO₂ is a lucky extra, not a condition. Where one does, the station
+ * series carries it; where none does, the variable is simply absent and the
+ * table says so in as many words, because filling it from CAMS would be a
+ * model number smuggled into a station series.
  */
 export function coversExposureVector(observations: AirNowObservations): boolean {
   return observations.monitors.pm25?.recent === true && observations.monitors.o3?.recent === true
@@ -321,10 +343,20 @@ export interface AirNowReport {
  * reports (empty chips, real banner).
  */
 export function airNowReport(observations: AirNowObservations): AirNowReport | null {
-  const readings = (Object.keys(AIRNOW_PARAMETER) as AirNowVariable[]).flatMap((variable) => {
-    const latest = observations.monitors[variable]?.latestAqi
-    return latest ? [{ variable, ...latest }] : []
-  })
+  // SO₂ is measured (specs/29-sulfur-dioxide.md) and still has no chip: the
+  // strip's chips are AQI points walked back to concentrations through
+  // `aqi.ts`, whose breakpoint tables cover the three pollutants it calls
+  // `Bridgeable`, and SO₂ is not one of them. A chip with no bridge behind it
+  // would be a point with no number a person could check — and adding the
+  // table would mean transcribing a fourth AQI breakpoint set to serve a
+  // pollutant that is at background on nearly every day. The exposure vector
+  // takes SO₂ by the raw concentration, which needs no bridge at all.
+  const readings = (Object.keys(AIRNOW_PARAMETER) as AirNowVariable[])
+    .filter((variable) => variable !== 'so2')
+    .flatMap((variable) => {
+      const latest = observations.monitors[variable]?.latestAqi
+      return latest ? [{ variable, ...latest }] : []
+    })
   if (readings.length === 0 && !observations.actionDay) return null
   const top = Math.max(...readings.map((r) => r.aqi))
   const newest = readings.reduce<string>((a, r) => (r.hour > a ? r.hour : a), '')
