@@ -1309,3 +1309,152 @@ a.air-note {
   color: var(--alarm);
   margin: 0;
 }
+
+/* --- the ? and the sheet it opens (specs/30-glossary.md) --- */
+
+/*
+ * A faint circled question mark, sized and coloured to sit in the sub-label
+ * register: it shares a line with a name, a number and a verdict, and it is
+ * the least important of the four.
+ *
+ * The 44 px target (specs/11-ui-polish.md) is padding, and the padding is
+ * given straight back as margin, so the tappable box is 44 px and the box the
+ * layout measures is the 14 px mark — the row keeps its rhythm and a thumb
+ * still lands. `content-box` is load-bearing: the global border-box would eat
+ * the 30 px of padding out of the 14 px mark and leave nothing.
+ */
+.help {
+  position: relative;
+  box-sizing: content-box;
+  width: 14px;
+  height: 14px;
+  padding: 15px;
+  margin: -15px;
+  flex: none;
+  font: 600 10px/14px var(--sans);
+  color: var(--secondary);
+  text-align: center;
+}
+
+/* The ring is drawn by a pseudo-element pinned to the 14 px content box,
+   because a border on the button itself would be drawn around the 44 px
+   padding box — a circle the size of a fingertip, sitting next to a 12 px
+   name. The mark and the target are the same element and two different
+   shapes, and this is what keeps them from being one. */
+.help::before {
+  content: '';
+  position: absolute;
+  inset: 15px;
+  border: 1px solid var(--chip-border);
+  border-radius: 50%;
+}
+
+/*
+ * The entry itself: a bottom sheet on a phone, which is where a thumb already
+ * is, and a centred dialog once there is room for one. `margin: auto auto 0`
+ * is what pins a modal dialog to the bottom of the viewport; the max-height
+ * and the scroll are because five paragraphs plus the disclaimer is taller
+ * than a small phone in landscape.
+ */
+/* In the absent lines the `?` sits in running text rather than in a flex row,
+   so it has no gap to sit in: give back 4 px of the padding on each side so the
+   mark is not touching the name it belongs to or the reading after it. */
+.air-absent .help {
+  margin-left: -11px;
+  margin-right: -11px;
+}
+
+.help-sheet {
+  width: 100%;
+  max-width: 100%;
+  max-height: 80vh;
+  margin: auto auto 0;
+  padding: 0;
+  overflow-y: auto;
+  border: none;
+  border-radius: 16px 16px 0 0;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 -6px 24px var(--shadow);
+}
+
+.help-sheet::backdrop {
+  background: rgb(17 24 29 / 0.45);
+}
+
+@media (min-width: 560px) {
+  .help-sheet {
+    max-width: 420px;
+    margin: auto;
+    border-radius: 16px;
+  }
+}
+
+.help-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px max(18px, env(safe-area-inset-bottom));
+}
+
+/* Sticky, because the whole sheet scrolls: five paragraphs on a small phone
+   push the way out off the top, and Escape is not a gesture a thumb has. */
+.help-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  background: var(--card);
+}
+
+.help-title {
+  flex: 1;
+  font: 600 16px/1.3 var(--sans);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* The way out, at the 44 px the rest of the app's controls keep. */
+.help-close {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  font: 600 12px var(--sans);
+  color: var(--accent);
+}
+
+.help-part {
+  margin: 0;
+  font: 400 13px/1.55 var(--sans);
+  color: var(--ink-2);
+}
+
+/* The part labels borrow the section-rule register: they are captions over
+   prose, not headings in it. */
+.help-label {
+  display: block;
+  font: 600 10px var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.help-disclaimer {
+  margin: 4px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+}
+
+.help-full {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font: 600 12px var(--sans);
+  color: var(--accent);
+  text-decoration: none;
+}

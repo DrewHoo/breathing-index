@@ -59,6 +59,12 @@ function About() {
         Fuck asthma. Breathe easy.
       </p>
       <div className="row-card">
+        {/* A plain anchor, not a router Link: /glossary is a document served
+            off disk like /privacy, and the router has no route for it. */}
+        <a className="settings-row" href="/glossary">
+          <span className="settings-row-label accent">What&rsquo;s in the air</span>
+          <span className="settings-row-hint">every row in the table, explained</span>
+        </a>
         <a
           className="settings-row"
           href="https://drewhoover.com"

@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Fragment, useMemo, useState } from 'react'
+import { glossaryKeyFor } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
 import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
@@ -9,6 +10,7 @@ import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismissed'
 import { BackupChip } from '../ui/durabilityUi'
+import { useGlossaryHelp } from '../ui/help'
 import { VARIABLE_LABELS, levelWord, variableName } from '../ui/labels'
 import { isPending, settled } from '../ui/pendingExposure'
 import { calendarPollenPatch } from '../ui/pollenTag'
@@ -40,6 +42,9 @@ function Diary() {
   const [leftAlone, setLeftAlone] = useState<Set<string>>(dismissedConflicts)
   const [saveFailed, setSaveFailed] = useState(false)
   const tempUnit = useTemperatureUnit()
+  // One sheet for the evidence panel, opened by whichever row's `?` was tapped
+  // (specs/30-glossary.md §6).
+  const { help, sheet } = useGlossaryHelp()
   // Entries still waiting on their air have no vector to reason about, so the
   // model — and every index into it — is built on the settled ones alone.
   const modelDiary = useMemo(() => settled(diary), [diary])
@@ -86,14 +91,22 @@ function Diary() {
       <section className="section">
         <SectionRule label="What your logs show" />
         <div className="row-card">
-          {evidenceRows(model, tempUnit).map((row) => (
-            <div key={row.name} className="evidence-row">
-              <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
-              <span className="evidence-name">{row.name}</span>
-              <span className="evidence-text">{row.text}</span>
-            </div>
-          ))}
+          {evidenceRows(model, tempUnit).map((row) => {
+            // Retired variables have no entry and get no `?`: the name is kept
+            // so an old entry renders as words, and there is nothing left to
+            // explain about a measurement the app stopped taking.
+            const entry = glossaryKeyFor(row.variable)
+            return (
+              <div key={row.name} className="evidence-row">
+                <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
+                <span className="evidence-name">{row.name}</span>
+                {entry ? help(entry, row.name) : null}
+                <span className="evidence-text">{row.text}</span>
+              </div>
+            )
+          })}
         </div>
+        {sheet}
       </section>
 
       {conflicts.map((conflict) => (
@@ -160,6 +173,14 @@ function Diary() {
 
 interface EvidenceRowData {
   name: string
+  /**
+   * The exposure variable the row is about, so the `?` beside its name can
+   * find the entry that explains it (specs/30-glossary.md §6). The name alone
+   * would not do: "Alternaria" and "Mold" are two rows and one entry, and the
+   * retired names have none at all. `summarize` carries it out, since it is
+   * the one thing every caller already had to pass in.
+   */
+  variable: string
   glyph: string
   cls: string
   text: string
@@ -178,6 +199,7 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
     const hasTol = tol !== undefined && tol > negligibleFor(variable)
     if (level !== undefined) {
       return {
+        variable,
         glyph: '●',
         cls: 'trigger',
         text: `trigger — ${levelWord(level)} near ${fmt(confirmed![level]!)}${hasTol ? `, fine up to ${fmt(tol)}` : ''}`,
@@ -190,18 +212,19 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
     )
     if (oneDay) {
       return {
+        variable,
         glyph: '◐',
         cls: 'suspect',
         text: `suspect — one day points at it near ${fmt(oneDay.bound)}`,
       }
     }
     if (model.constraints.some((c) => c.candidates.includes(variable))) {
-      return { glyph: '◐', cls: 'suspect', text: 'suspect — never seen it act alone' }
+      return { variable, glyph: '◐', cls: 'suspect', text: 'suspect — never seen it act alone' }
     }
     if (hasTol) {
-      return { glyph: '○', cls: 'fine', text: `fine in everything up to ${fmt(tol)}` }
+      return { variable, glyph: '○', cls: 'fine', text: `fine in everything up to ${fmt(tol)}` }
     }
-    return { glyph: '◌', cls: '', text: 'no evidence yet either way' }
+    return { variable, glyph: '◌', cls: '', text: 'no evidence yet either way' }
   }
 
   const bare = (v: number) => `${Math.round(v)}`

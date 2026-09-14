@@ -1,5 +1,6 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Fragment, useEffect, useId, useMemo, useState } from 'react'
+import { Fragment, useEffect, useId, useMemo, useState, type ReactElement } from 'react'
+import type { GlossaryKey } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
@@ -17,6 +18,7 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
+import { useGlossaryHelp } from '../ui/help'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
@@ -802,6 +804,14 @@ function WhyBlock({
 interface AirRow {
   key: string
   name: string
+  /**
+   * The glossary entry the row's `?` opens (specs/30-glossary.md). Set on the
+   * row rather than looked up from the key, because two rows are not one
+   * variable: the dew-point row is drawn from `dry_air` and `humid_heat`
+   * folded together, and the pollen rows are drawn at type level over
+   * per-plant variables.
+   */
+  help: GlossaryKey
   sub?: string
   value: number
   unit: string
@@ -987,6 +997,7 @@ function buildAirRows(
     rows.push({
       key,
       name: meta.name,
+      help: key,
       ...(sub ? { sub } : {}),
       // Quiet, not a claim: the row is still the best number available for
       // this place, and the note says which way to discount it rather than
@@ -1018,6 +1029,7 @@ function buildAirRows(
     rows.push({
       key: 'so2',
       name: meta.name,
+      help: 'so2',
       ...(sub ? { sub } : {}),
       value: Math.round(so2),
       unit: meta.unit,
@@ -1044,6 +1056,7 @@ function buildAirRows(
     rows.push({
       key: 'pm10',
       name: meta.name,
+      help: 'pm10',
       ...(sub ? { sub } : {}),
       value: Math.round(pm10),
       unit: meta.unit,
@@ -1071,6 +1084,7 @@ function buildAirRows(
     rows.push({
       key: 'smoke',
       name: meta.name,
+      help: 'smoke',
       sub: [
         SMOKE_DENSITY_WORDS[smokeDensity],
         'satellite',
@@ -1120,6 +1134,7 @@ function buildAirRows(
     rows.push({
       key: 'mold',
       name: meta.name,
+      help: 'mold',
       sub,
       value: Math.round(moldReading),
       // St. Louis prints a number and never names its unit, so the row says
@@ -1152,6 +1167,7 @@ function buildAirRows(
     rows.push({
       key: 'dry_spore_index',
       name: meta.name,
+      help: 'dry_spore_index',
       sub: 'estimate from weather',
       value: drySpore,
       unit: meta.unit,
@@ -1181,6 +1197,11 @@ function buildAirRows(
     rows.push({
       key: `pollen_${type}`,
       name: POLLEN_ROW_NAMES[type],
+      // The row is drawn at type level; the entries are too, so the row's own
+      // key is the glossary key. The plant variables under it resolve to the
+      // same entry through `glossaryKeyFor`, which is what the diary's
+      // per-species evidence rows use.
+      help: `pollen_${type}`,
       // Grass alone names a window, because grass alone has one: its number is
       // the highest of the trailing three days (specs/22-exposure-windows.md),
       // computed in feature extraction, so the headline, the sub-label and the
@@ -1230,6 +1251,10 @@ function buildAirRows(
     rows.push({
       key: 'dewpoint',
       name: side === 'dry_air' ? 'Dry air' : side === 'humid_heat' ? 'Humid heat' : 'Dew point',
+      // One entry whichever name the row is wearing: the two features are one
+      // curve folded twice, and a reader tapping the `?` is asking about the
+      // number on the screen, which is the dew point either way.
+      help: 'dewpoint',
       // The sub-label says what the number is; on the neutral day the name
       // already does, and "Dew point · dew point" reads as a stutter.
       ...(side ? { sub: 'dew point' } : {}),
@@ -1281,6 +1306,8 @@ interface AbsentName {
   name: string
   /** the reading, where there is one to show ("1 µg/m³", "none") */
   detail?: string
+  /** the glossary entry its `?` opens (specs/30-glossary.md) */
+  help: GlossaryKey
 }
 
 /**
@@ -1304,21 +1331,28 @@ interface AbsentName {
  * vector outright (specs/24-vector-diet.md), and naming it would promise a
  * check nobody is performing.
  */
-function AbsentNames({ data }: { data: ExposureSeries }) {
+function AbsentNames({
+  data,
+  help,
+}: {
+  data: ExposureSeries
+  /** the route's one `?`-and-sheet pair, passed down rather than opened again */
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
   const current = data.hours[data.currentIndex]!
   const so2 = current.exposure.so2
   const so2Meta = VARIABLE_LABELS.so2!
 
   const tooLow: AbsentName[] = []
   if (so2 !== undefined && so2 <= negligibleFor('so2')) {
-    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}` })
+    tooLow.push({ name: so2Meta.name, detail: `${Math.round(so2)} ${so2Meta.unit}`, help: 'so2' })
   }
   // Smoke says "none" rather than "0 of 3": the scale is analyst-drawn steps,
   // and the honest reading of a zero is that the satellite looked and there
   // was no plume over this place. An hour nobody has an answer for carries no
   // `smoke` key at all and appears on neither line — unknown is not none.
   if (current.exposure.smoke === 0) {
-    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none' })
+    tooLow.push({ name: VARIABLE_LABELS.smoke!.short, detail: 'none', help: 'smoke' })
   }
 
   // "Not measured here" is a fact about the network, not about this hour, so
@@ -1331,14 +1365,14 @@ function AbsentNames({ data }: { data: ExposureSeries }) {
   // be false wherever it could be printed.
   const notMeasured: AbsentName[] =
     data.source === AIRNOW_SOURCE && data.siteNames?.so2 === undefined
-      ? [{ name: so2Meta.name }]
+      ? [{ name: so2Meta.name, help: 'so2' as const }]
       : []
 
   if (tooLow.length === 0 && notMeasured.length === 0) return null
   return (
     <div className="air-absent">
-      <AbsentLine label="Also checked, too low to matter" names={tooLow} />
-      <AbsentLine label="Not measured here" names={notMeasured} />
+      <AbsentLine label="Also checked, too low to matter" names={tooLow} help={help} />
+      <AbsentLine label="Not measured here" names={notMeasured} help={help} />
     </div>
   )
 }
@@ -1349,7 +1383,15 @@ function AbsentNames({ data }: { data: ExposureSeries }) {
  * things a person may not know the meaning of, which is most of why it is
  * worth printing at all.
  */
-function AbsentLine({ label, names }: { label: string; names: AbsentName[] }) {
+function AbsentLine({
+  label,
+  names,
+  help,
+}: {
+  label: string
+  names: AbsentName[]
+  help: (key: GlossaryKey, name?: string) => ReactElement
+}) {
   if (names.length === 0) return null
   return (
     <div>
@@ -1358,6 +1400,7 @@ function AbsentLine({ label, names }: { label: string; names: AbsentName[] }) {
         <Fragment key={item.name}>
           {i > 0 ? ' · ' : ''}
           <span className="air-absent-name">{item.name}</span>
+          {help(item.help, item.name)}
           {item.detail ? ` ${item.detail}` : ''}
         </Fragment>
       ))}
@@ -1380,6 +1423,9 @@ function AirTable({
   lon: number
 }) {
   const rows = buildAirRows(data, model, tempUnit, lat, lon)
+  // One sheet for the whole surface — the rows and the two absent lines under
+  // them — rather than one per name (specs/30-glossary.md §3).
+  const { help, sheet } = useGlossaryHelp()
   // The dash needs its legend only once a row actually draws a waterline.
   const showWaterline = rows.some((r) => r.tol !== undefined)
   return (
@@ -1409,6 +1455,7 @@ function AirTable({
             <div key={row.key} className="air-row">
               <div className="air-name-row">
                 <span className="air-name">{row.name}</span>
+                {help(row.help, row.name)}
                 {row.sub && <span className="air-sub">{row.sub}</span>}
                 <span className="air-spacer" />
                 <span className="air-value">
@@ -1436,7 +1483,8 @@ function AirTable({
           )
         })}
       </div>
-      <AbsentNames data={data} />
+      <AbsentNames data={data} help={help} />
+      {sheet}
     </section>
   )
 }

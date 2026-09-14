@@ -1,6 +1,6 @@
 # Glossary — what each thing in the air is, and a ? on every row
 
-**Status:** proposed · **Effort:** M · **Deps:** [19-pollen-content-pages.md](19-pollen-content-pages.md) (the generator pattern), [11-ui-polish.md](11-ui-polish.md) (44 px targets) · **Priority:** high. The rows now name eleven things and the app explains none of them.
+**Status:** built 2026-09-14 (branch `claude/spec-30-glossary`) · **Effort:** M · **Deps:** [19-pollen-content-pages.md](19-pollen-content-pages.md) (the generator pattern), [11-ui-polish.md](11-ui-polish.md) (44 px targets) · **Priority:** high. The rows now name eleven things and the app explains none of them.
 
 ## Problem
 
@@ -49,3 +49,32 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 ## Non-goals
 
 Per-verdict explanations beyond the words listed. Translation. A glossary for retired variables.
+
+## As built
+
+- **One dew-point entry, not two.** `dry_air` and `humid_heat` are one row on the screen, so
+  they are one entry keyed `dewpoint`, and `glossaryKeyFor` sends both variables to it. The two
+  drafts above are merged with a joining sentence on each side ("One measurement with two
+  edges", "Two mechanisms, one row"); every other clause is the draft's.
+- **Tree and weed split.** The draft's one "tree / weed pollen" row became `pollen_tree` and
+  `pollen_weed`, since the app draws two rows. The shared sentences are shared verbatim; only
+  the first noun differs.
+- **Five fields, and the draft table had four.** The table's "Window / source" column is one
+  cell, so `window` and `source` are split out of it where it holds two sentences. Where it
+  holds none for `source` — PM10, SO₂, smoke, dry-spore, tree/weed pollen, dew point, sick —
+  one short sentence was written to fill it, each saying only what the code already does.
+  `viral.verdicts` was "—" in the draft and needed words for the same reason.
+- **The part labels are content too.** `GLOSSARY_PARTS` in the module holds the five labels, so
+  the page and the sheet cannot label the same paragraph differently — §4's rule applied to the
+  chrome as well as the prose.
+- **The `?` announces the row's name, not the entry's.** "Dry air" and "Humid heat" are two
+  rows and one entry, and two buttons in one panel both reading "About Dew point" is a screen
+  reader saying the same thing twice. The entry's name is the fallback.
+- **`/glossary` has no dark mode**, because `legal.css` has none — it is the same light
+  document /privacy, /terms and /pollen are. The sheet inside the app is on the app's tokens
+  and follows the system.
+- **No component tests.** `HelpButton` and `HelpSheet` have no harness in this repo (there is
+  no DOM test setup); `src/content/glossary.test.ts` covers the content and the key mapping,
+  and the generator's `--check` covers the page. The sheet was verified by hand: open from an
+  air row, a diary row and an absent-line name; close by button and by backdrop; the anchor
+  link lands on the right section.

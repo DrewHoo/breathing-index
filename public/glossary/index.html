@@ -1,0 +1,218 @@
+<!doctype html>
+<!--
+  Served straight off disk by GitHub Pages, same as /privacy, /terms and the
+  /pollen pages: no bundle, no JS, no router. The service worker leaves
+  /glossary alone (navigateFallbackDenylist in vite.config.ts).
+
+  The entries between the `begin generated` / `end generated` markers below are
+  rendered from src/content/glossary.ts by scripts/generate-glossary.mjs — the
+  same module the `?` sheet inside the app reads — so this page and that sheet
+  cannot carry different words. Edit the module, then:
+  node scripts/generate-glossary.mjs --write. `npm test` fails if they drift.
+
+  Provenance: the entry copy is an agent's draft, written from
+  research/asthma-triggers-evidence.md and the draft table in
+  specs/30-glossary.md, for Drew to edit. It has not been through his hand yet.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>What's in the air — Breathing Index</title>
+    <meta
+      name="description"
+      content="Fine particles, ozone, smoke, mold, pollen, dew point: what each does to asthmatic breathing, the window the number covers, and where it comes from."
+    />
+    <link rel="canonical" href="https://breathingindex.com/glossary/" />
+    <meta name="theme-color" content="#F3F6F7" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/legal.css" />
+    <style>
+      /*
+        The page's only chrome beyond legal.css. Inline because it is twenty
+        lines for one page — /pollen earned its own stylesheet by being five.
+
+        legal.css sets h2 as a small uppercase section caption, which is right
+        for "Sources" and wrong for a thing's name: these headings are the
+        page's index, and a reader scanning for "Dew point" should find a word
+        rather than a caption. So the entry heading is a real heading here, and
+        the uppercase caption register moves down to the five part labels,
+        where it is doing the job it was drawn for.
+      */
+      /* The breadcrumb's own type, which lives in pollen.css for the pages
+         that load it. Four lines is cheaper than a third stylesheet. */
+      .crumbs {
+        font: 400 11px var(--sans);
+        color: var(--faint);
+        margin: 2px 0 0;
+      }
+
+      .gl-entry {
+        margin: 0 0 18px;
+        /* the sheet's "Full glossary →" lands on #key; don't tuck it under the
+           top of the viewport */
+        scroll-margin-top: 14px;
+      }
+
+      .gl-entry h2 {
+        font: 600 16px/1.3 var(--sans);
+        letter-spacing: -0.01em;
+        text-transform: none;
+        color: var(--ink);
+        margin: 0 0 8px;
+        padding-bottom: 5px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      .gl-part {
+        margin: 0 0 8px;
+      }
+
+      .gl-label {
+        display: block;
+        font: 600 10px var(--sans);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--faint);
+      }
+
+      .gl-intro {
+        margin-bottom: 20px;
+      }
+    </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Breathing Index", "item": "https://breathingindex.com/" },
+          { "@type": "ListItem", "position": 2, "name": "What's in the air" }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <a class="wordmark" href="/">Breathing Index 🫁</a>
+      <nav class="crumbs">Glossary</nav>
+
+      <h1>What's in the air</h1>
+
+      <p class="gl-intro">
+        One entry for every row the app can draw: what the number measures, what it does to
+        breathing, the span it covers, and where it came from.
+      </p>
+
+      <!-- begin generated: glossary-entries — by scripts/generate-glossary.mjs; edit src/content/glossary.ts, not here -->
+      <section class="gl-entry" id="pm25">
+        <h2>Fine particles</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Particles under 2.5 µm: smoke, exhaust, secondary aerosol. Small enough to reach the deep lung.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-visit studies: asthma visits rise about 4 % per 10 µg/m³, and wildfire smoke hits harder per microgram than city particulate.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> 24-hour mean, because the health studies and the official breakpoints are daily.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Monitor when one is near; the model otherwise.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> The usual verdicts.</p>
+      </section>
+      <section class="gl-entry" id="o3">
+        <h2>Ozone</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Ozone at ground level, made from traffic and heat in sunlight. Peaks mid-afternoon.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Shown in controlled exposure: lung function drops and airways inflame at 0.06 ppm over hours, below the US standard, and exertion multiplies the dose. The effect lags by hours.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> 8-hour mean, the standard's own form.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Monitor or model; the model runs high in the eastern US in summer.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> The usual verdicts.</p>
+      </section>
+      <section class="gl-entry" id="so2">
+        <h2>SO₂</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Sulfur dioxide, from coal, refineries, ships and volcanoes. Usually near zero in Connecticut.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Shown in controlled exposure: exercising asthmatics tighten within minutes at levels healthy lungs ignore. The best-proven acute trigger there is, and the rarest here.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The hour itself. The row appears only when it is present.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Monitor where one reports it; the model otherwise.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> The usual verdicts.</p>
+      </section>
+      <section class="gl-entry" id="pm10">
+        <h2>Coarse particles</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Particles under 10 µm, which includes PM2.5 plus dust and road grit.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Weak on its own for acute asthma; it moves with PM2.5. Shown so you can see coarse particulate; the diary does not grade it.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> 24-hour mean.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Monitor when one is near; the model otherwise.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;not graded&quot;: shown, never a suspect.</p>
+      </section>
+      <section class="gl-entry" id="smoke">
+        <h2>Smoke</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> NOAA's satellite smoke analysis, light to heavy, counted only when the particulate under it is fine-mode.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-visit studies: asthma visits rose 82 % in New York in a day of June 2023 smoke; per microgram, smoke is two to three times ordinary PM2.5.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The current hour; satellites need daylight, so at night the plume is the afternoon's.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> An analyst's plume drawn over this place, from NOAA's Hazard Mapping System.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> The usual verdicts.</p>
+      </section>
+      <section class="gl-entry" id="mold">
+        <h2>Mold</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Outdoor fungal spores per cubic metre, counted on a slide by the station you chose. Alternaria and Cladosporium are the two that matter.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-visit studies: every fungal group larger than any pollen group; Alternaria is linked to near-fatal asthma. Spores are small enough to reach the lower airway.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> Highest of the station's last three counts.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Stations count on weekday mornings; a count older than three days is an estimate.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;estimate&quot; when the count is old.</p>
+      </section>
+      <section class="gl-entry" id="dry_spore_index">
+        <h2>Dry-spore conditions</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> A weather guess at dry-air spores: warm, dry, windy, no rain in two days, after a wet spell.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> The same spores as mold, by proxy. It can suspect and never confirm.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> Daily, in season, always an estimate.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> No instrument looked at the air: five weather conditions off the forecast, counted.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;estimate from weather&quot;.</p>
+      </section>
+      <section class="gl-entry" id="pollen_tree">
+        <h2>Tree pollen</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Tree pollen on a 0–5 index, by plant.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The day's index.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Modelled, not counted; a calendar estimate where the model is silent.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;calendar estimate&quot;.</p>
+      </section>
+      <section class="gl-entry" id="pollen_grass">
+        <h2>Grass pollen</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Grass pollen on a 0–5 index, by plant.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-visit studies: the only pollen with a firm asthma signal, and it builds over three days.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> Highest of the last three days.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Modelled, not counted; a calendar estimate where the model is silent.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;calendar estimate&quot;.</p>
+      </section>
+      <section class="gl-entry" id="pollen_weed">
+        <h2>Weed pollen</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> Weed pollen on a 0–5 index, by plant.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The day's index.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Modelled, not counted; a calendar estimate where the model is silent.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;calendar estimate&quot;.</p>
+      </section>
+      <section class="gl-entry" id="dewpoint">
+        <h2>Dew point</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> One measurement with two edges. Dew point below 11 °C / 52 °F: air dry enough to dry the airway lining. Dew point above 18 °C / 64 °F: hot, wet air.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Two mechanisms, one row. On the dry side, shown in controlled exposure: what people call cold-air asthma is drying, not cold, and it needs hard breathing to start. Nose-breathing nearly cancels it. On the humid side, also shown in controlled exposure: a separate reflex from dry air, blocked by an inhaler drug in the lab.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The hour itself.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> The weather forecast's hourly dew point — modelled everywhere, since no air-quality monitor reports it.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> &quot;comfortable&quot; between 11 and 18 °C.</p>
+      </section>
+      <section class="gl-entry" id="viral">
+        <h2>Sick</h2>
+        <p class="gl-part"><span class="gl-label">What it is</span> You said you were sick.</p>
+        <p class="gl-part"><span class="gl-label">How it affects breathing</span> A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that.</p>
+        <p class="gl-part"><span class="gl-label">The window</span> The day you tapped it.</p>
+        <p class="gl-part"><span class="gl-label">Where the number comes from</span> You, not a feed: the one variable here nobody measures.</p>
+        <p class="gl-part"><span class="gl-label">What the words on the row mean</span> No words on the air table — being sick is not air. It earns a line in the diary’s evidence panel instead.</p>
+      </section>
+<!-- end generated: glossary-entries -->
+
+      <p class="callout">
+        <strong
+          >Breathing Index is a logbook lens on public air data — not medical advice. Trust your
+          symptoms and your asthma action plan over anything on this screen.</strong
+        >
+      </p>
+
+      <footer>
+        <a href="/">Breathing Index</a><a href="/pollen/">Pollen</a
+        ><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+      </footer>
+    </main>
+  </body>
+</html>
