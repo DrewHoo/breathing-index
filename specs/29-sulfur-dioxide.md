@@ -22,7 +22,14 @@ The app fetches SO₂ from CAMS, keeps it in `raw`, and never lets it into the v
 
 6. **Source scoping.** `so2` is already in `SOURCE_SCOPED_VARIABLES`. Nothing to do.
 
-7. **Glossary entry** ([30-glossary.md](30-glossary.md)) says what SO₂ is and why the row is usually absent.
+7. **Absent rows are named.** A variable in the vector with no row has to say so, or the day its row appears looks like a bug. One quiet line under the air table lists everything the app checked this hour that has no row, in two kinds:
+
+   > Also checked, too low to matter: SO₂ 1 µg/m³ · smoke none
+   > Not measured here: SO₂
+
+   "Too low to matter" is the floor: the variable was read and sits below the level at which it could be a suspect. The number is shown because it was measured. "Not measured here" is the other absence — a station series whose nearest monitor does not report the variable, where the model is deliberately not consulted for it. The two never share a line. Smoke reads "none" when the satellite answered and saw no plume, and is absent from both lines when it did not answer. NO₂ is gone from the vector entirely and appears on neither. [30-glossary.md](30-glossary.md) puts a `?` on each name in these lines.
+
+8. **Glossary entry** ([30-glossary.md](30-glossary.md)) says what SO₂ is and why the row is usually absent.
 
 ## Acceptance
 
@@ -30,6 +37,7 @@ The app fetches SO₂ from CAMS, keeps it in `raw`, and never lets it into the v
 - On an airnow series with the New Haven monitor reporting SO₂, `exposure.so2` is the monitor's hourly reading in µg/m³ and the row names the site.
 - Fixture: rating 3 at `{so2: 150, pm25: 4, o3: 10}` confirms `so2` at 3 on one clean day.
 - The floor and the prior are documented in `config.ts` with the controlled-exposure numbers above.
+- At Hamden on the model, the line under the table reads `Also checked, too low to matter: SO₂ 1 µg/m³ · smoke none`; on a station series whose monitor lacks SO₂ it reads `Not measured here: SO₂`; when the SO₂ row is present the name leaves the line.
 
 ## Non-goals
 
