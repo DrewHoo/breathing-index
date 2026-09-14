@@ -56,6 +56,8 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 | 26 | [Sick as signal](26-sick-as-signal.md) | S | The `sick` chip writes `viral: 1` into the vector instead of discarding the day |
 | 27 | [One ozone](27-one-ozone.md) | M | One ozone number, window on the label, station over model when a monitor is near |
 | 28 | [Mold](28-mold.md) | L | Ingest any published spore count, station chosen by distance; a dry-spore weather proxy everywhere else |
+| 29 | [Sulfur dioxide](29-sulfur-dioxide.md) | S | Admit SO₂ everywhere behind a 20 µg/m³ floor; a row only when present; measured from the monitor where one reports it |
+| 30 | [Glossary](30-glossary.md) | M | One content module, a prerendered `/glossary`, and a `?` on every row that opens the same entry in a sheet |
 
 ## Dependency sketch
 
@@ -69,6 +71,8 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 22 ──► 23 ──► 24 ──► 25
 22 ──► 27
 26, 28 independent (28 wants 23 for the humidity retirement)
+21 ──► 29
+29 ──► 30 (the glossary needs the final row list)
 ```
 
 Everything in the first table is shippable independently except 03→05 ordering (pollen wants
