@@ -32,6 +32,22 @@ describe('the entries', () => {
     }
   })
 
+  it('says how likely, what helps, and how the index measures it', () => {
+    // Drew's rules of 2026-09-14: a breathing paragraph carries the odds and
+    // the remedy, not just the mechanism, and the window part reads as an
+    // answer about the index ("Your Breathing Index uses the average of the
+    // last 8 hours ... since ..."), with its reason attached.
+    for (const key of GLOSSARY_ORDER) {
+      const entry = GLOSSARY[key]
+      expect(entry.breathing, `${key} says what helps`).toContain('What helps:')
+      if (key !== 'viral') expect(entry.breathing, `${key} says how likely`).toContain('How likely:')
+      if (entry.window !== undefined) {
+        expect(entry.window, `${key} window starts with the index`).toMatch(/^Your Breathing Index /)
+        expect(entry.window, `${key} window gives a reason`).toMatch(/\b(since|because|there isn’t a cumulative)\b/)
+      }
+    }
+  })
+
   it('orders every entry exactly once', () => {
     // GLOSSARY_ORDER is what the generator walks, so an entry missing from it
     // exists in the module and on no surface at all.

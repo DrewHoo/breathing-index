@@ -50,6 +50,14 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 
 A test guards the first two rules for the symbols the copy uses.
 
+Second round, same day:
+
+- "How it affects breathing" says more than the mechanism: how likely the thing is to matter and for whom ("How likely: ..."), and what people do about it ("What helps: ..."), with treatment and mitigation in plain words (mask, air cleaner, nose breathing, controller inhaler, rescue inhaler before exercise, allergy shots). Shared sentences for particles and for pollen are constants so the three particle entries and the three pollen entries say the same thing the same way.
+- "The window" is retitled "How Breathing Index measures it". Every answer starts "Your Breathing Index ..." and gives the span and the reason for it: the 8-hour average for ozone since the damage builds over hours; the hour itself for dew point since there is no cumulative effect; the three station days for mold since a calendar window would empty every Monday; and so on.
+- Dew point, what it is, in Drew's words: the temperature at which the water vapor in the air would condense into a dew drop; if it's too high, the hot, wet air can set off a reflex that tightens airways; if it's too low the dry air causes the lining of the airways to dry out; in between is comfortable. The thresholds moved to the breathing part.
+
+A test guards the "How likely:" / "What helps:" phrases and the "Your Breathing Index ... since" shape.
+
 ## Acceptance
 
 - `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.
