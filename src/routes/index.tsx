@@ -3,7 +3,7 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
-import { airNowReport, fetchAirNow, type AirNowReport } from '../sources/airnow'
+import { airNowReport, fetchAirNow, inAirNowCoverage, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
 import { AIRNOW_SOURCE, POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
 
@@ -22,6 +22,7 @@ import {
   CALENDAR_ESTIMATE,
   COMFORTABLE,
   FORECAST_MEANING,
+  MODEL_OZONE_BIAS,
   NOT_GRADED,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
@@ -322,7 +323,13 @@ function Home() {
         nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
         estimated={current.estimated ?? []}
       />
-      <AirTable data={data} model={model} tempUnit={tempUnit} />
+      <AirTable
+        data={data}
+        model={model}
+        tempUnit={tempUnit}
+        lat={location.lat}
+        lon={location.lon}
+      />
       <ByHour data={data} model={model} coldStart={coldStart} />
       <MeasuredStrip
         lat={location.lat}
@@ -866,10 +873,24 @@ const localHour = (iso: string, utcOffsetSeconds: number): string =>
     timeZone: 'UTC',
   })
 
+/**
+ * Where "eastern US" starts for the model-ozone note: the 100th meridian. The
+ * documented CAMS warm-season ozone bias is an eastern-US finding (the 2026-08-07
+ * Hamden case), and a note that says "eastern US" should not fire in Honolulu.
+ */
+const EASTERN_US_LON = -100
+
 function buildAirRows(
   data: ExposureSeries,
   model: TriggerModel,
   tempUnit: TemperatureUnit,
+  /**
+   * Where the air is. Nothing on a row is computed from it — it answers the
+   * one question a reading cannot, which is whether the *region* is one a
+   * known model bias applies to (specs/27-one-ozone.md).
+   */
+  lat: number,
+  lon: number,
 ): AirRow[] {
   const ci = data.currentIndex
   const window = data.hours.slice(Math.max(0, ci - 47), ci + 1)
@@ -896,15 +917,32 @@ function buildAirRows(
   // Composable, because these say different things and a row can need all of
   // them: what the pollutant is, what span its number covers, what the
   // particulate looks like, and which instrument saw it.
+  //
+  // The instrument is named either way, never left blank (specs/27-one-ozone
+  // .md). Naming only the monitor made "model" the unmarked case, and the
+  // confusion this spec exists to end was two numbers both labelled ozone with
+  // neither labelled by source — an unnamed number reads as *the* number. So a
+  // row whose figure a station produced says which station, and a row whose
+  // figure the model produced says "model". Per key rather than per series
+  // because that is the true statement: on a station series every row shown
+  // has a monitor behind it, so the two rules never disagree, and if one ever
+  // did the row would still be telling the truth about itself.
   const subLabel = (key: string, meta: VariableLabel): string =>
     [
       meta.sub,
       WINDOW_LABELS[key],
       key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null,
-      data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : null,
+      data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : 'model',
     ]
       .filter((part): part is string => Boolean(part))
       .join(' · ')
+
+  // The one caveat on this screen that is about a region rather than a
+  // reading, so it is gated on both: the number has to have come from the
+  // model, and the place has to be inside the coverage the bias was measured
+  // in. It rides the ozone row alone — CAMS's particulate has no equivalent
+  // known lean, and a caveat repeated under every row would stop being read.
+  const modelOzoneInUs = data.source !== AIRNOW_SOURCE && inAirNowCoverage(lat, lon) && lon > EASTERN_US_LON
 
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3'] as const) {
@@ -926,6 +964,10 @@ function buildAirRows(
       key,
       name: meta.name,
       ...(sub ? { sub } : {}),
+      // Quiet, not a claim: the row is still the best number available for
+      // this place, and the note says which way to discount it rather than
+      // telling anyone to disbelieve their own screen.
+      ...(key === 'o3' && modelOzoneInUs ? { note: { text: MODEL_OZONE_BIAS } } : {}),
       value: Math.round(reading),
       unit: meta.unit ?? '',
       status: { variable: key, value: reading },
@@ -1109,12 +1151,17 @@ function AirTable({
   data,
   model,
   tempUnit,
+  lat,
+  lon,
 }: {
   data: ExposureSeries
   model: TriggerModel
   tempUnit: TemperatureUnit
+  /** the place, for the row caveat that is about a region (see buildAirRows) */
+  lat: number
+  lon: number
 }) {
-  const rows = buildAirRows(data, model, tempUnit)
+  const rows = buildAirRows(data, model, tempUnit, lat, lon)
   // The dash needs its legend only once a row actually draws a waterline.
   const showWaterline = rows.some((r) => r.tol !== undefined)
   return (
@@ -1406,6 +1453,16 @@ function ByHour({
           <span key={i}>{t}</span>
         ))}
       </div>
+      {/* The seam (specs/27-one-ozone.md). This curve starts at now and runs
+          forward, and on a station series only its first hour is measured:
+          AirNow publishes no hourly forecast, so every hour after now is CAMS
+          (`forecastSource: 'cams'`). A reader who has just been told the ozone
+          row is a New Haven monitor would otherwise carry that standing across
+          the whole curve. On a model series there is no seam to mark — it is
+          one instrument the whole way across, and the rows already say so. */}
+      {data.source === AIRNOW_SOURCE && (
+        <span className="byhour-seam">measured to now · model after</span>
+      )}
     </section>
   )
 }
@@ -1495,9 +1552,17 @@ function MeasuredStrip({
         ))}
       </div>
       {chips.length > 0 && (
+        // Since spec 22 the rows above are averages too, so "stations report
+        // averages" named nothing that sets the two apart and left the reader
+        // to guess at a gap. What is actually different is the quantity and
+        // the place: a chip is AirNow's NowCast — a weighted multi-hour AQI
+        // for a whole reporting area, walked back to µg/m³ through the EPA
+        // table — and a row is the model's own trailing mean for this spot.
+        // Two honest numbers about different things (specs/27-one-ozone.md).
         <span className="settings-note">
-          Nearby monitor readings from AirNow, in the same µg/m³ as the rows above. Stations
-          report averages — 24 h for particles, 8 h for ozone — so a chip can lag a sharp change.
+          Chips are AirNow&rsquo;s NowCast AQI for that reporting area, walked back to µg/m³.
+          The rows above are the model&rsquo;s own 8- and 24-hour means for this spot — a
+          different quantity from a different place, so a gap is not by itself a contradiction.
         </span>
       )}
       {/* The two disagreements do not mean the same thing, so they do not share
