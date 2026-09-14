@@ -90,8 +90,9 @@ Answered state, when today already has an entry in air like this:
 
 (The line says *this air*, not *today*: the card comes back when the air moves, and the wording
 has to survive both. The state is read from the diary, not from the session, so a 4 logged at
-breakfast is still on the screen after a reload. The reopen button is "Log again", the diary's
-"+ Log now" from the other side — it never hides the ask, it just stops leading with it. "undo" only appears for a tap made in this session; taking
+breakfast is still on the screen after a reload. There is no "Log again" on the card since 2026-09-14
+(Drew's call): one answer a visit. The diary's "+ Log now" reopens the ask when a second entry
+is wanted. "undo" only appears for a tap made in this session; taking
 back this morning's entry is the diary's job.)
 
 ### 11b. Forecast hold-out note

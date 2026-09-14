@@ -261,17 +261,13 @@ function Home() {
     updateDiary(diary.map((e) => (e.id === savedEntry.id ? amended : e)))
   }
 
-  const logAgain = () => {
-    setJustSaved(null)
-    setDismissed(false)
-    navigate({ to: '/', search: { log: true } })
-  }
-
   // The hour on screen is the payload's own newest hour, never the clock: the
   // service worker can hand back a six-hour-old response that parses as new.
   const dataHour = fmtHour(hourNum(current.time), true)
   const showStale = stale || isStale(data)
-  // "log again" reopens the ask over an existing answer; a fresh tap closes it.
+  // The diary's "+ Log now" (`?log=true`) reopens the ask over an existing
+  // answer; a fresh tap closes it. The home screen itself no longer offers a
+  // second tap — one answer a visit is the whole idea of the card.
   const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
   const showCard = !dismissed
   // A rating binds to the air in `current` forever, so the ask only appears
@@ -298,7 +294,6 @@ function Home() {
           onLog={logNow}
           onAmend={amendSaved}
           onUndo={undo}
-          onLogAgain={logAgain}
           onDismiss={() => setDismissed(true)}
         />
       )}
@@ -411,7 +406,6 @@ function QuickLogCard({
   onLog,
   onAmend,
   onUndo,
-  onLogAgain,
   onDismiss,
 }: {
   coldStart: boolean
@@ -421,7 +415,6 @@ function QuickLogCard({
   onLog: (rating: Rating) => void
   onAmend: (patch: Partial<DiaryEntry>) => void
   onUndo: () => void
-  onLogAgain: () => void
   onDismiss: () => void
 }) {
   const [noteOpen, setNoteOpen] = useState(false)
@@ -504,9 +497,6 @@ function QuickLogCard({
           />
         )}
         <div className="quicklog-actions">
-          <button type="button" className="dismiss-button" onClick={onLogAgain}>
-            Log again
-          </button>
           <button type="button" className="dismiss-button" onClick={onDismiss}>
             Nothing to add
           </button>
