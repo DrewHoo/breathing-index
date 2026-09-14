@@ -18,6 +18,13 @@ const NEGLIGIBLE: Record<string, number> = {
   no2: 10,
   so2: 5,
   co: 500, // µg/m³ — urban background runs 200–400
+  // Light smoke is a suspect (specs/25-smoke-variable.md). The scale has three
+  // steps and the bottom one already means "an analyst drew a plume over you
+  // *and* the particulate underneath it is fine-mode" — there is no routine
+  // background of that to raise a floor above. A floor of 0 is the whole
+  // scale, which `aboveNegligible` handles like every other row: the margin is
+  // relative, so `x > 0 · (1 + ε/2)` is `x > 0`.
+  smoke: 0, // 0–3, and the gate is what keeps the bottom step honest
   dry_air: 1, // °C below an 11 °C dew point: 10 °C is dry-ish, not drying
   humid_heat: 1, // °C above an 18 °C dew point, same reasoning on the other side
   // Retired weather features (pre-spec-23): kept so entries logged against
@@ -71,6 +78,13 @@ export function noiseMarginFor(variable: string): number {
  * CAMS 166 µg/m³ against a nearby monitor implying ~82), so bounds learned
  * against one source do not transfer to the other. Weather-derived variables
  * come from a different pipe and survive an air-source switch.
+ *
+ * `smoke` is deliberately absent (specs/25-smoke-variable.md). Its number is a
+ * satellite plume density, which reads the same whichever feed filled the PM
+ * columns, and the fine-fraction gate in front of it only asks those columns a
+ * yes/no rather than putting their values in the vector. A source switch
+ * changes what "pm25 was 20" means; it does not change what "Medium plume
+ * overhead" means, so a smoke bound learned on CAMS still holds on AirNow.
  */
 export const SOURCE_SCOPED_VARIABLES: ReadonlySet<string> = new Set([
   'pm25',
@@ -174,6 +188,17 @@ export const PRIORS: Priors = {
   //   2 = WHO 24-h AQG 4000 · 3 = WHO 8-h guideline 10000 · 4 = hand-set 15000
   co: { 2: 4000, 3: 10000, 4: 15000 }, // µg/m³
   // --- end derived ---
+  // Smoke density, 0–3 (specs/25-smoke-variable.md): Light is potentially a 2,
+  // Medium a 3, Heavy a 4. A heuristic start of exactly the same standing as
+  // the pollen index rows below — nobody publishes a breakpoint table for
+  // "analyst-drawn plume thickness", and the number it is grading is a
+  // category, not a concentration. What makes the row worth having is not this
+  // prior but the split: the diary can learn that smoke PM2.5 gets this person
+  // at 15 µg/m³ while ordinary PM2.5 does not until 35, which is the shape of
+  // the published effect (Wang 2025 puts wildfire PM2.5 at 2–3× urban per µg —
+  // the 10× that gets quoted is a range-to-range artifact,
+  // research/asthma-triggers-evidence.md).
+  smoke: { 2: 1, 3: 2, 4: 3 }, // 0–3 density index
   // Dew point, the one weather number both mechanisms are gated on
   // (specs/23-dew-point-air.md). Written as distance from each threshold, so
   // the rows below read: a 6 °C dew point is potentially a 2, freezing is

@@ -3,6 +3,7 @@ import { AIRNOW_SOURCE, EXPOSURE_SOURCE, fetchExposureSeries, pollenForHour } fr
 import type { AirNowRow } from './airnow'
 import type { PollenDay } from './googlePollen'
 import { recallPollenDays, rememberPollenDays } from './pollenHistory'
+import { recallSmokeHours, rememberSmokeHour } from './hmsSmoke'
 import { POLLEN_PLANTS } from './pollenPlants'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
@@ -38,6 +39,8 @@ const pollenPayload = (date: string, weedValue: number) => ({
 interface Stubs {
   /** relay /v1/airnow rows; absent means the relay answers 404 */
   airnow?: AirNowRow[]
+  /** relay /v1/smoke answer; absent means the relay answers 502 */
+  smoke?: { density: 0 | 1 | 2 | 3; start?: string | null; end?: string | null }
   utcOffsetSeconds?: number
   /** model columns by Open-Meteo's own key, for the window tests */
   air?: Record<string, (number | null)[]>
@@ -46,8 +49,9 @@ interface Stubs {
 }
 
 /**
- * All four endpoints, with only the fields a test cares about. `pollen`
- * null means the relay is down (the fetch rejects) — the calendar's cue.
+ * Every endpoint a series touches, with only the fields a test cares about.
+ * `pollen` null means the relay is down (the fetch rejects) — the calendar's
+ * cue — and an absent `smoke` stub is the same thing for the smoke route.
  */
 function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs: Stubs = {}) {
   const time = hoursOf(day)
@@ -57,6 +61,17 @@ function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs
       return pollen
         ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(pollen) })
         : Promise.reject(new Error('relay down'))
+    }
+    if (url.includes('/v1/smoke')) {
+      return Promise.resolve(
+        stubs.smoke
+          ? {
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ start: null, end: null, ...stubs.smoke }),
+            }
+          : { ok: false, status: 502, json: () => Promise.resolve({}) },
+      )
     }
     if (url.includes('/v1/airnow')) {
       return Promise.resolve(
@@ -562,5 +577,143 @@ describe('grass pollen over the trailing three days', () => {
     // Tomorrow is a projection. Filed, it would be graded on Thursday as
     // though somebody had read it.
     expect(remembered.has('2026-09-14')).toBe(false)
+  })
+})
+
+/* --- smoke, gated on the fine fraction (specs/25-smoke-variable.md) --- */
+
+/** Hamden on the UTC grid, so the series' local hours *are* its UTC hours. */
+const flat = (v: number | null): (number | null)[] => Array.from({ length: 24 }, () => v)
+
+/** A column that is `v` everywhere except the hours listed, which are null. */
+const flatExcept = (v: number, missing: number[]): (number | null)[] =>
+  flat(v).map((x, h) => (missing.includes(h) ? null : x))
+
+describe('smoke, gated on the fine fraction', () => {
+  const store = new Map<string, string>()
+  afterEach(() => vi.useRealTimers())
+  beforeEach(() => {
+    store.clear()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    })
+  })
+
+  /** 14:30 UTC on the 13th at offset 0: hour 14 is now, 15–23 are forecast. */
+  const stubSmokeDay = (stubs: Stubs) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-13T14:30:00Z'))
+    stubSources('2026-09-13', null, { utcOffsetSeconds: 0, ...stubs })
+  }
+
+  it('keeps the density when the particulate underneath is fine-mode', async () => {
+    // PM2.5 20, PM10 22: past the level the population prior calls noticeable,
+    // and 0.91 of the mass is fine. Dust and road grit are ruled out.
+    stubSmokeDay({ smoke: { density: 2 }, air: { pm2_5: flat(20), pm10: flat(22) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.smoke).toBe(2)
+    // The ungated density rides in raw, because that is what the row draws.
+    expect(now.raw.hms_density).toBe(2)
+    // And the PM2.5 it was gated on keeps its own value: the split is the
+    // point — smoke PM2.5 and ordinary PM2.5 are two variables now.
+    expect(now.exposure.pm25).toBe(20)
+  })
+
+  it('reads 0 when a plume is overhead and the air below it is clean', async () => {
+    // Medium overhead, PM2.5 at 8: a plume aloft over air nobody is choking
+    // on. HMS sees a column from above and cannot tell the difference.
+    stubSmokeDay({ smoke: { density: 2 }, air: { pm2_5: flat(8), pm10: flat(9) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.smoke).toBe(0)
+    // Zero is a reading, not an absence: the satellite looked, and the row
+    // stays away because the floor is 0 and nothing is above it.
+    expect(now.raw.hms_density).toBe(2)
+  })
+
+  it('is absent when nobody has an answer for the hour', async () => {
+    // The relay is down. Absent, not 0 — a variable recorded as 0 would be
+    // tolerance evidence for a clean hour nobody measured.
+    stubSmokeDay({ air: { pm2_5: flat(20), pm10: flat(22) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.smoke).toBeUndefined()
+    expect(now.raw.hms_density).toBeUndefined()
+  })
+
+  it('is absent when the PM columns cannot answer the gate', async () => {
+    // No PM10 anywhere: the fine fraction has no denominator, so the gate has
+    // no verdict — which is a different thing from a verdict of "not smoke".
+    stubSmokeDay({ smoke: { density: 3 }, air: { pm2_5: flat(20) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.smoke).toBeUndefined()
+    expect(now.raw.hms_density).toBe(3)
+  })
+
+  it('looks back up to two hours for the raw PM the current hour lacks', async () => {
+    // AirNow publishes the NowCast first and the raw hourly behind it, so the
+    // newest hour routinely has no raw PM at all. Without the look-back the
+    // row would blink out at the top of every hour.
+    stubSmokeDay({
+      smoke: { density: 2 },
+      air: { pm2_5: flatExcept(20, [14]), pm10: flatExcept(22, [14]) },
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[14]!.exposure.smoke).toBe(2)
+  })
+
+  it('gives up after two hours rather than gating on stale air', async () => {
+    stubSmokeDay({
+      smoke: { density: 2 },
+      air: { pm2_5: flatExcept(20, [12, 13, 14]), pm10: flatExcept(22, [12, 13, 14]) },
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[14]!.exposure.smoke).toBeUndefined()
+  })
+
+  it('claims nothing about the hours after now — HMS is a nowcast', async () => {
+    stubSmokeDay({ smoke: { density: 2 }, air: { pm2_5: flat(20), pm10: flat(22) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const forecast = series.hours[18]!
+    expect(forecast.exposure.smoke).toBeUndefined()
+    expect(forecast.raw.hms_density).toBeUndefined()
+  })
+
+  it('files this hour so the trailing hours have one at all', async () => {
+    stubSmokeDay({ smoke: { density: 2 }, air: { pm2_5: flat(20), pm10: flat(22) } })
+    await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(recallSmokeHours(HAMDEN.lat, HAMDEN.lon).get('2026-09-13T14:00')).toBe(2)
+  })
+
+  it('reads an earlier hour back out of the store, with the relay down', async () => {
+    // The only way the sparkline ever has a 9 am in it is that the app was
+    // open at 9 am: the file holds the latest analysis and nothing behind it.
+    rememberSmokeHour(HAMDEN.lat, HAMDEN.lon, '2026-09-13T12:00', 3)
+    stubSmokeDay({ air: { pm2_5: flat(20), pm10: flat(22) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[12]!.exposure.smoke).toBe(3)
+    expect(series.hours[12]!.raw.hms_density).toBe(3)
+    // And an hour nobody wrote down stays absent rather than inheriting it.
+    expect(series.hours[13]!.exposure.smoke).toBeUndefined()
+  })
+
+  it('carries the plume’s observation window so the row can say “as of”', async () => {
+    stubSmokeDay({
+      smoke: { density: 1, start: '2026-09-13T12:00:00.000Z', end: '2026-09-13T15:00:00.000Z' },
+      air: { pm2_5: flat(20), pm10: flat(22) },
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.smokeAsOf).toBe('2026-09-13T15:00:00.000Z')
+  })
+
+  it('does not ask about a place the analysis does not cover', async () => {
+    stubSmokeDay({ smoke: { density: 3 }, air: { pm2_5: flat(20), pm10: flat(22) } })
+    const series = await fetchExposureSeries(52.37, 4.9) // Amsterdam
+    expect(series.hours[series.currentIndex]!.exposure.smoke).toBeUndefined()
+    expect(series.smokeAsOf).toBeUndefined()
   })
 })

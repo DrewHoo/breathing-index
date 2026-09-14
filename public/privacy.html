@@ -33,8 +33,8 @@
         There is no server that knows you. No account, no login, no database of yours anywhere.
         Your logs are a value in your browser's storage on this device, and the only way they
         leave is if you export them yourself. The one server this app runs is a stateless relay
-        for data sources that need an API key — it receives your coordinates rounded to about
-        11&nbsp;km (anything sharper is refused, in code), holds no state, keeps no logs, and its
+        for data sources that need an API key, or that publish a file too big to hand a phone — it
+        receives your coordinates rounded to about 11&nbsp;km (anything sharper is refused, in code), holds no state, keeps no logs, and its
         <a href="https://github.com/DrewHoo/breathing-index/tree/main/worker">source is public</a>.
         Opt-in accounts with encrypted sync are on the roadmap — when they ship, this page changes
         first, and local-only stays the default.
@@ -56,6 +56,11 @@
           <code>breathing-index.pollenHistory.v1</code> — the pollen readings for days already
           seen, per coarse grid cell, because grass is graded over three days and no source
           publishes a past one
+        </li>
+        <li>
+          <code>breathing-index.smokeHistory.v1</code> — the satellite smoke density for the hours
+          already seen, per coarse grid cell, because the smoke analysis publishes only the latest
+          hour and the app draws the last two days of it
         </li>
         <li>
           <code>breathing-index.durability.v1</code>, <code>breathing-index.sentinel.v1</code>,
@@ -81,10 +86,12 @@
         <tr>
           <th>The relay</th>
           <td>
-            Pollen forecasts (Google) and station measurements (AirNow, US only, off unless you
-            turn it on in Settings) travel through the relay described above, so those vendors see
-            the relay's request, not your browser — and the relay itself never receives your
-            location sharper than about 11 km.
+            Pollen forecasts (Google), station measurements (AirNow, US only, off unless you turn
+            it on in Settings) and the satellite smoke map (NOAA HMS, North America) travel through
+            the relay described above, so those sources see the relay's request, not your browser —
+            and the relay itself never receives your location sharper than about 11 km. Its routes
+            are <code>/v1/pollen</code>, <code>/v1/airnow</code> and <code>/v1/smoke</code>, each
+            taking nothing but those rounded coordinates.
           </td>
         </tr>
         <tr>

@@ -199,6 +199,24 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
     { name: variableName('dry_air'), ...summarize('dry_air', (v) => fmtAt(11 - v)) },
     { name: variableName('humid_heat'), ...summarize('humid_heat', (v) => fmtAt(18 + v)) },
   ]
+  // Smoke is live but conditional, which is a third case and worth naming
+  // (specs/25-smoke-variable.md). The four rows above are standing because the
+  // air always has some of each in it: a week of ordinary days gets every one
+  // of them past "no evidence yet either way" on its own. Smoke does not work
+  // like that. Its floor is 0 and most people's every entry carries a 0, so a
+  // standing row would read "no evidence yet either way" on every screen for
+  // years, which is the panel promising a verdict it has no way to reach.
+  //
+  // The test the retired names and pollen already use says exactly the right
+  // thing here without any new machinery: a row appears once the diary holds a
+  // verdict. For smoke the two are the same question — a 0 can neither be a
+  // suspect (it is at the floor) nor raise a tolerance (same), so the row shows
+  // up precisely when some entry was logged under a real plume, good day or
+  // bad. The number wears its scale, because "near 2" means nothing and
+  // "near 2 of 3" is a thing a person can picture.
+  const ofThree = (v: number): string => `${Math.round(v)} ${VARIABLE_LABELS.smoke!.unit}`
+  const smoke = summarize('smoke', ofThree)
+  if (smoke.cls !== '') rows.push({ name: variableName('smoke'), ...smoke })
   // Variables that have left the vector: the weather stresses in spec 23, PM10
   // and NO₂ in spec 24. They earn a row only while an old entry still has
   // something to say about one — the same rule pollen follows, and the reason
@@ -339,8 +357,11 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
   // who logged it, and an entry logged in August carries its NO₂ whatever the
   // model does with the name now. A new entry simply has neither key and drops
   // through. Each part is ranked by its share of the level-2 prior, which is
-  // why the retired rows stay in config too.
-  for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
+  // why the retired rows stay in config too. `smoke` joins them in spec 25 for
+  // the live reason rather than the historical one: an entry logged under a
+  // plume carries the density, and a line that read back "PM2.5 20" and left
+  // the smoke out would be describing the day by its least specific half.
+  for (const key of ['pm25', 'o3', 'smoke', 'pm10', 'no2'] as const) {
     const v = entry.exposure[key] ?? 0
     const prior = PRIORS[key]?.[2] ?? 1
     if (v > 0) {

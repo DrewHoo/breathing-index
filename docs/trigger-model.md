@@ -21,6 +21,7 @@ explicitly, instead of pretending a weighted score resolves it.
     "features": {                       // per-variable trailing-window features
       "pm25": { "now": 14.3, "mean24h": 11.8 },        // µg/m³
       "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
+      "smoke":      { "now": 2 },                      // 0–3 HMS plume density, gated on the fine fraction
       "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
       "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
       "pollen_graminales": { "max3d": 4 }              // 0–5 index, highest of three local days
@@ -45,6 +46,7 @@ window chosen to match its mechanism of action:
 | o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
 | pm25 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
 | pm10 | `mean24h`, **display only** | same window, no seat in the vector (specs/24-vector-diet.md): coarse PM has weak independent evidence for acute asthma, and PM10 *is* PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set and no clean day can separate the two. The row still shows the number — a person is entitled to see how much coarse particulate is outside, and the smoke fingerprint divides by it. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), specs/20-baseline-bad-air.md adds `dust` as its own variable |
+| smoke | `now`, **gated**, past hours only | NOAA HMS is a nowcast — an analyst-drawn plume either is over you this hour or is not, and there is nothing to average. The density enters the vector only when the hour's raw PM says the particulate below the plume is fine-mode (`pm25 ≥ 9.1` and `pm25/pm10 ≥ 0.85`, the fingerprint in `src/ui/smoke.ts`): HMS sees a column from above and flags a plume aloft over clean surface air exactly as it flags one at head height. Gate fails → 0; gate cannot be evaluated, or no density for the hour → absent. Forecast hours are always absent. Alone among the air variables it is **not source-scoped** (below): the density is a satellite product that reads the same whichever feed filled the PM columns, and the gate only asks those columns a yes/no |
 | dry_air, humid_heat | `now` | felt in the hour they are breathed; both are cut from the dew point that hour |
 | grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
 | tree, weed pollen (per plant) | the local day's index | no evidence for a longer window, and tree pollen's asthma signal is weak to begin with (it is mostly a rhinitis story) |
@@ -261,6 +263,18 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   could never decorrelate from PM2.5) and dropped `no2` outright (clinically marginal in
   controlled exposure, with sub-kilometer gradients a 45 km model cell reads as noise), taking
   the US vector to roughly seven live dimensions.
+- **Smoke is its own dimension, not a label on PM2.5.** The fine-fraction fingerprint has been on the
+  screen since M1 as a sub-label — "PM2.5 · likely smoke" — and a sub-label is invisible to the
+  engine. As long as smoke is only an adjective on a PM2.5 number, there is no way to learn the one
+  thing a person in a smoke season actually wants to know: whether smoke PM2.5 gets them at 15 µg/m³
+  while ordinary PM2.5 does not until 35. A separate variable makes that a bound the diary can hold.
+  The published effect is real but smaller than the folklore: Wang 2025, the largest and cleanest
+  study, puts wildfire PM2.5 at OR 1.016 per µg against 1.002 for non-smoke, and the widely-quoted
+  "10×" from Aguilera is the top of one range divided by the bottom of another — use 2–3×
+  (research/asthma-triggers-evidence.md). The cost is the identifiability cost above, paid honestly:
+  on a smoke day PM2.5 and smoke are co-elevated by construction, so the bad day implicates both and
+  only a smoke-free PM day (or a later clean-air one) separates them. That is a dimension the model
+  was already built to carry, and it is the difference between describing a day and explaining it.
 - **An empty candidate set is a missing-variable detector.** A bad day where every *modeled*
   variable is already proven tolerable can't be explained by the model — which is exactly the
   signature of an unmodeled trigger (pollen before pollen was added, an indoor exposure, illness).
@@ -375,6 +389,13 @@ The same is true of a **window** change, which is why the source name carries a 
 from an 8-hour max to a 24-hour mean, "PM2.5 was 22" stopped describing the quantity it was
 learned about. The engine cannot version a bound per variable and does not need to — a window
 change *is* a source change, and it already knows what one of those means.
+
+`smoke` sits on the weather side of this line even though it is an air variable
+(specs/25-smoke-variable.md). Its number is a satellite plume density, which reads the same whether
+the PM columns beside it came from CAMS or from a monitor, and the fine-fraction gate in front of
+it asks those columns a yes/no rather than putting their values in the vector. A source switch
+changes what "pm25 was 20" means; it does not change what "Medium plume overhead" means, so a smoke
+bound survives one.
 
 Weather has no such escape hatch: it comes from a different pipe and is deliberately not
 source-scoped, so when a weather variable is retired (`heat_stress`, `cold_dry_stress` and
