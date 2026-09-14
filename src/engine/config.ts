@@ -25,6 +25,12 @@ const NEGLIGIBLE: Record<string, number> = {
   // scale, which `aboveNegligible` handles like every other row: the margin is
   // relative, so `x > 0 · (1 + ε/2)` is `x > 0`.
   smoke: 0, // 0–3, and the gate is what keeps the bottom step honest
+  // Being sick is a flag, not a concentration (specs/26-sick-as-signal.md):
+  // the chip writes 1 or the key is absent, and there is no "a little bit of
+  // virus" for a floor to sit above. Same shape as `smoke` and handled by the
+  // same arithmetic — the margin is relative, so `x > 0 · (1 + ε/2)` is `x > 0`
+  // and the one step the scale has is a suspect.
+  viral: 0, // 0 or 1, tap-recorded
   dry_air: 1, // °C below an 11 °C dew point: 10 °C is dry-ish, not drying
   humid_heat: 1, // °C above an 18 °C dew point, same reasoning on the other side
   // Retired weather features (pre-spec-23): kept so entries logged against
@@ -199,6 +205,16 @@ export const PRIORS: Priors = {
   // the 10× that gets quoted is a range-to-range artifact,
   // research/asthma-triggers-evidence.md).
   smoke: { 2: 1, 3: 2, 4: 3 }, // 0–3 density index
+  // Being sick (specs/26-sick-as-signal.md). A ceiling only, and a heuristic
+  // start of the weakest kind: the population evidence says a virus *alone* is
+  // null — Green 2002 put it at OR 1.67 with an interval crossing 1 — and that
+  // what multiplies is virus × sensitization × allergen exposure (OR 8.4 in
+  // adults, 19.4 in Murray 2005's children). A prior cannot express a product,
+  // so the row says the weaker true thing: for a sensitive person a sick day is
+  // potentially a 2. Everything real about the interaction is learned, by the
+  // combo-repeat clause flooring on a repeat of sick-plus-pollen without ever
+  // attributing the day to either half.
+  viral: { 2: 1 }, // 0 or 1
   // Dew point, the one weather number both mechanisms are gated on
   // (specs/23-dew-point-air.md). Written as distance from each threshold, so
   // the rows below read: a 6 °C dew point is potentially a 2, freezing is

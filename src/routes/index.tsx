@@ -35,6 +35,7 @@ import { loadSettings } from '../ui/settings'
 import { smokeFingerprint } from '../ui/smoke'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { useExposureSeries } from '../ui/useExposureSeries'
+import { VIRAL } from '../ui/viralTag'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search: Record<string, unknown>): { log?: boolean } =>
@@ -374,7 +375,20 @@ const SAVED_CHIPS = [
   // it. Recorded and not read, like `exercising`; later it can gate a static
   // road-proximity feature per saved location.
   { label: 'near traffic', kind: 'observation', value: 'near-traffic' },
-  { label: 'sick', kind: 'confounder', value: 'sick' },
+  // A third kind, and `sick` is the only chip in it (specs/26-sick-as-signal.md).
+  // It used to be a confounder — the entry stayed in the diary and left
+  // inference — and the research says that threw away the best days the diary
+  // gets. A virus *alone* is null: Green 2002 put it at OR 1.67 with an
+  // interval crossing 1. What multiplies is virus × sensitization × allergen
+  // exposure, at OR 8.4 in Green's adults and 19.4 in Murray 2005's children.
+  // So a sick day with oak up is the most informative day about allergen
+  // triggers there is, and excluding it was the one rule guaranteeing the app
+  // could never see the interaction.
+  //
+  // As an exposure key it costs the user nothing: same chip, same place, one
+  // tap, and no onset date or decay window — the flag lands on the day it is
+  // tapped and the engine handles the rest through the combo-repeat clause.
+  { label: 'sick', kind: 'exposure', value: VIRAL },
   { label: 'allergies', kind: 'confounder', value: 'allergies' },
   { label: 'indoors all day', kind: 'confounder', value: 'indoors all day' },
 ] as const
@@ -408,10 +422,20 @@ function QuickLogCard({
       minute: '2-digit',
     })
     const isOn = (chip: (typeof SAVED_CHIPS)[number]): boolean =>
-      chip.kind === 'observation'
-        ? (saved.observations ?? []).includes(chip.value)
-        : (saved.confounders ?? []).includes(chip.value)
+      chip.kind === 'exposure'
+        ? saved.exposure[chip.value] === 1
+        : chip.kind === 'observation'
+          ? (saved.observations ?? []).includes(chip.value)
+          : (saved.confounders ?? []).includes(chip.value)
     const toggle = (chip: (typeof SAVED_CHIPS)[number]) => {
+      // An exposure chip writes a variable, not a tag. Off deletes the key
+      // rather than writing a 0: absent means "nobody said", and a 0 would be
+      // a reading of something nobody measured.
+      if (chip.kind === 'exposure') {
+        const { [chip.value]: had, ...rest } = saved.exposure
+        onAmend({ exposure: had === 1 ? rest : { ...saved.exposure, [chip.value]: 1 } })
+        return
+      }
       const key = chip.kind === 'observation' ? 'observations' : 'confounders'
       const cur = saved[key] ?? []
       const next = cur.includes(chip.value)

@@ -73,6 +73,11 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   // Medium, Heavy — and nobody publishes a µg/m³ of smoke at a point. The one
   // other row with an index for a unit is pollen, for the same reason.
   smoke: { name: 'Smoke', short: 'smoke', unit: 'of 3' },
+  // The one variable nobody measures and nothing forecasts: the user taps it
+  // (specs/26-sick-as-signal.md). It has no unit because it is not a quantity —
+  // the entry either carries the flag or it does not — and no row in the air
+  // table, because it is not air. The evidence panel is where it earns a line.
+  viral: { name: 'Sick', short: 'sick', unit: '' },
   // Retired from the vector (spec 24), kept for the same reason the retired
   // weather names below are: an entry logged before the diet still carries its
   // NO₂, and the diary line that prints it needs the words.
