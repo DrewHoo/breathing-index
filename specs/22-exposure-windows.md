@@ -1,6 +1,6 @@
 # Exposure windows — one window per mechanism
 
-**Status:** proposed · **Effort:** S · **Deps:** none; feature extraction lives only in `src/sources/openMeteo.ts` · **Priority:** high
+**Status:** built 2026-09-14 (branch `claude/spec-22-exposure-windows`); amended to what was built · **Effort:** S · **Deps:** none; feature extraction lives only in `src/sources/openMeteo.ts` · **Priority:** high
 
 ## Problem
 
@@ -23,7 +23,7 @@ The model data is also coarser than the app presents. Open-Meteo serves North Am
 
 I first left ozone on max8h because that's what the doc had and the M1 finding was about the composite hiding a ramp. But the ramp is on the sparkline either way, and max-of-hourlies against a mean prior over-warns by construction. So ozone goes to mean8h.
 
-1. **Pollen history.** Google serves today forward, so a 3-day window needs the app to remember. The client keeps a per-day pollen map in localStorage keyed by coarse cell and date, written on every fetch; `pollenForHour` reads the trailing three days from it. The calendar stays the fallback for a missing day, tagged `estimated` as now.
+1. **Pollen history.** Google serves today forward, so a 3-day window needs the app to remember. `src/sources/pollenHistory.ts` keeps a per-day pollen map in localStorage keyed by coarse cell and local date, capped at 14 days per cell and 4 cells, written on every fetch; `pollenForHour` reads the trailing three days from it. Only days on or before the location's local date are filed: Google's `forecast:lookup` carries future days too, and a projection is worth drawing on a curve and not worth remembering as a reading. The calendar stays the fallback for a missing day, tagged `estimated` as now, and a 3-day max that leans on a calendar day is estimated for that hour. The new localStorage key is listed on the privacy page, which enumerates keys as a contract.
 
 2. **`past_days` stays at 3.** mean24h needs 24 hours. Open-Meteo allows up to 92, which is what [15-premium-sources.md](15-premium-sources.md) §6 wants for backfill.
 
@@ -31,7 +31,9 @@ I first left ozone on max8h because that's what the doc had and the M1 finding w
 
 4. **Tree pollen priors warn later.** All plants share `{2: 3, 3: 4, 4: 5}` today. Population evidence for tree pollen and asthma is weak (London tree models inconclusive; Cupressaceae associated with fewer ED visits in Atlanta). Tree plants drop the level-2 row: `{3: 4, 4: 5}`. Grass and weeds keep theirs. Every plant stays a candidate; only the prior changes.
 
-5. **A row's number and its verdict are the same quantity.** Today the ozone row shows the hour and grades the 8-h max. After this spec each row shows its window feature and the sub-label names the window ("8-h", "24-h", "3-day"). The sparkline keeps the hourly `raw` values so a spike stays visible. [27-one-ozone.md](27-one-ozone.md) owns the ozone row.
+5. **A row's number and its verdict are the same quantity.** Each pollutant row shows its window feature and the sub-label names the window ("8-h", "24-h"), composable with the smoke label and the monitor name from spec 21. The sparkline keeps the hourly `raw` values so a spike stays visible. Grass is the same: feature extraction rewrites the grass display to the 3-day max (Google drops zero-index plants, so the day after a spike would otherwise have no grass row while the engine reasoned about a 4), and the row says `3-day`. Spec 21's raw-hour fallback is gone. [27-one-ozone.md](27-one-ozone.md) owns the ozone row's source presentation.
+
+6. **The smoke fingerprint reads the hour.** `smokeFingerprint` now takes `raw`, not the window features: the label is about what the particulate is made of right now, and a day's mean would miss a plume that arrived at 3 pm and keep asserting it after the air cleared. On a station series the current hour's raw PM is often unposted, so the label goes quiet for that hour rather than guess. This was spec 24's item; it moved here because leaving the fingerprint on 24-hour means for one PR's duration dulled it.
 
 ## Acceptance
 
@@ -40,6 +42,8 @@ I first left ozone on max8h because that's what the doc had and the M1 finding w
 - A grass series where only day −2 was high still grades grass at that value today.
 - Fixture 13 (prior suppression) passes with the ozone prior compared against `mean8h`.
 - A tree plant at index 3 raises no prior; at 4 it raises a level-3 ceiling.
+- The pollen store never files a day after the location's local date.
+- `smokeFingerprint` fires on an hour reading 40/44 and not on the same day's 24-h means of 3.5/12.
 
 ## Non-goals
 

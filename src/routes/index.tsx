@@ -776,6 +776,16 @@ interface AirRow {
   note?: { text: string; claim?: boolean; href?: string }
 }
 
+/**
+ * The span each pollutant's number covers, for the row's sub-label. Every row
+ * shows the feature the engine grades (specs/22-exposure-windows.md), and
+ * "PM2.5 · 24-h" is a different claim from the reading at the top of the hour
+ * — a screen that shows one and means the other is the gaslighting this app
+ * exists to undo. NO₂ has no entry because it has no window: its number is the
+ * hour itself.
+ */
+const WINDOW_LABELS: Record<string, string> = { pm25: '24-h', pm10: '24-h', o3: '8-h' }
+
 function buildAirRows(
   data: ExposureSeries,
   model: TriggerModel,
@@ -789,25 +799,35 @@ function buildAirRows(
     return tol !== undefined && tol > negligibleFor(variable) ? tol : undefined
   }
 
-  const likelySmoke = smokeFingerprint(current.exposure)
+  // The hour's readings, not its window features: what the particulate is made
+  // of is a question about the air outside right now, and a 24-hour mean would
+  // both miss a plume that arrived at 3 pm and go on calling it smoke into
+  // tomorrow.
+  const likelySmoke = smokeFingerprint(current.raw)
 
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
-    // A pollutant this series has no number for gets no row at all. On a
+    // The number on the row is the window feature, the same quantity the
+    // verdict beside it is spoken about (specs/22-exposure-windows.md). It
+    // used to be the hour's own reading while the chip graded the window, so
+    // a row could say 30 and "past your easy" about a threshold of 40.
+    //
+    // A pollutant this series has no feature for gets no row at all. On a
     // station series that is NO₂, which AirNow's network barely measures — and
-    // a row reading "0 µg/m³" would be a measurement nobody made. The window
-    // feature stands in for the hour's own reading when only that is missing,
-    // which is AirNow's normal state for the hour in progress: it publishes
-    // the NowCast first and the raw hourly behind it.
-    const reading = current.raw[key] ?? current.exposure[key]
+    // a row reading "0 µg/m³" would be a measurement nobody made. The hour's
+    // own reading going missing is not that case and no longer costs the row:
+    // AirNow publishes the NowCast before the raw hourly, so the current hour
+    // is routinely blank while the trailing window is full.
+    const reading = current.exposure[key]
     if (reading === undefined) continue
     const meta = VARIABLE_LABELS[key]!
     const site = data.siteNames?.[key]
-    // Composable, because these say different things and a row can need both:
-    // what the pollutant is, what the particulate looks like, and which
-    // instrument saw it.
+    // Composable, because these say different things and a row can need all
+    // of them: what the pollutant is, what span its number covers, what the
+    // particulate looks like, and which instrument saw it.
     const sub = [
       meta.sub,
+      WINDOW_LABELS[key],
       key === 'pm25' && likelySmoke ? 'likely smoke' : null,
       site ? `${site} monitor` : null,
     ]
@@ -820,7 +840,7 @@ function buildAirRows(
       value: Math.round(reading),
       unit: meta.unit ?? '',
       statusVar: key,
-      statusValue: current.exposure[key] ?? 0,
+      statusValue: reading,
       series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
     })
@@ -841,7 +861,16 @@ function buildAirRows(
     rows.push({
       key: `pollen_${type}`,
       name: POLLEN_ROW_NAMES[type],
-      sub: display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
+      // Grass alone names a window, because grass alone has one: its number is
+      // the highest of the trailing three days (specs/22-exposure-windows.md),
+      // computed in feature extraction, so the headline, the sub-label and the
+      // verdict are already the same quantity by the time the row is built.
+      sub: [
+        display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
+        type === 'grass' ? '3-day' : null,
+      ]
+        .filter((part): part is string => Boolean(part))
+        .join(' · '),
       ...(current.estimated?.includes(top.variable)
         ? { note: { text: CALENDAR_ESTIMATE, href: '/pollen/calendar' } }
         : {}),

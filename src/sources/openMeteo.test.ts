@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AIRNOW_SOURCE, EXPOSURE_SOURCE, fetchExposureSeries, pollenForHour } from './openMeteo'
 import type { AirNowRow } from './airnow'
 import type { PollenDay } from './googlePollen'
+import { recallPollenDays, rememberPollenDays } from './pollenHistory'
+import { POLLEN_PLANTS } from './pollenPlants'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
 
@@ -37,17 +39,15 @@ interface Stubs {
   /** relay /v1/airnow rows; absent means the relay answers 404 */
   airnow?: AirNowRow[]
   utcOffsetSeconds?: number
+  /** model columns by Open-Meteo's own key, for the window tests */
+  air?: Record<string, (number | null)[]>
 }
 
 /**
  * All four endpoints, with only the fields a test cares about. `pollen`
  * null means the relay is down (the fetch rejects) — the calendar's cue.
  */
-function stubSources(
-  day: string,
-  pollen: ReturnType<typeof pollenPayload> | null,
-  stubs: Stubs = {},
-) {
+function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs: Stubs = {}) {
   const time = hoursOf(day)
   const column = (v: number) => time.map(() => v)
   vi.stubGlobal('fetch', (url: string) => {
@@ -75,7 +75,13 @@ function stubSources(
           url.includes('air-quality')
             ? {
                 utc_offset_seconds: stubs.utcOffsetSeconds ?? 0,
-                hourly: { time, pm2_5: column(3), ozone: column(10), nitrogen_dioxide: column(8) },
+                hourly: {
+                  time,
+                  pm2_5: column(3),
+                  ozone: column(10),
+                  nitrogen_dioxide: column(8),
+                  ...stubs.air,
+                },
               }
             : { hourly: { time, temperature_2m: column(20), relative_humidity_2m: column(50) } },
         ),
@@ -275,5 +281,194 @@ describe('AirNow as the exposure source', () => {
     stubHamden(covering())
     const series = await fetchExposureSeries(52.37, 4.9, { airnow: true }) // Amsterdam
     expect(series.source).toBe(EXPOSURE_SOURCE)
+  })
+})
+
+/* --- one window per mechanism (specs/22-exposure-windows.md) --- */
+
+const ramp = (step: number): number[] => Array.from({ length: 24 }, (_, h) => h * step)
+
+describe('exposure windows', () => {
+  it('grades ozone on the trailing 8-hour mean, not the worst hour in it', async () => {
+    stubSources('2026-09-13', null, { air: { ozone: ramp(10) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // Hours 05:00–12:00 are 50…120 µg/m³: mean 85, max 120. The breakpoints
+    // this is compared against are 8-hour means, so 85 is the honest number.
+    expect(series.hours[12]!.exposure.o3).toBeCloseTo(85, 6)
+    expect(series.hours[12]!.raw.o3).toBe(120)
+  })
+
+  it('grades particles on the trailing 24-hour mean', async () => {
+    stubSources('2026-09-13', null, { air: { pm2_5: ramp(1), pm10: ramp(2) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const last = series.hours[23]!
+    expect(last.exposure.pm25).toBeCloseTo(11.5, 6) // 0…23
+    expect(last.exposure.pm10).toBeCloseTo(23, 6) // 0…46
+    expect(last.raw.pm25).toBe(23)
+  })
+
+  it('averages a partial window over the hours it holds', async () => {
+    const gappy = Array.from({ length: 24 }, (_, h): number | null =>
+      h === 2 ? 48 : h === 3 ? 52 : null,
+    )
+    stubSources('2026-09-13', null, { air: { pm2_5: gappy } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // Two readings in the window, not two readings over twenty-four hours:
+    // dividing by the hours nobody measured would report air cleaner than
+    // anyone breathed.
+    expect(series.hours[5]!.exposure.pm25).toBeCloseTo(50, 6)
+    expect(series.hours[5]!.raw.pm25).toBeUndefined()
+  })
+
+  it('leaves an empty window absent, never zero', async () => {
+    const missing = Array.from({ length: 24 }, () => null)
+    stubSources('2026-09-13', null, { air: { ozone: missing, pm2_5: missing } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    // A gap recorded as 0 would drop the variable under its background floor
+    // and quietly disqualify the real trigger from suspicion.
+    expect(noon.exposure.o3).toBeUndefined()
+    expect(noon.exposure.pm25).toBeUndefined()
+    expect(noon.raw.o3).toBeUndefined()
+  })
+
+  it('renames the source, because a window change is a source change', async () => {
+    stubSources('2026-09-13', null)
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // The literal matters: every bound learned under `cams` was learned about
+    // an 8-hour max, and the engine retires those by name.
+    expect(series.source).toBe('cams-w2')
+  })
+
+  it('gives NO₂ the hour it was breathed', async () => {
+    stubSources('2026-09-13', null, { air: { nitrogen_dioxide: ramp(2) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // No window: sub-kilometer gradients in a 45 km cell have nothing longer
+    // to say, and spec 24 drops the variable outright.
+    expect(series.hours[7]!.exposure.no2).toBe(14)
+    expect(series.hours[7]!.raw.no2).toBe(14)
+  })
+})
+
+/* --- grass over three days --- */
+
+/** A relay /v1/pollen payload of grass-only days: local date -> index. */
+const grassPayload = (byDate: Record<string, number>) => ({
+  dailyInfo: Object.entries(byDate).map(([date, value]) => ({
+    date: {
+      year: Number(date.slice(0, 4)),
+      month: Number(date.slice(5, 7)),
+      day: Number(date.slice(8, 10)),
+    },
+    pollenTypeInfo: [{ code: 'GRASS', indexInfo: { value } }],
+    plantInfo: [{ code: 'GRAMINALES', displayName: 'Grasses', indexInfo: { value } }],
+  })),
+})
+
+/** One day as the history store holds it. */
+const storedDay = (
+  code: 'GRAMINALES' | 'RAGWEED' | 'OAK',
+  type: 'grass' | 'weed' | 'tree',
+  value: number,
+): PollenDay => {
+  const plant = POLLEN_PLANTS[code]!
+  return {
+    types: { [type]: { value, plants: [{ variable: plant.variable, name: plant.name, value }] } },
+    exposure: { [plant.variable]: value },
+  }
+}
+
+describe('grass pollen over the trailing three days', () => {
+  const store = new Map<string, string>()
+  afterEach(() => vi.useRealTimers())
+  beforeEach(() => {
+    store.clear()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    })
+  })
+
+  it('still grades today at a spike two days back', async () => {
+    rememberPollenDays(
+      HAMDEN.lat,
+      HAMDEN.lon,
+      new Map([['2026-09-11', storedDay('GRAMINALES', 'grass', 4)]]),
+      '2026-09-11',
+    )
+    stubSources('2026-09-13', grassPayload({ '2026-09-13': 1 }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    // Erbas 2018: the effect is cumulative, IRR 1.46 at a 3-day lag. Today's
+    // quiet index is not the exposure this person is carrying.
+    expect(noon.exposure.pollen_graminales).toBe(4)
+    // The row shows what the engine grades, so the display moves with it…
+    expect(noon.pollenDisplay?.grass?.value).toBe(4)
+    // …while raw keeps the day's own reading: the sparkline is a record of
+    // what was read, hour by hour.
+    expect(noon.raw.pollen_graminales).toBe(1)
+    // Two measured days, nothing guessed: this can still confirm a bound.
+    expect(noon.estimated).toBeUndefined()
+  })
+
+  it('drops the spike out of the window on the fourth day', async () => {
+    rememberPollenDays(
+      HAMDEN.lat,
+      HAMDEN.lon,
+      new Map([['2026-09-11', storedDay('GRAMINALES', 'grass', 4)]]),
+      '2026-09-11',
+    )
+    stubSources('2026-09-14', grassPayload({ '2026-09-14': 1 }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    // September in the northeast has no calendar grass season, so days −1 and
+    // −2 are blanks rather than estimates, and the window is today alone.
+    expect(series.hours[12]!.exposure.pollen_graminales).toBe(1)
+    expect(series.hours[12]!.estimated).toBeUndefined()
+  })
+
+  it('leaves tree and weed on the day they were read', async () => {
+    rememberPollenDays(
+      HAMDEN.lat,
+      HAMDEN.lon,
+      new Map([
+        ['2026-09-11', storedDay('RAGWEED', 'weed', 5)],
+        ['2026-09-12', storedDay('OAK', 'tree', 5)],
+      ]),
+      '2026-09-12',
+    )
+    stubSources('2026-09-13', pollenPayload('2026-09-13', 2))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    // No evidence for a longer window on either, so yesterday's ragweed is
+    // yesterday's problem.
+    expect(noon.exposure.pollen_ragweed).toBe(2)
+    expect(noon.exposure.pollen_oak).toBeUndefined()
+    expect(noon.pollenDisplay?.weed?.value).toBe(2)
+  })
+
+  it('marks the window estimated when a calendar day is inside it', async () => {
+    // June in the northeast is the calendar's "high" grass month, index 4, and
+    // nothing was remembered — so days −1 and −2 are guesses.
+    stubSources('2026-06-15', grassPayload({ '2026-06-15': 2 }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    expect(noon.exposure.pollen_graminales).toBe(4)
+    // The claim "the worst of three days" leans on all three, so a guess in
+    // the window is a guess in the answer: no bound may be confirmed from it.
+    expect(noon.estimated).toContain('pollen_graminales')
+  })
+
+  it('files the day it read, and not the days it was only shown ahead', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-13T18:00:00Z'))
+    stubSources('2026-09-13', grassPayload({ '2026-09-13': 3, '2026-09-14': 5 }))
+    await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const remembered = recallPollenDays(HAMDEN.lat, HAMDEN.lon)
+    // Today, so that Friday's window can read it back as a Wednesday reading.
+    expect(remembered.get('2026-09-13')?.exposure).toEqual({ pollen_graminales: 3 })
+    // Tomorrow is a projection. Filed, it would be graded on Thursday as
+    // though somebody had read it.
+    expect(remembered.has('2026-09-14')).toBe(false)
   })
 })

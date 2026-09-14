@@ -25,3 +25,23 @@ describe('cold-start pollutant priors', () => {
     expect(predict(freshProfile, { o3: 200, pm25: 90 }, PRIORS).floor).toBe(1)
   })
 })
+
+describe('cold-start pollen priors', () => {
+  it('says nothing about a tree plant at Moderate, and warns at High', () => {
+    // Population evidence for tree pollen and asthma is weak — London's tree
+    // models were inconclusive, Atlanta associated Cupressaceae with *fewer*
+    // ED visits — so the tree rows start one category later than the others
+    // (specs/22-exposure-windows.md). Oak stays a candidate at 3; it just has
+    // no population claim behind it until the diary makes one.
+    expect(ceilingAt({ pollen_oak: 3 })).toBe(1)
+    expect(ceilingAt({ pollen_oak: 4 })).toBe(3)
+    expect(ceilingAt({ pollen_birch: 5 })).toBe(4)
+  })
+
+  it('keeps the Moderate row for grass and weeds', () => {
+    // Grass is the one taxon with a defensible asthma signal (Erbas 2018),
+    // and ragweed keeps its row on the same reasoning at lower confidence.
+    expect(ceilingAt({ pollen_graminales: 3 })).toBe(2)
+    expect(ceilingAt({ pollen_ragweed: 3 })).toBe(2)
+  })
+})

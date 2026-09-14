@@ -3,7 +3,8 @@ import { SMOKE_MIN_PM25, smokeFingerprint } from './smoke'
 
 describe('smokeFingerprint', () => {
   it('fires on the M1 reading that named it', () => {
-    // Hamden, model PM2.5 14.0 / PM10 15.0 — ratio 0.93 (docs/m1-findings.md).
+    // Hamden, that hour's model PM2.5 14.0 / PM10 15.0 — ratio 0.93
+    // (docs/m1-findings.md).
     expect(smokeFingerprint({ pm25: 14, pm10: 15 })).toBe(true)
   })
 
@@ -22,6 +23,15 @@ describe('smokeFingerprint', () => {
     expect(smokeFingerprint({ pm25: 40 })).toBe(false)
     expect(smokeFingerprint({ pm10: 40 })).toBe(false)
     expect(smokeFingerprint({})).toBe(false)
+  })
+
+  it('answers about the hour it is handed, not the day around it', () => {
+    // 3 pm, when the plume arrived: fine-mode and unmistakable.
+    expect(smokeFingerprint({ pm25: 40, pm10: 44 })).toBe(true)
+    // The same day's 24-hour means — one smoky hour in twenty-four — read as
+    // ordinary road dust. Which is why this takes `Hour.raw` and not the
+    // window features the rows are graded on.
+    expect(smokeFingerprint({ pm25: 3.5, pm10: 12 })).toBe(false)
   })
 
   it('holds the line exactly at the fine fraction', () => {
