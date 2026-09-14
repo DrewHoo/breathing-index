@@ -22,8 +22,10 @@ import {
   CALENDAR_ESTIMATE,
   COMFORTABLE,
   FORECAST_MEANING,
+  NOT_GRADED,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
+  type VariableLabel,
   levelWord,
 } from '../ui/labels'
 import { LocationNeededCard } from '../ui/locationUi'
@@ -359,6 +361,19 @@ const SAVED_CHIPS = [
   // doing in it — which only the user knows. v1 writes it down and nothing
   // reads it (see engine/infer.ts).
   { label: 'exercising', kind: 'observation', value: 'exercising' },
+  // The traffic mixture is invisible in every number this app fetches. Karner
+  // 2010 pooled 41 studies of concentration against distance from a road:
+  // PM2.5 *mass* shows essentially no gradient, while ultrafines, black
+  // carbon, NO₂ and CO decay sharply within a few hundred metres. The Oxford
+  // Street crossover is the clinical end of it — two hours walking a
+  // traffic-heavy street dropped FEV₁ 6.1 % against the same walk in Hyde
+  // Park, tracking ultrafines, which no public network measures anywhere. So
+  // the PM2.5 row can be perfectly honest and still miss the exposure, and
+  // dropping NO₂ (specs/24-vector-diet.md) costs nothing here: a 45 km CAMS
+  // cell never saw the gradient either. This tag is the only handle v1 has on
+  // it. Recorded and not read, like `exercising`; later it can gate a static
+  // road-proximity feature per saved location.
+  { label: 'near traffic', kind: 'observation', value: 'near-traffic' },
   { label: 'sick', kind: 'confounder', value: 'sick' },
   { label: 'allergies', kind: 'confounder', value: 'allergies' },
   { label: 'indoors all day', kind: 'confounder', value: 'indoors all day' },
@@ -757,9 +772,18 @@ interface AirRow {
   sub?: string
   value: number
   unit: string
-  /** exposure-space value + variable the evidence status is computed from */
-  statusVar: string
-  statusValue: number
+  /**
+   * What the row says on its right-hand side. Either the variable and
+   * exposure-space value the diary's verdict is computed from, or a chip the
+   * row supplies itself in place of the one the evidence would have spoken.
+   * Two rows speak for themselves: the dew point between its thresholds,
+   * where there is no exposure for the diary to have a view on, and PM10,
+   * which is shown and never graded (specs/24-vector-diet.md). A self-spoken
+   * chip wears the unknown chip's styling, because that is what it is — and
+   * the union is what keeps a row that has no variable from having to invent
+   * one to be ignored.
+   */
+  status: { variable: string; value: number } | { chip: string }
   /**
    * The row's last 48 h in display units, oldest first, ending at now. An
    * hour the source never reported is null, not zero: a monitor that was down
@@ -771,13 +795,6 @@ interface AirRow {
   tol?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
-  /**
-   * A verdict the row supplies itself, in place of the one the evidence would
-   * have spoken. Only the dew-point row does this, and only between the two
-   * thresholds, where there is no exposure for the diary to have a view on.
-   * It wears the unknown chip's styling, because that is what it is.
-   */
-  chip?: string
   /**
    * A line under the row about the *reading* rather than in it: where the
    * number came from, or what the particulate looks like. Its own line
@@ -796,8 +813,9 @@ interface AirRow {
  * shows the feature the engine grades (specs/22-exposure-windows.md), and
  * "PM2.5 · 24-h" is a different claim from the reading at the top of the hour
  * — a screen that shows one and means the other is the gaslighting this app
- * exists to undo. NO₂ has no entry because it has no window: its number is the
- * hour itself.
+ * exists to undo. PM10 keeps its entry after leaving the vector
+ * (specs/24-vector-diet.md): ungraded is not the same as unaveraged, and the
+ * row still owes the reader the span its number covers.
  */
 const WINDOW_LABELS: Record<string, string> = { pm25: '24-h', pm10: '24-h', o3: '8-h' }
 
@@ -820,44 +838,69 @@ function buildAirRows(
   // tomorrow.
   const likelySmoke = smokeFingerprint(current.raw)
 
+  // Composable, because these say different things and a row can need all of
+  // them: what the pollutant is, what span its number covers, what the
+  // particulate looks like, and which instrument saw it.
+  const subLabel = (key: string, meta: VariableLabel): string =>
+    [
+      meta.sub,
+      WINDOW_LABELS[key],
+      key === 'pm25' && likelySmoke ? 'likely smoke' : null,
+      data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : null,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' · ')
+
   const rows: AirRow[] = []
-  for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
+  for (const key of ['pm25', 'o3'] as const) {
     // The number on the row is the window feature, the same quantity the
     // verdict beside it is spoken about (specs/22-exposure-windows.md). It
     // used to be the hour's own reading while the chip graded the window, so
     // a row could say 30 and "past your easy" about a threshold of 40.
     //
-    // A pollutant this series has no feature for gets no row at all. On a
-    // station series that is NO₂, which AirNow's network barely measures — and
-    // a row reading "0 µg/m³" would be a measurement nobody made. The hour's
-    // own reading going missing is not that case and no longer costs the row:
+    // A pollutant this series has no feature for gets no row at all — a row
+    // reading "0 µg/m³" would be a measurement nobody made. The hour's own
+    // reading going missing is not that case and no longer costs the row:
     // AirNow publishes the NowCast before the raw hourly, so the current hour
     // is routinely blank while the trailing window is full.
     const reading = current.exposure[key]
     if (reading === undefined) continue
     const meta = VARIABLE_LABELS[key]!
-    const site = data.siteNames?.[key]
-    // Composable, because these say different things and a row can need all
-    // of them: what the pollutant is, what span its number covers, what the
-    // particulate looks like, and which instrument saw it.
-    const sub = [
-      meta.sub,
-      WINDOW_LABELS[key],
-      key === 'pm25' && likelySmoke ? 'likely smoke' : null,
-      site ? `${site} monitor` : null,
-    ]
-      .filter((part): part is string => Boolean(part))
-      .join(' · ')
+    const sub = subLabel(key, meta)
     rows.push({
       key,
       name: meta.name,
       ...(sub ? { sub } : {}),
       value: Math.round(reading),
       unit: meta.unit ?? '',
-      statusVar: key,
-      statusValue: reading,
+      status: { variable: key, value: reading },
       series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
+    })
+  }
+
+  // PM10 keeps the row and loses the verdict (specs/24-vector-diet.md). Coarse
+  // particulate is worth seeing — it is what a dust day is made of, and it is
+  // the denominator of the smoke fingerprint on the PM2.5 row above — but it
+  // is PM2.5 plus the coarse fraction, so it walked into every candidate set
+  // alongside PM2.5 and no clean day could ever tell them apart. So: the same
+  // 24-hour mean, read from `display` instead of `exposure`, no waterline, no
+  // tolerance lookup, and a chip that says out loud that nothing here is being
+  // graded. A series cached before the diet has no `display` block and simply
+  // draws no row, the same rule every other row follows about a missing
+  // number.
+  const pm10 = current.display?.pm10
+  if (pm10 !== undefined) {
+    const meta = VARIABLE_LABELS.pm10!
+    const sub = subLabel('pm10', meta)
+    rows.push({
+      key: 'pm10',
+      name: meta.name,
+      ...(sub ? { sub } : {}),
+      value: Math.round(pm10),
+      unit: meta.unit,
+      status: { chip: NOT_GRADED },
+      series: window.map((h) => h.raw.pm10 ?? null),
     })
   }
 
@@ -891,8 +934,7 @@ function buildAirRows(
         : {}),
       value: display.value,
       unit: 'of 5',
-      statusVar: top.variable,
-      statusValue: current.exposure[top.variable] ?? top.value,
+      status: { variable: top.variable, value: current.exposure[top.variable] ?? top.value },
       series: window.map((h) => h.pollenDisplay?.[type]?.value ?? 0),
       tol: tolerance(top.variable),
     })
@@ -929,11 +971,11 @@ function buildAirRows(
       // The sub-label says what the number is; on the neutral day the name
       // already does, and "Dew point · dew point" reads as a stutter.
       ...(side ? { sub: 'dew point' } : {}),
-      ...(side ? {} : { chip: COMFORTABLE }),
       value: disp(dewpoint),
       unit: `°${tempUnit}`,
-      statusVar: side ?? 'humid_heat',
-      statusValue: side ? (current.exposure[side] ?? 0) : 0,
+      status: side
+        ? { variable: side, value: current.exposure[side] ?? 0 }
+        : { chip: COMFORTABLE },
       series: window.map((h) => (h.raw.dewpoint === undefined ? null : disp(h.raw.dewpoint))),
       // The waterline is a dew point too, so an easy level learned in feature
       // space comes back through the same fold it went out by.
@@ -1003,9 +1045,10 @@ function AirTable({
       />
       <div className="air-table">
         {rows.map((row) => {
-          const status = row.chip
-            ? { text: row.chip, cls: '' }
-            : statusChip(model, row.statusVar, row.statusValue)
+          const status =
+            'chip' in row.status
+              ? { text: row.status.chip, cls: '' }
+              : statusChip(model, row.status.variable, row.status.value)
           return (
             <div key={row.key} className="air-row">
               <div className="air-name-row">

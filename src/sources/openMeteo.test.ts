@@ -253,14 +253,17 @@ describe('AirNow as the exposure source', () => {
     expect(series.hours[13]!.exposure.pm25).toBe(12)
   })
 
-  it('leaves NO₂ out of a station series entirely', async () => {
+  it('still resolves to the monitors on pm2.5 and ozone alone', async () => {
     stubHamden(covering())
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
     const now = series.hours[series.currentIndex]!
-    // The model has an NO₂ column and it is not borrowed: AirNow's network
-    // barely measures the gas, and absent means unknown, not clean.
-    expect(now.exposure.no2).toBeUndefined()
-    expect(now.raw.no2).toBeUndefined()
+    // The bar is unchanged by the vector diet: pm2.5 and ozone are what a
+    // station series has to carry, and PM10 rides along as display only.
+    expect(series.source).toBe(AIRNOW_SOURCE)
+    expect(now.exposure.pm25).toBe(12)
+    expect(now.exposure.o3).toBeCloseTo(58.8, 6)
+    expect(now.display?.pm10).toBe(20)
+    expect(now.exposure.pm10).toBeUndefined()
   })
 
   it('fills the hours after now from the model, and says so', async () => {
@@ -278,7 +281,6 @@ describe('AirNow as the exposure source', () => {
     expect(series.source).toBe(EXPOSURE_SOURCE)
     expect(series.siteNames).toBeUndefined()
     expect(series.hours[series.currentIndex]!.raw.pm25).toBe(3)
-    expect(series.hours[series.currentIndex]!.exposure.no2).toBe(8)
   })
 
   it('never asks AirNow unless the caller wants it', async () => {
@@ -313,8 +315,34 @@ describe('exposure windows', () => {
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
     const last = series.hours[23]!
     expect(last.exposure.pm25).toBeCloseTo(11.5, 6) // 0…23
-    expect(last.exposure.pm10).toBeCloseTo(23, 6) // 0…46
     expect(last.raw.pm25).toBe(23)
+  })
+
+  it('gives PM10 the same window and keeps it out of the vector', async () => {
+    stubSources('2026-09-13', null, { air: { pm2_5: ramp(1), pm10: ramp(2) } })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const last = series.hours[23]!
+    // Display only (specs/24-vector-diet.md), and still a 24-hour mean: the
+    // row shows the same span the graded row beside it does.
+    expect(last.exposure.pm10).toBeUndefined()
+    expect(last.display?.pm10).toBeCloseTo(23, 6) // 0…46
+    // The fingerprint and the sparkline read the hour itself, so raw stays.
+    expect(last.raw.pm10).toBe(46)
+  })
+
+  it('leaves PM10 out of a bad day’s candidate set by never putting it in', async () => {
+    // The spec's acceptance case — pm25 20, pm10 30, o3 5 — is a
+    // feature-extraction fact now rather than an engine one: an entry logged
+    // in this air has no `pm10` for a candidate set to contain.
+    stubSources('2026-09-13', null, {
+      air: { pm2_5: Array(24).fill(20), pm10: Array(24).fill(30), ozone: Array(24).fill(5) },
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const noon = series.hours[12]!
+    expect(noon.exposure.pm25).toBe(20)
+    expect(noon.exposure.o3).toBe(5)
+    expect(Object.keys(noon.exposure)).not.toContain('pm10')
+    expect(noon.display?.pm10).toBe(30)
   })
 
   it('averages a partial window over the hours it holds', async () => {
@@ -350,13 +378,23 @@ describe('exposure windows', () => {
     expect(series.source).toBe('cams-w2')
   })
 
-  it('gives NO₂ the hour it was breathed', async () => {
+  it('leaves NO₂ out of the series entirely, column and all', async () => {
+    const asked: string[] = []
     stubSources('2026-09-13', null, { air: { nitrogen_dioxide: ramp(2) } })
+    const inner = globalThis.fetch as unknown as (url: string) => Promise<unknown>
+    vi.stubGlobal('fetch', (url: string) => {
+      asked.push(url)
+      return inner(url)
+    })
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
-    // No window: sub-kilometer gradients in a 45 km cell have nothing longer
-    // to say, and spec 24 drops the variable outright.
-    expect(series.hours[7]!.exposure.no2).toBe(14)
-    expect(series.hours[7]!.raw.no2).toBe(14)
+    const hour = series.hours[7]!
+    // Not graded, not displayed, not even requested (specs/24-vector-diet.md):
+    // clinically marginal in controlled exposure, no dose-response between 100
+    // and 600 ppb, and sub-kilometer gradients that a 45 km CAMS cell reads as
+    // noise. The stub still serves the column; nothing reads it.
+    expect(hour.exposure.no2).toBeUndefined()
+    expect(hour.raw.no2).toBeUndefined()
+    expect(asked.some((url) => url.includes('nitrogen_dioxide'))).toBe(false)
   })
 })
 

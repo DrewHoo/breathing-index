@@ -194,17 +194,21 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   const rows: EvidenceRowData[] = [
     { name: variableName('pm25'), ...summarize('pm25', bare) },
     { name: variableName('o3'), ...summarize('o3', bare) },
-    { name: variableName('pm10'), ...summarize('pm10', bare) },
-    { name: variableName('no2'), ...summarize('no2', bare) },
     // Both bounds are dew points once folded back: dry air is counted down
     // from 11 °C, humid heat up from 18 °C (specs/23-dew-point-air.md).
     { name: variableName('dry_air'), ...summarize('dry_air', (v) => fmtAt(11 - v)) },
     { name: variableName('humid_heat'), ...summarize('humid_heat', (v) => fmtAt(18 + v)) },
   ]
-  // Retired weather features (pre-spec-23). They earn a row only while an old
-  // entry still has something to say about one — the same rule pollen follows,
-  // and the reason the names survive in config and labels at all.
+  // Variables that have left the vector: the weather stresses in spec 23, PM10
+  // and NO₂ in spec 24. They earn a row only while an old entry still has
+  // something to say about one — the same rule pollen follows, and the reason
+  // the names survive in config and labels at all. A standing row for any of
+  // them would promise a verdict that is never coming: nothing logged from now
+  // on carries the name, so the panel would be advertising evidence the app
+  // has stopped collecting.
   const retired: [string, (v: number) => string][] = [
+    ['pm10', bare],
+    ['no2', bare],
     ['heat_stress', (v) => fmtAt(25 + v)],
     ['cold_dry_stress', (v) => fmtAt(10 - v)],
     ['humidity', (v) => `${Math.round(v)}%`],
@@ -316,6 +320,11 @@ function groupByDay(diary: DiaryEntry[]): { label: string; entries: DiaryEntry[]
 const OBSERVATION_LABELS: Record<string, string> = {
   'worse-outdoors': 'worse outdoors',
   exercising: 'exercising',
+  // The traffic mixture — ultrafines and black carbon, which decay within a
+  // few hundred metres of a road and which no public network measures — is
+  // invisible in the PM2.5 field (Karner 2010; specs/24-vector-diet.md).
+  // Recorded and not read, like `exercising`.
+  'near-traffic': 'near traffic',
 }
 
 /** "PM2.5 38 · ozone 165 — “walk cut short at the park”" */
@@ -325,6 +334,12 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
     return entry.note ? `${waiting} — “${entry.note}”` : waiting
   }
   const parts: { ratio: number; text: string }[] = []
+  // `pm10` and `no2` are still on this list after spec 24 took them out of the
+  // vector, and that is the point: this line reads an entry back to the person
+  // who logged it, and an entry logged in August carries its NO₂ whatever the
+  // model does with the name now. A new entry simply has neither key and drops
+  // through. Each part is ranked by its share of the level-2 prior, which is
+  // why the retired rows stay in config too.
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
     const v = entry.exposure[key] ?? 0
     const prior = PRIORS[key]?.[2] ?? 1

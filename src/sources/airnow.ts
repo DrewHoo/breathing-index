@@ -282,12 +282,15 @@ export function parseAirNow(
 /**
  * Whether these monitors can carry an exposure series on their own.
  *
- * The bar is pm2.5 *and* ozone inside the trailing 24 hours, the two variables
- * the engine reasons about that AirNow measures. NO₂ is deliberately not on
- * the list: AirNow's network barely reports it, and under the null discipline
- * an absent variable is unknown rather than clean, so a series without it says
- * nothing about it instead of claiming zero. specs/24-vector-diet.md drops NO₂
- * from the vector outright for reasons that have nothing to do with AirNow.
+ * The bar is pm2.5 *and* ozone inside the trailing 24 hours — which, since
+ * specs/24-vector-diet.md, is every pollutant the engine reasons about at all.
+ * NO₂ used to be the interesting omission here, on the grounds that AirNow's
+ * network barely reports it and an absent variable is unknown rather than
+ * clean; that spec then dropped it from the vector outright, for reasons of
+ * its own, so there is nothing left to omit. PM10 is not on the list either,
+ * for the opposite reason: monitors do report it and the air table shows it,
+ * but it is display-only, so a station series missing it is still carrying a
+ * complete vector.
  */
 export function coversExposureVector(observations: AirNowObservations): boolean {
   return observations.monitors.pm25?.recent === true && observations.monitors.o3?.recent === true

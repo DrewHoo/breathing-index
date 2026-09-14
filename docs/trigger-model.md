@@ -21,8 +21,6 @@ explicitly, instead of pretending a weighted score resolves it.
     "features": {                       // per-variable trailing-window features
       "pm25": { "now": 14.3, "mean24h": 11.8 },        // µg/m³
       "o3":   { "now": 150.0, "mean8h": 141.2 },       // µg/m³
-      "pm10": { "now": 15.5, "mean24h": 13.1 },        // µg/m³
-      "no2":  { "now": 12.0 },                         // µg/m³
       "dry_air":    { "now": 0.0 },                    // °C below an 11 °C dew point
       "humid_heat": { "now": 1.5 },                    // °C above an 18 °C dew point
       "pollen_graminales": { "max3d": 4 }              // 0–5 index, highest of three local days
@@ -35,7 +33,9 @@ A variable whose window holds no data is **absent** from the vector, never 0: a 
 clean reading, and recorded as 0 it would put the real trigger below its background floor and
 disqualify it from suspicion. Variables the app cannot show the user (so2, co — no row in the
 air table) are left out of the vector entirely, so no evidence line can ever cite a number
-nobody can check.
+nobody can check. The converse also holds: `pm10` has a row and is *not* in the vector
+(specs/24-vector-diet.md), because being visible earns a variable a number on screen, not a
+seat in every candidate set.
 
 For inference, each variable `p` is reduced to one scalar `x_p` per entry, via a per-variable
 window chosen to match its mechanism of action:
@@ -43,8 +43,8 @@ window chosen to match its mechanism of action:
 | Variable | feature | Why |
 |---|---|---|
 | o3 | `mean8h` | the breakpoints are 8-h means, and AirNow's ozone number is a NowCast of the same shape; the mechanism is dose over hours, so a max of hourlies graded against a mean prior over-warns by construction |
-| pm25, pm10 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
-| no2 | `now` | acts within the hour it is breathed; a 45 km model cell has nothing longer to say about a gas whose gradients are sub-kilometer |
+| pm25 | `mean24h` | the breakpoints are 24-h means, and the ED-visit epidemiology runs at lag 0–2 days |
+| pm10 | `mean24h`, **display only** | same window, no seat in the vector (specs/24-vector-diet.md): coarse PM has weak independent evidence for acute asthma, and PM10 *is* PM2.5 plus the coarse fraction, so it co-moves with PM2.5 in every candidate set and no clean day can separate the two. The row still shows the number — a person is entitled to see how much coarse particulate is outside, and the smoke fingerprint divides by it. Where coarse PM matters on its own (dust storms, RR 1.06 at lag 0–3), specs/20-baseline-bad-air.md adds `dust` as its own variable |
 | dry_air, humid_heat | `now` | felt in the hour they are breathed; both are cut from the dew point that hour |
 | grass pollen | `max` over the trailing 3 local days | Erbas 2018 / Osborne 2017: cumulative and threshold-shaped, IRR 1.46 at a 3-day lag — a day-of index under-weights the Thursday after a huge Tuesday |
 | tree, weed pollen (per plant) | the local day's index | no evidence for a longer window, and tree pollen's asthma signal is weak to begin with (it is mostly a rhinitis story) |
@@ -115,7 +115,7 @@ guard_p,L = max(tol_p,L·(1−ε_p), negligible_p) · (1 + ε_p/2)
 
 `negligible_p` is a per-variable background floor (engine config): an exposure below it cannot be
 a suspect even with no tolerance evidence — otherwise every bad day would implicate trace levels
-of all six pollutants (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
+of every pollutant it tracks (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
 health-relevant level; they encode "measurably present," not "harmful" — but they sit *above*
 routine background, or candidate sets never collapse (55 %RH over three days is an ordinary week,
 and a heat-stress floor of 0 made 25.1 °C a suspect).
@@ -256,7 +256,11 @@ tolerance/causation/candidate-set/combo-repeat semantics apply unchanged. Costs 
   mold season likewise). Attribution slows; prediction safety does not: a known-bad combination
   still matches via the ambiguous-constraint clause without attribution. You lose explanation
   speed, not conservatism. Keep the vector small and mechanistically plausible for the user rather
-  than throwing every available signal in.
+  than throwing every available signal in. This has been acted on once already:
+  specs/24-vector-diet.md cut `pm10` to display-only (it is PM2.5 plus the coarse fraction, so it
+  could never decorrelate from PM2.5) and dropped `no2` outright (clinically marginal in
+  controlled exposure, with sub-kilometer gradients a 45 km model cell reads as noise), taking
+  the US vector to roughly seven live dimensions.
 - **An empty candidate set is a missing-variable detector.** A bad day where every *modeled*
   variable is already proven tolerable can't be explained by the model — which is exactly the
   signature of an unmodeled trigger (pollen before pollen was added, an indoor exposure, illness).
@@ -309,6 +313,17 @@ it meant on an old one, which is the whole reason the name stayed in the set.
 `dry_air` dose no feed can measure. v1 records it and the engine ignores it; sharpening on it
 would mean raising a candidate's weight rather than striking one out, which is a different shape
 from the exclusion above.
+
+**`near-traffic`**: the user was beside a road. Karner 2010 pooled 41 roadside studies of
+concentration against distance and found PM2.5 *mass* has essentially no gradient with distance
+from a road, while ultrafines, black carbon, NO₂ and CO decay sharply within a few hundred metres.
+The clinical end of it is the Oxford Street crossover: two hours walking a traffic-heavy street
+cost 6.1 % of FEV₁ against the same walk in Hyde Park, tracking the ultrafines — which no public
+network measures anywhere. So the traffic mixture is invisible in the PM2.5 field the app does
+fetch, and the tag is the only handle v1 has on it. NO₂ was the nearest available proxy and was
+never a usable one at 45 km resolution, which is part of why it left the vector
+(specs/24-vector-diet.md). Recorded and not read, the same shape as `exercising`; later it can
+gate a static road-proximity feature per saved location.
 
 Two consequences worth naming:
 
@@ -365,7 +380,10 @@ Weather has no such escape hatch: it comes from a different pipe and is delibera
 source-scoped, so when a weather variable is retired (`heat_stress`, `cold_dry_stress` and
 `humidity`, replaced by the dew-point pair in specs/23-dew-point-air.md) its bounds stay live in
 the model rather than going inert — harmless only for as long as no exposure vector carries the
-name, which is why a retired variable name is never reused for a different quantity.
+name, which is why a retired variable name is never reused for a different quantity. A pollutant
+dropped from the vector without a source change lands in the same place: `pm10` and `no2`
+(specs/24-vector-diet.md) keep whatever bounds they had learned, and those bounds go quiet
+because no vector names them any more, not because anything retired them.
 
 Every learned bound therefore records the source it came
 from, and a source switch starts a **fresh bound set** for the variables that source measures
