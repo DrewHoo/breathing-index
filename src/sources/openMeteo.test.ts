@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fetchExposureSeries, pollenForHour } from './openMeteo'
+import { AIRNOW_SOURCE, EXPOSURE_SOURCE, fetchExposureSeries, pollenForHour } from './openMeteo'
+import type { AirNowRow } from './airnow'
 import type { PollenDay } from './googlePollen'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
@@ -32,11 +33,21 @@ const pollenPayload = (date: string, weedValue: number) => ({
   ],
 })
 
+interface Stubs {
+  /** relay /v1/airnow rows; absent means the relay answers 404 */
+  airnow?: AirNowRow[]
+  utcOffsetSeconds?: number
+}
+
 /**
- * All three endpoints, with only the fields a test cares about. `pollen`
+ * All four endpoints, with only the fields a test cares about. `pollen`
  * null means the relay is down (the fetch rejects) — the calendar's cue.
  */
-function stubSources(day: string, pollen: ReturnType<typeof pollenPayload> | null) {
+function stubSources(
+  day: string,
+  pollen: ReturnType<typeof pollenPayload> | null,
+  stubs: Stubs = {},
+) {
   const time = hoursOf(day)
   const column = (v: number) => time.map(() => v)
   vi.stubGlobal('fetch', (url: string) => {
@@ -45,6 +56,17 @@ function stubSources(day: string, pollen: ReturnType<typeof pollenPayload> | nul
         ? Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(pollen) })
         : Promise.reject(new Error('relay down'))
     }
+    if (url.includes('/v1/airnow')) {
+      return Promise.resolve(
+        stubs.airnow
+          ? {
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve({ observations: stubs.airnow, forecast: [] }),
+            }
+          : { ok: false, status: 404, json: () => Promise.resolve({}) },
+      )
+    }
     return Promise.resolve({
       ok: true,
       status: 200,
@@ -52,8 +74,8 @@ function stubSources(day: string, pollen: ReturnType<typeof pollenPayload> | nul
         Promise.resolve(
           url.includes('air-quality')
             ? {
-                utc_offset_seconds: 0,
-                hourly: { time, pm2_5: column(3), ozone: column(10) },
+                utc_offset_seconds: stubs.utcOffsetSeconds ?? 0,
+                hourly: { time, pm2_5: column(3), ozone: column(10), nitrogen_dioxide: column(8) },
               }
             : { hourly: { time, temperature_2m: column(20), relative_humidity_2m: column(50) } },
         ),
@@ -129,5 +151,129 @@ describe('the calendar fallback', () => {
     const series = await fetchExposureSeries(-33.87, 151.21) // Sydney
     const noon = series.hours[12]!
     expect(Object.keys(noon.exposure).some((k) => k.startsWith('pollen_'))).toBe(false)
+  })
+})
+
+/* --- AirNow as the exposure source --- */
+
+const NEW_HAVEN = { lat: 41.301288, lon: -72.902685 }
+
+/** One monitor's hourly rows, UTC, ending at `throughUtcHour` on 2026-09-13. */
+function monitorRows(
+  parameter: 'PM2.5' | 'PM10' | 'OZONE',
+  raw: number,
+  fromUtcHour: number,
+  throughUtcHour: number,
+  skipUtcHour?: number,
+): AirNowRow[] {
+  const rows: AirNowRow[] = []
+  for (let h = fromUtcHour; h <= throughUtcHour; h++) {
+    if (h === skipUtcHour) continue
+    rows.push({
+      Latitude: NEW_HAVEN.lat,
+      Longitude: NEW_HAVEN.lon,
+      UTC: `2026-09-13T${String(h).padStart(2, '0')}:00`,
+      Parameter: parameter,
+      Unit: parameter === 'OZONE' ? 'PPB' : 'UG/M3',
+      Value: raw,
+      RawConcentration: raw,
+      AQI: 30,
+      Category: 1,
+      SiteName: 'New Haven',
+    })
+  }
+  return rows
+}
+
+/**
+ * Local noon in Hamden is 16:00 UTC in September. Open-Meteo serves local hour
+ * strings, AirNow serves UTC, and the offset is the only thing that lines the
+ * two up — which is why it is worth a test of its own.
+ */
+const EDT_OFFSET = -4 * 3600
+
+describe('AirNow as the exposure source', () => {
+  afterEach(() => vi.useRealTimers())
+
+  const stubHamden = (airnow?: AirNowRow[]) => {
+    vi.useFakeTimers()
+    // 14:00 local on the 13th, so hours 0–14 are past and 15–23 are forecast.
+    vi.setSystemTime(new Date('2026-09-13T18:00:00Z'))
+    stubSources('2026-09-13', null, { airnow, utcOffsetSeconds: EDT_OFFSET })
+  }
+
+  /** Monitors covering pm2.5 and ozone: 00:00–14:00 local, one pm2.5 gap. */
+  const covering = (): AirNowRow[] => [
+    ...monitorRows('PM2.5', 12, 4, 18, 17),
+    ...monitorRows('OZONE', 30, 4, 18),
+    ...monitorRows('PM10', 20, 4, 18),
+  ]
+
+  it('runs the series off the monitors when they cover pm2.5 and ozone', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const now = series.hours[series.currentIndex]!
+
+    expect(series.source).toBe(AIRNOW_SOURCE)
+    expect(series.siteNames).toEqual({ pm25: 'New Haven', o3: 'New Haven', pm10: 'New Haven' })
+    expect(now.raw.pm25).toBe(12)
+    // 30 PPB at the EPA's reference conditions, the same 1.96 the breakpoints use.
+    expect(now.raw.o3).toBeCloseTo(58.8, 6)
+    expect(now.exposure.pm25).toBe(12)
+    expect(now.exposure.o3).toBeCloseTo(58.8, 6)
+  })
+
+  it('lines AirNow’s UTC hours up with Open-Meteo’s local ones', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    // Local 00:00 is 04:00 UTC, the first monitored hour; 23:00 the day before
+    // is outside the window and has no reading at all.
+    expect(series.hours[0]!.time).toBe('2026-09-13T00:00')
+    expect(series.hours[0]!.raw.pm25).toBe(12)
+    expect(series.currentIndex).toBe(14)
+    // The one gap: 17:00 UTC is 13:00 local. Absent, never zero — the 8-hour
+    // window spans it, so the vector still has a number.
+    expect(series.hours[13]!.raw.pm25).toBeUndefined()
+    expect(series.hours[13]!.exposure.pm25).toBe(12)
+  })
+
+  it('leaves NO₂ out of a station series entirely', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const now = series.hours[series.currentIndex]!
+    // The model has an NO₂ column and it is not borrowed: AirNow's network
+    // barely measures the gas, and absent means unknown, not clean.
+    expect(now.exposure.no2).toBeUndefined()
+    expect(now.raw.no2).toBeUndefined()
+  })
+
+  it('fills the hours after now from the model, and says so', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    const forecast = series.hours[18]!
+    expect(forecast.forecastSource).toBe('cams')
+    expect(forecast.raw.pm25).toBe(3) // the model column
+    expect(series.hours[series.currentIndex]!.forecastSource).toBeUndefined()
+  })
+
+  it('falls back to the model when no monitor reports ozone', async () => {
+    stubHamden(monitorRows('PM2.5', 12, 4, 18))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+    expect(series.source).toBe(EXPOSURE_SOURCE)
+    expect(series.siteNames).toBeUndefined()
+    expect(series.hours[series.currentIndex]!.raw.pm25).toBe(3)
+    expect(series.hours[series.currentIndex]!.exposure.no2).toBe(8)
+  })
+
+  it('never asks AirNow unless the caller wants it', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.source).toBe(EXPOSURE_SOURCE)
+  })
+
+  it('does not ask AirNow about a place it does not measure', async () => {
+    stubHamden(covering())
+    const series = await fetchExposureSeries(52.37, 4.9, { airnow: true }) // Amsterdam
+    expect(series.source).toBe(EXPOSURE_SOURCE)
   })
 })

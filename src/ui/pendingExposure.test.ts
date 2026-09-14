@@ -99,8 +99,28 @@ describe('backfillPending', () => {
     const fetchSeries = vi.fn().mockResolvedValue(series())
     const now = new Date('2026-08-07T14:05:00Z')
     const next = await backfillPending([pendingEntry()], null, null, now, fetchSeries)
-    expect(fetchSeries).toHaveBeenCalledWith(HAMDEN.lat, HAMDEN.lon)
+    expect(fetchSeries).toHaveBeenCalledWith(HAMDEN.lat, HAMDEN.lon, { airnow: true })
     expect(next![0]!.exposure.pm25).toBe(31)
+  })
+
+  it('asks the history for the same sources the live screen reads', async () => {
+    // The active source is whatever the newest entry recorded, so a backfill
+    // that came back on the model could be the entry that tips an `airnow`
+    // diary over to `cams` and makes every station bound inert.
+    const fetchSeries = vi.fn().mockResolvedValue(series())
+    const now = new Date('2026-08-07T14:05:00Z')
+    const stored = { airnow: true }
+    vi.stubGlobal('localStorage', {
+      getItem: () =>
+        stored.airnow ? null : JSON.stringify({ airnowEnabled: false }),
+    })
+    await backfillPending([pendingEntry()], null, null, now, fetchSeries)
+    expect(fetchSeries).toHaveBeenLastCalledWith(HAMDEN.lat, HAMDEN.lon, { airnow: true })
+
+    stored.airnow = false
+    await backfillPending([pendingEntry()], null, null, now, fetchSeries)
+    expect(fetchSeries).toHaveBeenLastCalledWith(HAMDEN.lat, HAMDEN.lon, { airnow: false })
+    vi.unstubAllGlobals()
   })
 
   it('leaves the entry pending when the network is still gone', async () => {

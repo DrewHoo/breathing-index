@@ -3,9 +3,9 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
-import { fetchAirNow, type AirNowReport } from '../sources/airnow'
+import { airNowReport, fetchAirNow, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
-import { POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
+import { AIRNOW_SOURCE, POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
 
 const POLLEN_ROW_NAMES = { tree: 'Tree pollen', grass: 'Grass pollen', weed: 'Weed pollen' } as const
 import { track } from '../ui/analytics'
@@ -320,7 +320,12 @@ function Home() {
       />
       <AirTable data={data} model={model} tempUnit={tempUnit} />
       <ByHour data={data} model={model} coldStart={coldStart} />
-      <MeasuredStrip lat={location.lat} lon={location.lon} />
+      <MeasuredStrip
+        lat={location.lat}
+        lon={location.lon}
+        source={data.source}
+        utcOffsetSeconds={data.utcOffsetSeconds}
+      />
     </>
   )
 }
@@ -747,8 +752,13 @@ interface AirRow {
   /** exposure-space value + variable the evidence status is computed from */
   statusVar: string
   statusValue: number
-  /** the row's last 48 h in display units, oldest first, ending at now */
-  series: number[]
+  /**
+   * The row's last 48 h in display units, oldest first, ending at now. An
+   * hour the source never reported is null, not zero: a monitor that was down
+   * from Tuesday lunchtime drew a flat floor across a third of the window and
+   * pulled every other hour's shape flat with it.
+   */
+  series: (number | null)[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
   /** cold side of the temperature row: past-easy is below the waterline */
@@ -783,17 +793,35 @@ function buildAirRows(
 
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3', 'pm10', 'no2'] as const) {
+    // A pollutant this series has no number for gets no row at all. On a
+    // station series that is NO₂, which AirNow's network barely measures — and
+    // a row reading "0 µg/m³" would be a measurement nobody made. The window
+    // feature stands in for the hour's own reading when only that is missing,
+    // which is AirNow's normal state for the hour in progress: it publishes
+    // the NowCast first and the raw hourly behind it.
+    const reading = current.raw[key] ?? current.exposure[key]
+    if (reading === undefined) continue
     const meta = VARIABLE_LABELS[key]!
-    const sub = key === 'pm25' && likelySmoke ? `${meta.sub} · likely smoke` : meta.sub
+    const site = data.siteNames?.[key]
+    // Composable, because these say different things and a row can need both:
+    // what the pollutant is, what the particulate looks like, and which
+    // instrument saw it.
+    const sub = [
+      meta.sub,
+      key === 'pm25' && likelySmoke ? 'likely smoke' : null,
+      site ? `${site} monitor` : null,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' · ')
     rows.push({
       key,
       name: meta.name,
       ...(sub ? { sub } : {}),
-      value: Math.round(current.raw[key] ?? 0),
+      value: Math.round(reading),
       unit: meta.unit ?? '',
       statusVar: key,
       statusValue: current.exposure[key] ?? 0,
-      series: window.map((h) => h.raw[key] ?? 0),
+      series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
     })
   }
@@ -967,7 +995,7 @@ function AirSpark({
   invert,
   name,
 }: {
-  series: number[]
+  series: (number | null)[]
   /** "your easy level" in the row's display units */
   tol?: number
   /** cold side of the temperature row: past-easy is below the waterline */
@@ -975,13 +1003,14 @@ function AirSpark({
   name: string
 }) {
   const clip = useId()
-  if (series.length < 2) return null
+  const readings = series.filter((v): v is number => v !== null)
+  if (readings.length < 2) return null
   // Plot in x 2..300; the right gutter holds the waterline's ring + value.
   const X0 = 2
   const X1 = 300
   const Y0 = 5
   const Y1 = 35
-  const values = tol === undefined ? series : [...series, tol]
+  const values = tol === undefined ? readings : [...readings, tol]
   let lo = Math.min(...values)
   let hi = Math.max(...values)
   if (hi - lo < 1e-9) {
@@ -990,10 +1019,24 @@ function AirSpark({
   }
   const x = (i: number): number => X0 + (i * (X1 - X0)) / (series.length - 1)
   const y = (v: number): number => Y1 - ((v - lo) / (hi - lo)) * (Y1 - Y0)
-  const line = series
-    .map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`)
-    .join(' ')
-  const past = tol !== undefined && series.some((v) => (invert ? v < tol : v > tol))
+  // One sub-path per unbroken run of hours. The line simply stops where a
+  // monitor did, which is the truth; joining across the gap would draw a
+  // reading nobody took, and dropping to the floor would invent a clean hour.
+  const runs: { x: number; y: number }[][] = []
+  let run: { x: number; y: number }[] = []
+  series.forEach((v, i) => {
+    if (v === null) {
+      if (run.length > 0) runs.push(run)
+      run = []
+    } else {
+      run.push({ x: x(i), y: y(v) })
+    }
+  })
+  if (run.length > 0) runs.push(run)
+  const trace = (points: { x: number; y: number }[]): string =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+  const line = runs.map(trace).join(' ')
+  const past = tol !== undefined && readings.some((v) => (invert ? v < tol : v > tol))
   const yTol = tol !== undefined ? y(tol) : 0
   return (
     <svg
@@ -1018,7 +1061,9 @@ function AirSpark({
             )}
           </clipPath>
           <path
-            d={`${line} V${invert ? 0 : 40} H${X0} Z`}
+            d={runs
+              .map((points) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
+              .join(' ')}
             fill="var(--l3)"
             clipPath={`url(#${clip})`}
           />
@@ -1174,7 +1219,18 @@ function ByHour({
 
 /* --- measured nearby (AirNow) --- */
 
-function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
+function MeasuredStrip({
+  lat,
+  lon,
+  source,
+  utcOffsetSeconds,
+}: {
+  lat: number
+  lon: number
+  /** the source the rows above run on — what this strip is allowed to repeat */
+  source: string
+  utcOffsetSeconds: number
+}) {
   const [report, setReport] = useState<AirNowReport | null>(null)
   const enabled = useMemo(() => loadSettings().airnowEnabled, [])
 
@@ -1182,8 +1238,8 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
     if (!enabled) return
     let cancelled = false
     fetchAirNow(lat, lon)
-      .then((r) => {
-        if (!cancelled) setReport(r)
+      .then((observations) => {
+        if (!cancelled) setReport(observations ? airNowReport(observations) : null)
       })
       .catch(() => undefined)
     return () => {
@@ -1192,6 +1248,27 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
   }, [enabled, lat, lon])
 
   if (!enabled || !report) return null
+
+  // When the rows above already run on these monitors, every chip here would
+  // be the same measurement twice, in the population's unit system instead of
+  // the screen's, and the site name is on each row (specs/21-airnow-migration
+  // .md §6). One thing is left that no row can carry: the Action Day, which is
+  // a declaration by an agency rather than a reading. Without one there is
+  // nothing to say, so the section does not appear at all.
+  if (source === AIRNOW_SOURCE) {
+    if (!report.actionDay) return null
+    return (
+      <section className="section">
+        <SectionRule label="Measured nearby" note={report.reportingArea} faint />
+        <p className="action-day">⚠ Official air quality Action Day</p>
+      </section>
+    )
+  }
+
+  // AirNow's hours are UTC; the rest of the screen is local to the location.
+  const hour = report.time
+    ? fmtHour(new Date(Date.parse(`${report.time}:00Z`) + utcOffsetSeconds * 1000).getUTCHours(), false)
+    : ''
 
   // AQI points are population vocabulary, and this screen speaks µg/m³. Two
   // numbers both labelled "Ozone" in different unit systems read as a 2×
@@ -1213,7 +1290,7 @@ function MeasuredStrip({ lat, lon }: { lat: number; lon: number }) {
     <section className="section">
       <SectionRule
         label="Measured nearby"
-        note={`${report.reportingArea}${report.time ? ` · ${report.time}` : ''}`}
+        note={`${report.reportingArea}${hour ? ` · ${hour}` : ''}`}
         faint
       />
       {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}

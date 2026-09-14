@@ -13,7 +13,6 @@
 
 export interface Env {
   AIRNOW_API_KEY: string
-  PURPLEAIR_API_KEY: string
   GOOGLE_MAPS_API_KEY: string
   /** Optional KV cache — see wrangler.toml. Absent, every request goes upstream. */
   CACHE?: KVNamespace
@@ -90,6 +89,43 @@ async function relay(
   })
 }
 
+/** Half-width of the AirNow bounding box: ±0.25° is about the 50-mile radius
+ * the retired lat/long endpoints searched, and it is drawn around the coarse
+ * cell the relay was given rather than around anyone's actual position. */
+const BBOX_DEGREES = 0.25
+
+/** AirNow wants `YYYY-MM-DDTHH`, always UTC, hour resolution. */
+const airNowHour = (ms: number): string => new Date(ms).toISOString().slice(0, 13)
+
+/** How far back the observation window reaches. The client needs 24 hours to
+ * decide whether the monitors cover its exposure vector and 48 to draw the
+ * air table's sparkline, so 48 it is — one request either way. */
+const OBSERVATION_HOURS = 48
+
+/**
+ * Today's reporting-area forecast, which exists here only to carry `ActionDay`
+ * — the one thing AirNow publishes that no concentration can be derived from.
+ *
+ * The path is `aq/forecast/current/`, the survivor of the September 2026
+ * retirement: the docs call it "Current Forecasts By Reporting Area, Lat/Long,
+ * or Zip Code" but link it behind a login, so it was found by probing. Every
+ * other plausible spelling (`aq/forecast/reportingArea/` and friends) 302s to
+ * the docs site, which is what this host does with an unknown path. Its rows
+ * are camelCase — `reportingArea`, `actionDay` — where the retired lat/long
+ * forecast returned PascalCase, so the client parses this shape and no other.
+ */
+function forecastRequest(env: Env, lat: string, lon: string): Request {
+  const u = new URL('https://www.airnowapi.org/aq/forecast/current/')
+  u.search = new URLSearchParams({
+    format: 'application/json',
+    latitude: lat,
+    longitude: lon,
+    distance: '50',
+    API_KEY: env.AIRNOW_API_KEY,
+  }).toString()
+  return new Request(u)
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -119,59 +155,70 @@ export default {
     const { lat, lon } = coords
 
     switch (url.pathname) {
-      // Official AirNow current observations plus today's forecast, one
-      // payload, one cache entry: the observations carry the per-pollutant
-      // AQI points the client bridges to µg/m³; the forecast rows ride along
+      // AirNow's monitoring-site observations plus today's reporting-area
+      // forecast, one payload, one cache entry. The observations are the
+      // interesting half: `aq/data/` returns a row per monitor per hour with
+      // the *raw* concentration alongside the AQI point, which is what lets
+      // the client run its own window features off station data rather than
+      // walking AQI points back to micrograms. The forecast rows ride along
       // only because they are where AirNow says whether today is an official
       // Action Day. Parsing lives in the client, where it has tests.
+      //
+      // Both services are capped at 500 requests per hour, per key, per
+      // service, and the cap cannot be raised — the hour of KV below is what
+      // keeps a grid cell to one call an hour, well under it.
       case '/v1/airnow': {
-        const common = {
+        const now = Date.now()
+        const obs = new URL('https://www.airnowapi.org/aq/data/')
+        obs.search = new URLSearchParams({
           format: 'application/json',
-          latitude: lat,
-          longitude: lon,
-          distance: '50',
+          // minLon,minLat,maxLon,maxLat around the coarse cell.
+          BBOX: [
+            (Number(lon) - BBOX_DEGREES).toFixed(2),
+            (Number(lat) - BBOX_DEGREES).toFixed(2),
+            (Number(lon) + BBOX_DEGREES).toFixed(2),
+            (Number(lat) + BBOX_DEGREES).toFixed(2),
+          ].join(','),
+          parameters: 'OZONE,PM25,PM10',
+          // B = both the AQI point and the concentration behind it.
+          dataType: 'B',
+          includerawconcentrations: '1',
+          // Site name and coordinates per row — how the client picks the
+          // nearest monitor for each parameter and names it on the row.
+          verbose: '1',
+          // Permanent monitors only; mobile and temporary units move between
+          // hours, so a series from one is not a series of one place.
+          monitorType: '0',
+          startDate: airNowHour(now - OBSERVATION_HOURS * 3_600_000),
+          endDate: airNowHour(now),
           API_KEY: env.AIRNOW_API_KEY,
-        }
-        const obs = new URL('https://www.airnowapi.org/aq/observation/latLong/current/')
-        obs.search = new URLSearchParams(common).toString()
-        const fc = new URL('https://www.airnowapi.org/aq/forecast/latLong/')
-        fc.search = new URLSearchParams(common).toString()
-        return relay(
-          env,
-          // v2: {observations, forecast} envelope. The version rides the key
-          // so a shape change never serves an hour of stale-shape cache.
-          `airnow:v2:${lat},${lon}`,
-          async () => {
-            const [o, f] = await Promise.all([fetch(obs), fetch(fc)])
-            if (!o.ok) return o
-            // A dead forecast endpoint must not take the observations down.
-            const observations = await o.json()
-            const forecast = f.ok ? await f.json() : []
-            return new Response(JSON.stringify({ observations, forecast }), {
-              headers: { 'content-type': 'application/json' },
-            })
-          },
-          cors,
-        )
-      }
-
-      // Outdoor PurpleAir sensors in the grid cell — hyperlocal PM where
-      // AirNow's network is sparse.
-      case '/v1/purpleair': {
-        const u = new URL('https://api.purpleair.com/v1/sensors')
-        u.search = new URLSearchParams({
-          fields: 'name,latitude,longitude,pm2.5_10minute,pm2.5_60minute',
-          location_type: '0',
-          max_age: '3600',
-          nwlat: String(Number(lat) + 0.05),
-          nwlng: String(Number(lon) - 0.05),
-          selat: String(Number(lat) - 0.05),
-          selng: String(Number(lon) + 0.05),
         }).toString()
         return relay(
           env,
-          `purpleair:${lat},${lon}`,
-          () => fetch(u, { headers: { 'X-API-Key': env.PURPLEAIR_API_KEY } }),
+          // v3: aq/data/ rows and camelCase forecast rows. The version rides
+          // the key so a shape change never serves an hour of stale-shape
+          // cache — v2 was the retired reporting-area observation endpoints.
+          `airnow:v3:${lat},${lon}`,
+          async () => {
+            const [o, f] = await Promise.all([fetch(obs), fetch(forecastRequest(env, lat, lon))])
+            if (!o.ok) return o
+            // A dead forecast endpoint must not take the observations down —
+            // and "dead" includes a 200 carrying `{WebServiceError: [...]}`,
+            // which is how AirNow says a reporting area has no forecast
+            // issued today (verified in Anchorage). Both halves are normalised
+            // to arrays here so the client never has to ask what shape it got.
+            const observations = await o.json()
+            const forecast = f.ok ? await f.json() : []
+            return new Response(
+              JSON.stringify({
+                observations: Array.isArray(observations) ? observations : [],
+                forecast: Array.isArray(forecast) ? forecast : [],
+              }),
+              {
+                headers: { 'content-type': 'application/json' },
+              },
+            )
+          },
           cors,
         )
       }
