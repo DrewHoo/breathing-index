@@ -16,6 +16,7 @@ import {
   type ExposureSeries,
 } from '../sources/openMeteo'
 import { loadSettings } from './settings'
+import { ENTRY_OWN_VARIABLES } from './viralTag'
 
 const HOUR_MS = 3_600_000
 
@@ -44,6 +45,10 @@ export const settled = (diary: DiaryEntry[]): DiaryEntry[] => diary.filter((e) =
 
 const samePlace = (a: Place, b: Place): boolean =>
   Math.abs(a.lat - b.lat) <= SAME_PLACE_DEGREES && Math.abs(a.lon - b.lon) <= SAME_PLACE_DEGREES
+
+/** The part of an entry's vector the user put there, which no backfill may overwrite. */
+const entryOwn = (exposure: DiaryEntry['exposure']): DiaryEntry['exposure'] =>
+  Object.fromEntries(Object.entries(exposure).filter(([v]) => ENTRY_OWN_VARIABLES.has(v)))
 
 /** Index of the hour containing this instant, or -1 if the series doesn't reach it. */
 function hourIndexAt(series: ExposureSeries, instant: number): number {
@@ -77,7 +82,12 @@ export function resolvePending(
     const { pendingExposure: _pending, ...rest } = entry
     return {
       ...rest,
-      exposure: hour.exposure,
+      // The hour's air, plus whatever the entry carries that no series ever
+      // produces. `viral` is the only one today (specs/26-sick-as-signal.md):
+      // the user can tap "sick" on an entry that is still waiting on its
+      // numbers, and replacing the vector wholesale would quietly delete the
+      // one variable the feed cannot supply.
+      exposure: { ...hour.exposure, ...entryOwn(entry.exposure) },
       // A vector that arrives late still has to say where it came from and
       // which of its numbers were guessed — an entry backfilled in Connecticut
       // carries calendar pollen, and untagged it could confirm a bound.

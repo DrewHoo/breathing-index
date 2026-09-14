@@ -56,10 +56,25 @@ describe('resolvePending', () => {
   })
 
   it('keeps the rating, the time and the tags', () => {
-    const entry = pendingEntry({ note: 'stairs', confounders: ['sick'] })
+    const entry = pendingEntry({ note: 'stairs', confounders: ['allergies'] })
     const [resolved] = resolvePending([entry], series(), HAMDEN)
     expect(resolved).toMatchObject({ id: 'p1', time: entry.time, rating: 3, note: 'stairs' })
-    expect(resolved!.confounders).toEqual(['sick'])
+    expect(resolved!.confounders).toEqual(['allergies'])
+  })
+
+  it('keeps the one variable the feed cannot supply', () => {
+    // "sick" is a tap on the entry, not a number in the series
+    // (specs/26-sick-as-signal.md), and the air arriving late must not delete
+    // it — the user can tap it the moment they log, hours before the hour's
+    // vector shows up.
+    const entry = pendingEntry({ exposure: { viral: 1 } })
+    const [resolved] = resolvePending([entry], series(), HAMDEN)
+    expect(resolved!.exposure).toEqual({ pm25: 31, o3: 40, humidity: 60, viral: 1 })
+  })
+
+  it('does not invent one for an entry that never claimed it', () => {
+    const [resolved] = resolvePending([pendingEntry()], series(), HAMDEN)
+    expect('viral' in resolved!.exposure).toBe(false)
   })
 
   it('refuses air measured somewhere else', () => {

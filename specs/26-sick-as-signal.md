@@ -1,6 +1,6 @@
 # Sick as a signal — one chip, no dates
 
-**Status:** proposed · **Effort:** S · **Deps:** none · **Priority:** high
+**Status:** built 2026-09-14 (branch `claude/spec-26-sick-as-signal`); amended to what was built · **Effort:** S · **Deps:** none · **Priority:** high
 
 ## Problem
 
@@ -14,7 +14,9 @@ The constraint: one tap logs a rating. Chips are optional. Nobody types an onset
 
 1. **`sick` changes kind.** It moves from `kind: 'confounder'` to a new chip kind, `exposure`. Toggling it writes `viral: 1` into the entry's exposure vector; untoggling deletes the key (absent, not 0). Same chip, same tap, same place in `SAVED_CHIPS`.
 
-2. **The engine doesn't change.** `viral` is a variable with floor 0 and prior `{ 2: 1 }`. A bad sick day with oak up yields `{viral, oak}` ambiguous. A fine sick day with oak down proves `viral` tolerated at 1. A repeat of sick-plus-oak floors on the combo clause without attribution. That is the interaction the literature describes, and the doc's combo-repeat rule already handles it.
+   One consequence not in the draft: `viral` is the first exposure key the *user* writes, so anything that replaces an entry's vector wholesale has to put it back. `resolvePending` did exactly that, and now merges the hour's air with the entry's own keys (`ENTRY_OWN_VARIABLES`).
+
+2. **The engine doesn't change.** No file in `src/engine/` changed except `config.ts`. `viral` is a variable with floor 0 and prior `{ 2: 1 }`, on the default 15 % noise margin (which never bites on a value that is only ever exactly 1). A bad sick day with oak up yields `{viral, oak}` ambiguous. A fine sick day with oak down proves `viral` tolerated at 1. A repeat of sick-plus-oak floors on the combo clause without attribution. That is the interaction the literature describes, and the doc's combo-repeat rule already handles it.
 
 3. `viral` is not source-scoped and not an indoor proxy. It survives a source switch.
 
@@ -29,9 +31,13 @@ The constraint: one tap logs a rating. Chips are optional. Nobody types an onset
 ## Acceptance
 
 - Tapping `sick` on a saved entry writes `exposure.viral = 1`; untapping deletes the key; the entry is never excluded from inference for it.
-- Fixture: rating 3 at `{pollen_oak: 4, viral: 1}`, then rating 1 at `{pollen_oak: 4}` → oak tolerated at 4 and `viral` suspected-strong at level 3 with context `{pollen_oak: 4}`. Then rating 3 at `{pollen_oak: 4, viral: 1}` again → the combo floors at 3.
-- Old entries with `sick` in `confounders` migrate on load: `viral: 1` added to `exposure`, `sick` removed from `confounders` (the `TAG_ALIASES` pattern in `diaryStorage.ts`).
-- The diary renders the chip as "sick" wherever it rendered the confounder.
+- Fixture: rating 3 at `{pollen_oak: 4, viral: 1}`, then rating 1 at **`{pollen_oak: 5}`** → oak tolerated at 5 and `viral` suspected-strong at levels 2 and 3 with context `{pollen_oak: 4}`. Then rating 3 at `{pollen_oak: 4, viral: 1}` again → `viral` confirmed and the day floors at 3.
+
+  The exonerating day is oak **5**, not 4, and the spec as drafted was wrong about it. The 15 % noise margin means a tolerance recorded at *x* only exonerates up to 0.85*x*, and the candidate guard is that × 1.075: a fine day at oak 4 exonerates to 3.4 and guards at 3.66, which the bad day's 4 still clears, so the set never collapses. Oak 5 exonerates to 4.25 and guards at 4.57, which it does not. Same reasoning as fixture 4's 155 → 180 revision.
+- Old entries with `sick` in `confounders` migrate on load: `viral: 1` added to `exposure`, `sick` removed from `confounders` — and the array dropped when it held nothing else, since an empty `confounders` still excludes the entry from inference and admitting those days is the point.
+- The diary renders the chip as "sick" wherever it rendered the confounder, read off `exposure.viral`. The exposure line does not print it as a number.
+- `resolvePending` merges rather than replaces: a `viral: 1` tapped on an entry still waiting on its air survives the backfill (`ENTRY_OWN_VARIABLES` in `src/ui/viralTag.ts`).
+- The conflict card's `sick` tag patches the entry instead of filing a confounder (`viralPatch`), the same move `calendarPollenPatch` makes. `indoors all day` stays a confounder.
 
 ## Non-goals
 

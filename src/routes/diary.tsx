@@ -14,6 +14,7 @@ import { isPending, settled } from '../ui/pendingExposure'
 import { calendarPollenPatch } from '../ui/pollenTag'
 import { displayTemperature, useTemperatureUnit, type TemperatureUnit } from '../ui/units'
 import { lastKnownCoords } from '../ui/useExposureSeries'
+import { isSick, viralPatch } from '../ui/viralTag'
 
 export const Route = createFileRoute('/diary')({ component: Diary })
 
@@ -102,13 +103,26 @@ function Diary() {
           entry={modelDiary[conflict.entryIndex]}
           onTag={(id, tag) => {
             const entry = diary.find((e) => e.id === id)
-            // "pollen" is the one tag the app can answer instead of filing: it
-            // names a variable, and where a calendar season covers that day the
-            // entry gets it as an estimate and re-enters inference. Everywhere
-            // else — and every other tag — it stays a reason to distrust the day.
-            const patch = entry ? calendarPollenPatch(entry, lastKnownCoords()) : null
-            if (tag === 'pollen' && patch) amend(id, patch)
-            else amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
+            // Two of these tags name a variable, so the app can answer them
+            // instead of filing them. "pollen" attaches the calendar season the
+            // day sat in, where one covers it, as an estimate. "sick" attaches
+            // `viral` outright (specs/26-sick-as-signal.md) — no season to look
+            // up and nothing to estimate — and the day re-enters inference
+            // carrying the candidate it was missing, which is the exact
+            // opposite of what tagging it sick used to do. "indoors all day"
+            // names no variable and stays what it was: a reason to distrust the
+            // day, and the entry leaves inference for it.
+            const patch =
+              entry && tag === 'pollen'
+                ? calendarPollenPatch(entry, lastKnownCoords())
+                : entry && tag === 'sick'
+                  ? viralPatch(entry)
+                  : null
+            if (patch) amend(id, patch)
+            // A "sick" tap the patch declined is a day already marked sick;
+            // there is nothing left to record, and filing a confounder would
+            // undo the very thing the first tap did.
+            else if (tag !== 'sick') amend(id, { confounders: [...(entry?.confounders ?? []), tag] })
             // Which tag they picked is a symptom note; only the card kind ships.
             track('Conflict tagged', { kind: conflict.kind })
           }}
@@ -217,6 +231,14 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   const ofThree = (v: number): string => `${Math.round(v)} ${VARIABLE_LABELS.smoke!.unit}`
   const smoke = summarize('smoke', ofThree)
   if (smoke.cls !== '') rows.push({ name: variableName('smoke'), ...smoke })
+  // Being sick appears on the same rule and for the same reason
+  // (specs/26-sick-as-signal.md): the flag is absent on nearly every entry, so a
+  // standing row would say "no evidence yet either way" for years. It shows up
+  // once some day was logged sick, good or bad. The number is bare — a 0/1 flag
+  // has no unit, and "near 1" is doing no work in the sentence anyway; the
+  // verdict word is the whole content of the row.
+  const viral = summarize('viral', bare)
+  if (viral.cls !== '') rows.push({ name: variableName('viral'), ...viral })
   // Variables that have left the vector: the weather stresses in spec 23, PM10
   // and NO₂ in spec 24. They earn a row only while an old entry still has
   // something to say about one — the same rule pollen follows, and the reason
@@ -421,8 +443,13 @@ function EntryRow({
     hour: 'numeric',
     minute: '2-digit',
   })
+  // `sick` reads off the exposure vector now rather than the confounder list
+  // (specs/26-sick-as-signal.md), and shows in the same place it always did —
+  // the chip moved kinds, not position. It is deliberately absent from the
+  // exposure line below: "sick 1" is not a reading of anything.
   const tags = [
     ...(entry.observations ?? []).map((o) => OBSERVATION_LABELS[o] ?? o),
+    ...(isSick(entry) ? [VARIABLE_LABELS.viral!.short] : []),
     ...(entry.confounders ?? []),
   ]
   return (

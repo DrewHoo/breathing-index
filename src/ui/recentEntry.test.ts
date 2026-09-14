@@ -54,8 +54,8 @@ describe('todaysSimilarEntries', () => {
   })
 
   it('counts confounded entries — the question was still answered', () => {
-    const sick = entry('2026-08-07T09:00:00', 3, AIR, { confounders: ['sick'] })
-    expect(ids(todaysSimilarEntries([sick], AIR, PRIORS, NOW))).toEqual([sick.id])
+    const confounded = entry('2026-08-07T09:00:00', 3, AIR, { confounders: ['allergies'] })
+    expect(ids(todaysSimilarEntries([confounded], AIR, PRIORS, NOW))).toEqual([confounded.id])
   })
 
   it('skips entries with an unparseable timestamp', () => {
