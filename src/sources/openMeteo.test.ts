@@ -4,9 +4,14 @@ import type { AirNowRow } from './airnow'
 import type { PollenDay } from './googlePollen'
 import { recallPollenDays, rememberPollenDays } from './pollenHistory'
 import { recallSmokeHours, rememberSmokeHour } from './hmsSmoke'
+import { recallMoldReadings, rememberMoldReading } from './mold'
 import { POLLEN_PLANTS } from './pollenPlants'
 
 const HAMDEN = { lat: 41.396, lon: -72.897 }
+
+/** `back` days before a "2026-09-13" key. */
+const shiftDay = (day: string, back: number): string =>
+  new Date(Date.parse(`${day}T00:00:00Z`) - back * 86_400_000).toISOString().slice(0, 10)
 
 const hoursOf = (day: string): string[] =>
   Array.from({ length: 24 }, (_, h) => `${day}T${String(h).padStart(2, '0')}:00`)
@@ -41,11 +46,21 @@ interface Stubs {
   airnow?: AirNowRow[]
   /** relay /v1/smoke answer; absent means the relay answers 502 */
   smoke?: { density: 0 | 1 | 2 | 3; start?: string | null; end?: string | null }
+  /** relay /v1/mold answer; absent means the relay answers 404 */
+  mold?: Record<string, unknown>
   utcOffsetSeconds?: number
   /** model columns by Open-Meteo's own key, for the window tests */
   air?: Record<string, (number | null)[]>
-  /** weather columns by Open-Meteo's own key — dew point is the only one read */
+  /** weather columns by Open-Meteo's own key — dew point and the four the
+   * dry-spore proxy counts */
   weather?: Record<string, (number | null)[]>
+  /**
+   * Days of weather *before* `day`, because the weather feed is asked for
+   * seven past days where the air feed is asked for three: the proxy's wet
+   * spell is a 7-day rain sum (specs/28-mold.md §7). Every `weather` column
+   * must then be as long as the whole span.
+   */
+  weatherPastDays?: number
 }
 
 /**
@@ -55,7 +70,14 @@ interface Stubs {
  */
 function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs: Stubs = {}) {
   const time = hoursOf(day)
+  const weatherTime = [
+    ...Array.from({ length: stubs.weatherPastDays ?? 0 }, (_, n) =>
+      hoursOf(shiftDay(day, (stubs.weatherPastDays ?? 0) - n)),
+    ).flat(),
+    ...time,
+  ]
   const column = (v: number) => time.map(() => v)
+  const weatherColumn = (v: number) => weatherTime.map(() => v)
   vi.stubGlobal('fetch', (url: string) => {
     if (url.includes('/v1/pollen')) {
       return pollen
@@ -71,6 +93,11 @@ function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs
               json: () => Promise.resolve({ start: null, end: null, ...stubs.smoke }),
             }
           : { ok: false, status: 502, json: () => Promise.resolve({}) },
+      )
+    }
+    if (url.includes('/v1/mold')) {
+      return Promise.resolve(
+        stubs.mold ? { ok: true, status: 200, json: () => Promise.resolve(stubs.mold) } : { ok: false, status: 404, json: () => Promise.resolve({}) },
       )
     }
     if (url.includes('/v1/airnow')) {
@@ -102,10 +129,10 @@ function stubSources(day: string, pollen: { dailyInfo: unknown[] } | null, stubs
               }
             : {
                 hourly: {
-                  time,
+                  time: weatherTime,
                   // A 14 °C dew point: between the two thresholds, so neither
                   // weather feature fires anywhere the test is not asking.
-                  dew_point_2m: column(14),
+                  dew_point_2m: weatherColumn(14),
                   ...stubs.weather,
                 },
               },
@@ -769,5 +796,244 @@ describe('smoke, gated on the fine fraction', () => {
     const series = await fetchExposureSeries(52.37, 4.9) // Amsterdam
     expect(series.hours[series.currentIndex]!.exposure.smoke).toBeUndefined()
     expect(series.smokeAsOf).toBeUndefined()
+  })
+})
+
+/* --- mold: a station's count, and the weather that stands in for one
+   (specs/28-mold.md) --- */
+
+/** Houston's page, reduced to the relay's answer shape. */
+const moldReading = (over: Record<string, unknown> = {}) => ({
+  stationId: 'houston-hhd',
+  name: 'Houston Health Department',
+  date: '2026-09-13',
+  total: 3000,
+  category: 'LOW',
+  genera: {},
+  precision: 'count',
+  units: 'spores/m3',
+  ...over,
+})
+
+describe('mold from a counting station', () => {
+  const store = new Map<string, string>()
+  afterEach(() => vi.useRealTimers())
+  beforeEach(() => {
+    store.clear()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    })
+  })
+
+  /** 14:30 UTC on the 13th at offset 0, so the local day is the station's. */
+  const stubMoldDay = (stubs: Stubs) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-13T14:30:00Z'))
+    stubSources('2026-09-13', null, { utcOffsetSeconds: 0, ...stubs })
+  }
+
+  /** Days already in the store, as the app would have filed them. */
+  const remember = (days: Record<string, unknown>[]) => {
+    for (const day of days) rememberMoldReading(moldReading(day) as never)
+  }
+
+  it('grades the highest of the trailing three station days', async () => {
+    // Three readings, and the window is the worst of them: Cladosporium's
+    // asthma lag runs 0–3 days, so Thursday is still carrying Tuesday.
+    remember([
+      { date: '2026-09-10', total: 9000 },
+      { date: '2026-09-11', total: 5116 },
+    ])
+    stubMoldDay({ mold: moldReading({ total: 3000 }) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.mold).toBe(9000)
+    // Raw is what was read on the day itself, so the sparkline is a staircase
+    // of daily counts rather than a flat line at the window's max.
+    expect(now.raw.mold).toBe(3000)
+    // Measured, current, counted: an entry logged here may confirm a bound.
+    // (September ragweed is a calendar guess in this stub, which is why the
+    // assertion is about the mold key rather than about the set being empty.)
+    expect(now.estimated ?? []).not.toContain('mold')
+    expect(series.mold).toEqual({
+      stationId: 'houston-hhd',
+      name: 'Houston Health Department',
+      date: '2026-09-13',
+      units: 'spores/m3',
+      category: 'LOW',
+    })
+  })
+
+  it('counts station days, not calendar days, so a weekend does not empty it', async () => {
+    // Friday's count read on a Monday. Three *calendar* days back is Saturday,
+    // Sunday and a holiday Monday — no microscope ran on any of them, which is
+    // a fact about the lab and not about the air.
+    remember([{ date: '2026-09-11', total: 5116 }])
+    stubMoldDay({})
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    expect(series.hours[series.currentIndex]!.exposure.mold).toBe(5116)
+  })
+
+  it('splits the two genera it has evidence about and ignores the combined bucket', async () => {
+    remember([{ date: '2026-09-11', total: 5116, genera: { cladosporium: 591, alternaria: 4 } }])
+    stubMoldDay({
+      mold: moldReading({
+        total: 3000,
+        genera: {
+          cladosporium: 100,
+          // Children's Mercy's shape: three genera in one number, and no way
+          // to know how much of it was Alternaria.
+          alternaria_aspergillus_penicillium: 378,
+          ascospores: 3547,
+        },
+      }),
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    const now = series.hours[series.currentIndex]!
+    // Highest of the window, per genus, from the days that named that genus.
+    expect(now.exposure.mold_cladosporium).toBe(591)
+    expect(now.exposure.mold_alternaria).toBe(4)
+    // Nothing anywhere carries the bucket: not as Alternaria, not as itself.
+    expect(now.exposure.mold_alternaria_aspergillus_penicillium).toBeUndefined()
+    expect(now.exposure.mold_ascospores).toBeUndefined()
+  })
+
+  it('marks every mold variable estimated when the newest count has aged out', async () => {
+    // Five days old: the station has missed a working day and the number is
+    // describing air that has been and gone (spec 18's provenance rule).
+    stubMoldDay({
+      mold: moldReading({ date: '2026-09-08', total: 40000, genera: { alternaria: 250 } }),
+    })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.mold).toBe(40000)
+    expect(now.estimated).toContain('mold')
+    expect(now.estimated).toContain('mold_alternaria')
+  })
+
+  it('lets a null total contribute nothing, and does not call it stale', async () => {
+    // Canton out of season states its date and no number. That is "nothing
+    // counted today" — it neither adds to the window nor ages the reading
+    // behind it.
+    remember([{ date: '2026-09-11', total: 5116 }])
+    stubMoldDay({ mold: moldReading({ total: null }) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.mold).toBe(5116)
+    expect(now.estimated ?? []).not.toContain('mold')
+  })
+
+  it('files the reading so tomorrow’s window has a yesterday', async () => {
+    stubMoldDay({ mold: moldReading({ total: 3000 }) })
+    await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    expect(recallMoldReadings('houston-hhd').get('2026-09-13')?.total).toBe(3000)
+  })
+
+  it('carries today’s value into the forecast hours, because a count is a day', async () => {
+    stubMoldDay({ mold: moldReading({ total: 3000 }) })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    expect(series.hours[20]!.exposure.mold).toBe(3000)
+  })
+
+  it('asks nobody, and carries nothing, when no station is chosen', async () => {
+    stubMoldDay({ mold: moldReading() })
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[series.currentIndex]!.exposure.mold).toBeUndefined()
+    expect(series.mold).toBeUndefined()
+  })
+
+  it('loses the row and keeps the screen when the station’s page will not parse', async () => {
+    stubMoldDay({})
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon, { moldStation: 'houston-hhd' })
+    expect(series.hours[series.currentIndex]!.exposure.mold).toBeUndefined()
+    expect(series.hours[series.currentIndex]!.exposure.pm25).toBeDefined()
+  })
+})
+
+describe('the dry-spore proxy', () => {
+  afterEach(() => vi.useRealTimers())
+
+  /** Seven past days of weather, with rain only where a test puts it. */
+  const weatherOf = (
+    over: { temperature?: number; humidity?: number; wind?: number; rainHours?: number[] } = {},
+  ): Record<string, (number | null)[]> => {
+    const span = 8 * 24
+    const flatSpan = (v: number) => Array.from({ length: span }, () => v)
+    return {
+      dew_point_2m: flatSpan(14),
+      temperature_2m: flatSpan(over.temperature ?? 25),
+      relative_humidity_2m: flatSpan(over.humidity ?? 50),
+      wind_speed_10m: flatSpan(over.wind ?? 4),
+      precipitation: Array.from({ length: span }, (_, i) =>
+        (over.rainHours ?? []).includes(i) ? 1 : 0,
+      ),
+    }
+  }
+
+  /** The wet spell: 10 mm on day −6, inside the 7-day window and well outside
+   * the 48-hour one. */
+  const WET_SPELL = [24, 25, 26, 27, 28, 29, 30, 31, 32, 33]
+
+  const stubProxyDay = (day: string, weather: Record<string, (number | null)[]>) => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(`${day}T14:30:00Z`))
+    stubSources(day, null, { utcOffsetSeconds: 0, weather, weatherPastDays: 7 })
+  }
+
+  it('counts all five on a warm dry windy day after a wet week', async () => {
+    stubProxyDay('2026-09-13', weatherOf({ rainHours: WET_SPELL }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    const now = series.hours[series.currentIndex]!
+    expect(now.exposure.dry_spore_index).toBe(5)
+    expect(now.raw.dry_spore_index).toBe(5)
+    // A weather pattern standing in for a microscope: it can suspect and never
+    // confirm, however many times it repeats.
+    expect(now.estimated).toContain('dry_spore_index')
+  })
+
+  it('drops the conditions that are not met', async () => {
+    // Muggy, and nothing grew this week: humidity and the wet spell both fail,
+    // leaving warmth, wind and the dry 48 hours.
+    stubProxyDay('2026-09-13', weatherOf({ humidity: 70 }))
+    expect(
+      (await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)).hours[14]!.exposure.dry_spore_index,
+    ).toBe(3)
+  })
+
+  it('drops the dry-48-hours condition when it has just rained', async () => {
+    // Rain in the last two days suppresses these spores outright: it washes
+    // the air and raises basidiospores instead.
+    stubProxyDay('2026-09-13', weatherOf({ rainHours: [...WET_SPELL, 180] }))
+    expect(
+      (await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)).hours[14]!.exposure.dry_spore_index,
+    ).toBe(4)
+  })
+
+  it('claims nothing out of season — absent, never zero', async () => {
+    // May in Connecticut. A 0 in the vector would read to every tolerance
+    // bound as a day this person handled fine, and what they handled was
+    // spring.
+    stubProxyDay('2026-05-13', weatherOf({ rainHours: WET_SPELL }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[14]!.exposure.dry_spore_index).toBeUndefined()
+    expect(series.hours[14]!.raw.dry_spore_index).toBeUndefined()
+  })
+
+  it('flips the season south of the equator', async () => {
+    // February is out of season in Hamden and in season in Sydney: the same
+    // day, the same weather, and two different answers.
+    stubProxyDay('2026-02-13', weatherOf({ rainHours: WET_SPELL }))
+    expect(
+      (await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)).hours[14]!.exposure.dry_spore_index,
+    ).toBeUndefined()
+    expect((await fetchExposureSeries(-33.87, 151.21)).hours[14]!.exposure.dry_spore_index).toBe(5)
+  })
+
+  it('claims nothing about the hours after now', async () => {
+    stubProxyDay('2026-09-13', weatherOf({ rainHours: WET_SPELL }))
+    const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
+    expect(series.hours[20]!.exposure.dry_spore_index).toBeUndefined()
   })
 })

@@ -73,6 +73,21 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
   // Medium, Heavy — and nobody publishes a µg/m³ of smoke at a point. The one
   // other row with an index for a unit is pollen, for the same reason.
   smoke: { name: 'Smoke', short: 'smoke', unit: 'of 3' },
+  // Mold (specs/28-mold.md). The unit is the station's, not the table's: most
+  // publish spores/m³ and St. Louis prints a number and never says per what,
+  // so the row reads its unit off the reading and this entry carries the
+  // common case. Named by genus where the station splits it, because that is
+  // what the evidence is about — Alternaria is the one with OR 190 against
+  // near-fatal asthma behind it, and "mold" as a single word is four hundred
+  // taxa in a trench coat.
+  mold: { name: 'Mold', short: 'mold', unit: 'spores/m³' },
+  mold_alternaria: { name: 'Alternaria', short: 'alternaria', unit: 'spores/m³' },
+  mold_cladosporium: { name: 'Cladosporium', short: 'cladosporium', unit: 'spores/m³' },
+  // The proxy, and the only variable in the table that is an estimate by
+  // construction rather than by circumstance: it is five weather conditions
+  // counted, not a spore anybody saw. "of 5" for the same reason smoke says
+  // "of 3" — the scale is the whole content of the number.
+  dry_spore_index: { name: 'Dry-spore conditions', short: 'dry-spore conditions', unit: 'of 5', plural: true },
   // The one variable nobody measures and nothing forecasts: the user taps it
   // (specs/26-sick-as-signal.md). It has no unit because it is not a quantity —
   // the entry either carries the flag or it does not — and no row in the air
@@ -111,6 +126,24 @@ export const VARIABLE_LABELS: Record<string, VariableLabel> = {
 
 /** The words the air table's pollen sub-label is built from. */
 export const CALENDAR_ESTIMATE = 'calendar estimate'
+
+/**
+ * The dry-spore row's note. It says what the number is before it says
+ * anything about spores, because the row is the one place in the table where
+ * no instrument looked at the air at all — the five conditions are read off a
+ * weather forecast and counted. "Calendar-style" is the honest comparison: it
+ * has exactly the standing of the pollen season calendar, which can suspect a
+ * season and never confirm one.
+ */
+export const DRY_SPORE_ESTIMATE = 'calendar-style estimate: warm, dry, windy after a wet spell'
+
+/**
+ * What the mold row's note adds when the count behind it has aged past three
+ * days, or came from a category word instead of a microscope. The station and
+ * the date are already on the note; this is the word that says the app is no
+ * longer claiming they describe today.
+ */
+export const MOLD_ESTIMATE = 'estimate'
 
 /**
  * The dew-point row's verdict on a day between the two thresholds. The

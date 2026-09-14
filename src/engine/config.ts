@@ -33,6 +33,28 @@ const NEGLIGIBLE: Record<string, number> = {
   viral: 0, // 0 or 1, tap-recorded
   dry_air: 1, // °C below an 11 °C dew point: 10 °C is dry-ish, not drying
   humid_heat: 1, // °C above an 18 °C dew point, same reasoning on the other side
+  // Mold, in spores/m³ (specs/28-mold.md). Every number in this block and the
+  // priors below is a *convention*, not a validated threshold, and the app
+  // should say so wherever it says anything: nobody publishes a personal
+  // breakpoint table for spores, and the two genus numbers that get quoted as
+  // if they were one trace to a 1979 committee (below).
+  //
+  // 500 spores/m³ of total mold is an ordinary summer morning nearly
+  // everywhere that counts — Houston's "LOW" day of 2026-09-11 was 5,116 — so
+  // a floor under it is the same kind of statement as o3 at 20: measurably
+  // present, not worth suspecting.
+  mold: 500,
+  // Alternaria is counted in tens where the others are counted in thousands:
+  // 4 spores/m³ on that same Houston day against 591 of Cladosporium. A floor
+  // shared with the total would put every Alternaria reading ever published
+  // below it and quietly retire the variable.
+  mold_alternaria: 10,
+  mold_cladosporium: 100,
+  // The weather proxy, 0–5 (specs/28-mold.md §7). Two of the five conditions
+  // are met on most days of the season — it is warm and it is windy — so a
+  // floor of 2 is what stops "August in the northeast" from being a suspect on
+  // every bad day of the season.
+  dry_spore_index: 2,
   // Retired weather features (pre-spec-23): kept so entries logged against
   // them still clear — or fail to clear — the same bar they were graded on.
   heat_stress: 1, // °C above 25: 26 °C is warm, not stressful
@@ -91,6 +113,19 @@ export function noiseMarginFor(variable: string): number {
  * yes/no rather than putting their values in the vector. A source switch
  * changes what "pm25 was 20" means; it does not change what "Medium plume
  * overhead" means, so a smoke bound learned on CAMS still holds on AirNow.
+ *
+ * The mold variables are absent too, and that one is a compromise rather than
+ * a clean argument (specs/28-mold.md). The source string on an entry names the
+ * *air* feed — `cams-w2` or `airnow` — and a mold count comes from neither, so
+ * scoping mold to it would retire a mold bound every time a monitor came in
+ * range. But the thing a mold bound really depends on is the station, and
+ * changing stations is a scale change the engine cannot see: St. Louis prints
+ * a bare number and never names its unit, Houston publishes spores/m³, and
+ * 15,000 at one is not 15,000 at the other. Nothing here can catch that, so
+ * the Settings copy says it out loud instead — switching stations starts
+ * mold's learned bounds over in practice, if not in the model. The honest fix
+ * is a later spec carrying the station in the source string, which would make
+ * a station switch a source switch and hand the existing machinery the job.
  */
 export const SOURCE_SCOPED_VARIABLES: ReadonlySet<string> = new Set([
   'pm25',
@@ -114,10 +149,12 @@ export const UNSPECIFIED_SOURCE = 'unspecified'
  * variable *and* may carry the tag, and dropping the name would silently
  * change what that entry means — the day was read as "not the mould proxy,
  * then" when it was saved, and a recompute has to keep reading it that way.
- * And the set is the mechanism itself, not a list about humidity: spec 28
- * puts a real indoor-relevant variable back in it. An empty set would be a
- * mechanism with nothing to point at, which is harder to find than a retired
- * name with a comment on it.
+ * And the set is the mechanism itself, not a list about humidity. Spec 28 was
+ * expected to put a real member in it and did not: outdoor mold is measured at
+ * a trap on somebody's roof, so a day that was worse outdoors is exactly the
+ * day it *should* stay a candidate on. An empty set would be a mechanism with
+ * nothing to point at, which is harder to find than a retired name with a
+ * comment on it; an indoor sensor is what would finally fill it.
  */
 export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
 
@@ -215,6 +252,33 @@ export const PRIORS: Priors = {
   // combo-repeat clause flooring on a repeat of sick-plus-pollen without ever
   // attributing the day to either half.
   viral: { 2: 1 }, // 0 or 1
+  // Mold, in spores/m³ (specs/28-mold.md). The total's rows are the AAAAI
+  // National Allergy Bureau's published mold bands — Low below 6,500, Moderate
+  // 6,500–12,999, High 13,000–49,999, Very High 50,000 and up — read the way
+  // every other row here is read: the exposure at which a category *begins*,
+  // as a ceiling for a sensitive person. They are a counting convention rather
+  // than a dose-response finding, which is the same epistemic standing as the
+  // pollen index rows and worth saying twice, because a number with five
+  // digits looks more measured than a number with one.
+  mold: { 2: 6500, 3: 13000, 4: 50000 },
+  // The genus rows are weaker still. Alternaria above 100/m³ and Cladosporium
+  // above 3,000/m³ are the thresholds every allergy site quotes, and they
+  // trace to a 1979 convention rather than to an effect size — no isolated
+  // spores/m³ threshold with an effect attached could be found for either
+  // (research/asthma-triggers-evidence.md). The best modern study, 26 years of
+  // Danish data, deliberately throws the convention out and uses quartiles,
+  // and finds effects well below what the convention calls a high day. So
+  // these rows are a starting ceiling the diary is *expected* to overwrite
+  // downward, and the upper rows are hand-set steps above them rather than
+  // published bands.
+  mold_alternaria: { 2: 100, 3: 500 },
+  mold_cladosporium: { 2: 3000, 3: 10000 },
+  // The weather proxy, 0–5 (specs/28-mold.md §7). Four of five conditions is a
+  // dry warm windy day after a wet week, which is the shape of an Alternaria
+  // peak; five is all of it. It can suspect and never confirm — the variable
+  // is always `estimated`, so the provenance rule caps it at suspected-strong
+  // however many times it repeats.
+  dry_spore_index: { 2: 4, 3: 5 },
   // Dew point, the one weather number both mechanisms are gated on
   // (specs/23-dew-point-air.md). Written as distance from each threshold, so
   // the rows below read: a 6 °C dew point is potentially a 2, freezing is

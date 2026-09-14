@@ -14,6 +14,13 @@ import {
 } from './airnow'
 import { type PollenDay, fetchPollen } from './googlePollen'
 import { fetchSmoke, recallSmokeHours, rememberSmokeHour, type SmokeDensity } from './hmsSmoke'
+import {
+  fetchMold,
+  genusExposure,
+  recallMoldReadings,
+  rememberMoldReading,
+  type MoldReading,
+} from './mold'
 import { calendarPollen, monthOf } from './pollenCalendar'
 import { recallPollenDays, rememberPollenDays } from './pollenHistory'
 import { POLLEN_PLANTS } from './pollenPlants'
@@ -92,6 +99,27 @@ export interface ExposureSeries {
    * a measurement and a model cell.
    */
   siteNames?: Partial<Record<string, string>>
+  /**
+   * Which station the mold numbers came from, and what day it counted them.
+   *
+   * The row needs all four. A count is a 24-hour integration at one building
+   * 50–100 miles away, published once a weekday morning, so "5,116" on its own
+   * is the kind of number this app exists not to print: the station's name and
+   * the date it counted are what turn it into a claim a person can check.
+   * `units` is on here rather than in the labels table because it is the
+   * *station's* — St. Louis prints a number and never says per what
+   * (specs/28-mold.md §2), and its count is comparable only with its own
+   * history. `category` is the publisher's own band, for the one shape of
+   * station that reports a total with no genus split.
+   */
+  mold?: {
+    stationId: string
+    name: string
+    /** the reading's own local day, `YYYY-MM-DD` */
+    date: string
+    units: 'spores/m3' | 'count'
+    category?: string
+  }
 }
 
 /**
@@ -134,12 +162,21 @@ export const AIRNOW_SOURCE = 'airnow'
  */
 const AIR_VARS = 'pm2_5,pm10,ozone,sulphur_dioxide,carbon_monoxide,us_aqi,european_aqi'
 /**
- * Dew point is the whole weather ask (specs/23-dew-point-air.md). Temperature
- * and relative humidity left with the features that were derived from them:
- * both mechanisms this app models are about the water in the air, and a column
- * no row shows and no variable is graded on is one nobody can check.
+ * Dew point is what the two air-drying features are cut from
+ * (specs/23-dew-point-air.md). The other four came back in spec 28, and they
+ * are back for one variable rather than for rows of their own: Alternaria and
+ * Cladosporium are dry-weather spores, and `dry_spore_index` counts how many
+ * of the conditions that release them are met (see `drySporeIndex`). The rule
+ * spec 23 set still holds — a column no row shows and no variable is graded on
+ * is one nobody can check — and each of these four is now inside a graded
+ * number.
+ *
+ * Wind comes back in m/s rather than Open-Meteo's default km/h: the threshold
+ * is stated in m/s in the aerobiology, and converting at the call site is one
+ * more place for a factor of 3.6 to hide.
  */
-const WEATHER_VARS = 'dew_point_2m'
+const WEATHER_VARS =
+  'dew_point_2m,temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation'
 
 interface HourlyBlock {
   time: string[]
@@ -297,6 +334,176 @@ export function grassWindow(
   return value === null ? null : { value, estimated }
 }
 
+/* --- mold: a station's count, and the weather that stands in for one --- */
+
+/**
+ * Station days in the mold window, and why the window counts *station* days
+ * rather than calendar ones.
+ *
+ * Three, because Cladosporium's asthma lag runs 0–3 days and Alternaria's 0–2
+ * (research/asthma-triggers-evidence.md) — the same cumulative shape as grass,
+ * for the same reason: a Thursday after a huge Tuesday is not a quiet day for
+ * the person breathing it.
+ *
+ * Station days, because every one of these stations counts on weekdays only.
+ * A window of the last three *calendar* days would empty itself every Monday
+ * and hand back nothing on the day after a long weekend, which is not what the
+ * air did — it is what the microscope did. So the window is the three most
+ * recent days the station actually reported on or before this one, and the
+ * staleness rule below is what stops that from quietly reaching back a month.
+ */
+const MOLD_WINDOW_DAYS = 3
+
+/**
+ * How far out of date a reading may be before the variables it feeds are
+ * marked as estimates rather than readings (specs/28-mold.md §6, under the
+ * spec-18 provenance rule). Three days: past that, a weekday station has
+ * missed a working day and the number is describing air that has been and
+ * gone. Estimated variables can suspect and never confirm.
+ */
+const MOLD_STALE_DAYS = 3
+
+/** The publishers' band words, on the 0–5 index scale the pollen rows speak.
+ * Only reachable for a `category`-precision station, of which the directory
+ * currently holds none — every station in v1 publishes a number
+ * (specs/28-mold.md §3: never fake a number from a category). */
+const CATEGORY_INDEX: Record<string, number> = {
+  absent: 0,
+  none: 0,
+  'very low': 1,
+  low: 2,
+  moderate: 3,
+  medium: 3,
+  high: 4,
+  'very high': 5,
+}
+
+/** Whole days between two `YYYY-MM-DD` keys, `later − earlier`. */
+const daysBetween = (earlier: string, later: string): number =>
+  Math.round((Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) / 86_400_000)
+
+/** The exposure a `count` station's reading contributes, or the index a
+ * `category` one does — with a flag for whether that was a number or a word. */
+function moldValue(reading: MoldReading): { value: number; estimated: boolean } | null {
+  if (reading.precision === 'category') {
+    const index = CATEGORY_INDEX[(reading.category ?? '').trim().toLowerCase()]
+    // A band with no published mapping is still a band: the index is this
+    // app's reading of a word, so it is an estimate however confident the
+    // publisher sounded.
+    return index === undefined ? null : { value: index, estimated: true }
+  }
+  return reading.total === null ? null : { value: reading.total, estimated: false }
+}
+
+/**
+ * The mold half of one hour: the trailing window's total and genus counts, and
+ * whether the newest reading behind them is old enough to be a guess.
+ *
+ * Highest day wins, as with grass, because these are 24-hour integrations and
+ * averaging them would report a week nobody breathed. A day whose reading has
+ * a null total contributes nothing in either direction and is *not* staleness:
+ * Canton out of season states a date and no number, which means "nothing
+ * counted today", not "nobody has looked since Friday".
+ *
+ * Genus variables are only ever set from a station that published that exact
+ * key on that exact day (`genusExposure` in mold.ts) — never from a combined
+ * bucket, never carried forward from a day the station did not name it.
+ */
+export function moldWindow(
+  byDate: Map<string, MoldReading>,
+  date: string,
+): { exposure: Record<string, number>; estimated: boolean; newest: MoldReading } | null {
+  const dates = [...byDate.keys()].filter((d) => d <= date).sort().reverse()
+  const newestDate = dates[0]
+  if (newestDate === undefined) return null
+  const newest = byDate.get(newestDate)!
+  const exposure: Record<string, number> = {}
+  let estimated = daysBetween(newestDate, date) > MOLD_STALE_DAYS
+  for (const day of dates.slice(0, MOLD_WINDOW_DAYS)) {
+    const reading = byDate.get(day)!
+    const total = moldValue(reading)
+    if (total !== null) {
+      exposure.mold = Math.max(exposure.mold ?? total.value, total.value)
+      if (total.estimated) estimated = true
+    }
+    for (const [variable, count] of Object.entries(genusExposure(reading))) {
+      exposure[variable] = Math.max(exposure[variable] ?? count, count)
+    }
+  }
+  return Object.keys(exposure).length === 0 ? null : { exposure, estimated, newest }
+}
+
+/**
+ * The months the dry-weather spores are actually in the air, by hemisphere.
+ *
+ * Alternaria and Cladosporium peak in late summer and autumn. Outside that the
+ * proxy is absent rather than zero: "the weather today would release spores if
+ * there were any" is a claim about February nobody can check, and a 0 written
+ * into a February vector would be read as a clean day by every tolerance bound
+ * in the engine.
+ */
+const inDrySporeSeason = (lat: number, month: number): boolean =>
+  lat >= 0 ? month >= 7 && month <= 10 : month >= 1 && month <= 4
+
+/** Total over a trailing window, `null` when the window holds no hours at all
+ * — the same discipline as `windowMean`, and the sum is over what the window
+ * holds rather than over what it wanted. */
+function windowSum(values: (number | null)[], i: number, span: number): number | null {
+  let sum = 0
+  let n = 0
+  for (let j = Math.max(0, i - span + 1); j <= i; j++) {
+    const v = values[j]
+    if (v != null) {
+      sum += v
+      n++
+    }
+  }
+  return n === 0 ? null : sum
+}
+
+/**
+ * The five conditions that put dry-weather spores in the air, and the count of
+ * how many are met (specs/28-mold.md §7). Always an estimate: it is a weather
+ * pattern standing in for a microscope, and nothing about it is a measurement
+ * of spores.
+ *
+ * The mechanism is two-stage, which is why one of these looks backwards past
+ * the dry spell. *Production* needs a wet spell — the fungus has to grow on
+ * something first, on leaf litter and crop debris — and *release* needs warm,
+ * dry, moving air, because Alternaria and Cladosporium are dry-discharge
+ * spores flung off a drying surface. Rain suppresses them outright while it
+ * falls, washing the air and raising basidiospores and ascospores instead
+ * (research/asthma-triggers-evidence.md, "rain means high mold" under the
+ * myths). So: a wet week, then a dry warm windy day, is the shape of an
+ * Alternaria peak, and either half alone is not.
+ *
+ * A count rather than a product: five factors multiplied would put a number
+ * with four decimal places on a screen, and the honest resolution here is
+ * "how many of the five conditions are met", 0–5.
+ */
+function drySporeIndex(
+  temperature: number | null,
+  humidity: number | null,
+  wind: number | null,
+  rain48h: number | null,
+  rain7d: number | null,
+): number | null {
+  // A condition nobody can evaluate counts as unmet rather than dropping the
+  // variable: an index of 2-of-5 with one column missing is a weaker claim in
+  // the safe direction, and the only hour ever logged against is the current
+  // one, which has all five. The earliest hours of the series are the ones
+  // that can undercount, because the 7-day rain window reaches back past the
+  // start of the weather feed.
+  if (temperature === null && humidity === null && wind === null) return null
+  let met = 0
+  if (temperature !== null && temperature > 20) met++ // °C
+  if (humidity !== null && humidity < 60) met++ // %RH
+  if (wind !== null && wind > 2) met++ // m/s — enough to lift a dry spore off
+  if (rain48h !== null && rain48h < 0.5) met++ // mm: nothing has washed the air
+  if (rain7d !== null && rain7d >= 5) met++ // mm: something grew this week
+  return met
+}
+
 /**
  * How far back the smoke gate may look for an hour with both PM readings on
  * it. Two hours, and the reason is AirNow's publishing order: the NowCast goes
@@ -343,6 +550,15 @@ export interface ExposureOptions {
    * model; the home screen passes the user's Settings toggle.
    */
   airnow?: boolean
+  /**
+   * The mold counting station to read, by relay station id, or null/absent for
+   * none — the user's Settings choice, passed the same way the AirNow toggle
+   * is. Absent by default so a history backfill and a test both stay on the
+   * feeds that need no choosing. The dry-spore proxy does not depend on it:
+   * it is computed in season either way, and it is the only mold signal a
+   * place with no station within reach ever gets.
+   */
+  moldStation?: string | null
 }
 
 /**
@@ -357,7 +573,11 @@ export interface ExposureOptions {
  * changing one renames the source (EXPOSURE_SOURCE). `smoke` is the one
  * variable with no window at all: HMS is a nowcast, so the hour either has a
  * plume over it or does not, and the forecast hours have none either way
- * (specs/25-smoke-variable.md). Pollen rides a separate
+ * (specs/25-smoke-variable.md). `mold` and its two genus variables are the
+ * highest of the trailing three *station* days, because a counting station
+ * works weekdays and a calendar window would empty itself every Monday; the
+ * `dry_spore_index` proxy is a per-hour count of five weather conditions and
+ * is always estimated (specs/28-mold.md). Pollen rides a separate
  * pipe (googlePollen.ts via the relay, today forward) with what earlier
  * fetches wrote down (pollenHistory.ts) behind it and the season calendar
  * behind that — a fallback day is estimated-tagged, never silently
@@ -378,7 +598,15 @@ export async function fetchExposureSeries(
   lon: number,
   options: ExposureOptions = {},
 ): Promise<ExposureSeries> {
-  const common = `latitude=${lat}&longitude=${lon}&past_days=3&forecast_days=2&timezone=auto`
+  const common = `latitude=${lat}&longitude=${lon}&forecast_days=2&timezone=auto`
+  // The two feeds no longer ask for the same past. Air stays at three days —
+  // that is the series the screen draws and the longest window it grades, the
+  // 24-hour PM mean. Weather goes back seven, for one condition of the
+  // dry-spore proxy: "has there been a wet spell this week", which is the half
+  // of the mechanism that produces the spores the other half releases. Nothing
+  // is drawn from the extra four days; they exist to be summed.
+  const airRange = `${common}&past_days=3`
+  const weatherRange = `${common}&past_days=7&wind_speed_unit=ms`
   const wantsMonitors = options.airnow === true && inAirNowCoverage(lat, lon)
   // HMS's domain is North America, and `inAirNowCoverage` is the only
   // North-America-shaped box this app has — drawn for the monitors, already
@@ -391,9 +619,10 @@ export async function fetchExposureSeries(
   // second coverage box is the honest fix on the day someone north of the
   // border wants one.
   const wantsSmoke = inAirNowCoverage(lat, lon)
-  const [airRes, weatherRes, pollenDays, monitors, smokeNow] = await Promise.all([
-    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${common}&hourly=${AIR_VARS}`),
-    fetch(`https://api.open-meteo.com/v1/forecast?${common}&hourly=${WEATHER_VARS}`),
+  const moldStation = options.moldStation ?? null
+  const [airRes, weatherRes, pollenDays, monitors, smokeNow, moldNow] = await Promise.all([
+    fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${airRange}&hourly=${AIR_VARS}`),
+    fetch(`https://api.open-meteo.com/v1/forecast?${weatherRange}&hourly=${WEATHER_VARS}`),
     fetchPollen(lat, lon),
     // A station outage must not take the whole screen down: without monitors
     // this is the series it has always been.
@@ -402,6 +631,9 @@ export async function fetchExposureSeries(
       : Promise.resolve(null),
     // `fetchSmoke` answers null rather than throwing, for the same reason.
     wantsSmoke ? fetchSmoke(lat, lon) : Promise.resolve(null),
+    // And `fetchMold` for a third time: a health department that redecorated
+    // its page overnight is a missing row, never an error screen.
+    moldStation ? fetchMold(moldStation) : Promise.resolve(null),
   ])
   if (!airRes.ok || !weatherRes.ok) {
     throw new Error(`Open-Meteo fetch failed (${airRes.status}/${weatherRes.status})`)
@@ -423,6 +655,13 @@ export async function fetchExposureSeries(
   const usAqi = series(air.hourly, 'us_aqi')
   const eaqi = series(air.hourly, 'european_aqi')
   const dew = series(weather.hourly, 'dew_point_2m')
+  // The dry-spore proxy's four, on the weather grid rather than the air one:
+  // the weather block reaches four days further back, so every index into
+  // these is a weather index (`wi`), never the series index.
+  const temperature = series(weather.hourly, 'temperature_2m')
+  const humidity = series(weather.hourly, 'relative_humidity_2m')
+  const wind = series(weather.hourly, 'wind_speed_10m')
+  const precipitation = series(weather.hourly, 'precipitation')
 
   // Today's pollen is tomorrow's history: the only way the 3-day grass window
   // ever has a day −2 in it is that some earlier fetch filed one. Only days
@@ -452,6 +691,20 @@ export async function fetchExposureSeries(
   const nowUtcHour = `${new Date().toISOString().slice(0, 13)}:00`
   if (smokeNow) rememberSmokeHour(lat, lon, nowUtcHour, smokeNow.density)
   const smokeHours = recallSmokeHours(lat, lon)
+
+  // And a third store on the same argument (mold.ts). The relay serves one
+  // station's *newest* reading and nothing behind it, because the pages
+  // themselves publish one day and replace it — so the only way Friday's
+  // window holds Wednesday's count is that the app was open on Wednesday. The
+  // reading is filed under the station's own date, which is the day it
+  // counted rather than the day anybody read it.
+  if (moldNow) rememberMoldReading(moldNow)
+  const moldDays = moldStation ? recallMoldReadings(moldStation) : new Map<string, MoldReading>()
+  const moldByDate = new Map<string, ReturnType<typeof moldWindow>>()
+  const moldFor = (date: string): ReturnType<typeof moldWindow> => {
+    if (!moldByDate.has(date)) moldByDate.set(date, moldWindow(moldDays, date))
+    return moldByDate.get(date) ?? null
+  }
 
   const measured = monitors !== null && coversExposureVector(monitors) ? monitors : null
   // Everything the monitors do not measure leaves the series with them: one
@@ -598,7 +851,10 @@ export async function fetchExposureSeries(
     const { day: pollenDay, estimated: pollenEstimated } = pollenDayFor(date)
     const grass = grassWindow(pollenDayFor, date)
     const pollenTypes: PollenDay['types'] = { ...pollenDay.types }
-    const estimatedPollen = new Set(pollenEstimated ? Object.keys(pollenDay.exposure) : [])
+    // One estimated set per hour, shared by every variable that can be a
+    // guess rather than a reading: calendar pollen, a stale or word-shaped mold
+    // reading, and the dry-spore proxy, which is always one.
+    const estimatedKeys = new Set(pollenEstimated ? Object.keys(pollenDay.exposure) : [])
     for (const [variable, value] of Object.entries(pollenDay.exposure)) put(variable, value)
     if (grass) {
       exposure[GRASS.variable] = grass.value
@@ -606,8 +862,63 @@ export async function fetchExposureSeries(
         value: grass.value,
         plants: [{ variable: GRASS.variable, name: GRASS.name, value: grass.value }],
       }
-      if (grass.estimated) estimatedPollen.add(GRASS.variable)
-      else estimatedPollen.delete(GRASS.variable)
+      if (grass.estimated) estimatedKeys.add(GRASS.variable)
+      else estimatedKeys.delete(GRASS.variable)
+    }
+
+    // Mold, from the station the user picked (specs/28-mold.md). A count is a
+    // 24-hour integration over a day the station names, so the day is the
+    // resolution and an hour is not a thing the number has: every hour of a
+    // local date carries that date's window, exactly as pollen does.
+    //
+    // The forecast hours carry *today's* value rather than nothing. That is
+    // not a forecast — nobody forecasts spore counts, and this app would not
+    // print one if they did — it is the plainest available reading of "what is
+    // in the air this afternoon" when the instrument answers once a morning.
+    // They stay subject to the same staleness test, and nothing is ever logged
+    // against them: an entry captures the current hour.
+    const moldDate = i > currentIndex ? localToday : date
+    const mold = moldFor(moldDate)
+    if (mold) {
+      for (const [variable, value] of Object.entries(mold.exposure)) {
+        put(variable, value)
+        // Stale, or read off a category word: either way the hour's mold
+        // numbers are this app's estimate of the air rather than a count of
+        // it, and an estimate may suspect and never confirm (spec 18's
+        // provenance rule). A null total is *not* this case — the station
+        // counted nothing and said so, which contributes nothing to the window
+        // and makes no claim about how old the newest real count is.
+        if (mold.estimated) estimatedKeys.add(variable)
+      }
+    }
+
+    // The proxy, for every place and every hour with no station behind it —
+    // which is nearly all of them (specs/28-mold.md §7). Computed whenever the
+    // season is on, station or no station: it is a different claim from a
+    // count, the engine can hold both, and where there is a station it fills
+    // the days between the weekday readings.
+    //
+    // Past hours only, because the conditions are read off measured weather
+    // and a forecast of them would be a guess about a guess. Out of season it
+    // is absent rather than 0: a February vector carrying `dry_spore_index: 0`
+    // would read to every tolerance bound in the engine as a day this person
+    // handled fine, and the thing they handled fine was winter.
+    const drySpore =
+      i > currentIndex || !inDrySporeSeason(lat, monthOf(time))
+        ? null
+        : drySporeIndex(
+            temperature[wi] ?? null,
+            humidity[wi] ?? null,
+            wind[wi] ?? null,
+            windowSum(precipitation, wi, 48),
+            windowSum(precipitation, wi, 24 * 7),
+          )
+    if (drySpore !== null) {
+      put('dry_spore_index', drySpore)
+      // Always. It is a weather pattern wearing a spore count's clothes, and
+      // the provenance rule is the only thing keeping it from confirming a
+      // bound no microscope ever stood behind.
+      estimatedKeys.add('dry_spore_index')
     }
 
     // The raw row follows the same rule as the vector: a variable this hour
@@ -635,10 +946,17 @@ export async function fetchExposureSeries(
     // are one curve folded at 11 and 18, and a sparkline of a hinge would jump
     // to zero every time the air passed through comfortable.
     putRaw('dewpoint', d)
+    // The newest count on or before this hour's day, not the window's max: the
+    // sparkline is a record of what was read, and what was read is one number
+    // a morning. It draws as a staircase — flat across each day, stepping when
+    // the station posted — which is what a daily instrument honestly looks
+    // like on an hourly axis.
+    putRaw('mold', mold?.newest.total ?? null)
+    putRaw('dry_spore_index', drySpore)
     return {
       time,
       ...(Object.keys(pollenTypes).length > 0 ? { pollenDisplay: pollenTypes } : {}),
-      ...(estimatedPollen.size > 0 ? { estimated: [...estimatedPollen] } : {}),
+      ...(estimatedKeys.size > 0 ? { estimated: [...estimatedKeys] } : {}),
       ...(measured && i > currentIndex ? { forecastSource: 'cams' as const } : {}),
       exposure,
       ...(Object.keys(display).length > 0 ? { display } : {}),
@@ -655,6 +973,28 @@ export async function fetchExposureSeries(
     source: measured ? AIRNOW_SOURCE : EXPOSURE_SOURCE,
     ...(measured ? { siteNames: siteNamesOf(measured) } : {}),
     ...(smokeNow?.end ? { smokeAsOf: smokeNow.end } : {}),
+    // Who counted and when, for the row's note. Taken from the current hour's
+    // own window rather than from the fetch, so a reading read back out of the
+    // store when the relay is down still names itself — and so the date on the
+    // row is the date behind the number beside it.
+    ...(moldMeta(moldFor(localToday)) ?? {}),
+  }
+}
+
+/** The series-level `mold` block, or nothing when no station answered. */
+function moldMeta(
+  window: ReturnType<typeof moldWindow>,
+): Pick<ExposureSeries, 'mold'> | null {
+  if (!window) return null
+  const { stationId, name, date, units, category } = window.newest
+  return {
+    mold: {
+      stationId,
+      name,
+      date,
+      units,
+      ...(category ? { category } : {}),
+    },
   }
 }
 

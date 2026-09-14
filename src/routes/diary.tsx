@@ -239,6 +239,30 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   // verdict word is the whole content of the row.
   const viral = summarize('viral', bare)
   if (viral.cls !== '') rows.push({ name: variableName('viral'), ...viral })
+  // Mold and its two genera, on the same rule and for a third version of the
+  // same reason (specs/28-mold.md). Most people have no counting station
+  // within a hundred miles, and the ones who do have picked one; a standing
+  // row would tell everybody else that the app is collecting evidence about
+  // spores, which for them it is not. The genus rows are conditional twice
+  // over — only four of the five stations split the count at all, and
+  // Children's Mercy publishes a rotating top five, so Alternaria is there
+  // some mornings and not others.
+  //
+  // `dry_spore_index` joins them, and it is the one row here that will never
+  // say "trigger": the variable is always `estimated`, so the provenance rule
+  // caps it at suspect however often a bad day lands on a dry warm week. That
+  // is the honest ceiling for a weather pattern standing in for a microscope,
+  // and the row says as much by never getting past ◐.
+  const conditional: [string, (v: number) => string][] = [
+    ['mold', bare],
+    ['mold_alternaria', bare],
+    ['mold_cladosporium', bare],
+    ['dry_spore_index', (v) => `${Math.round(v)} ${VARIABLE_LABELS.dry_spore_index!.unit}`],
+  ]
+  for (const [variable, fmt] of conditional) {
+    const row = summarize(variable, fmt)
+    if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
+  }
   // Variables that have left the vector: the weather stresses in spec 23, PM10
   // and NO₂ in spec 24. They earn a row only while an old entry still has
   // something to say about one — the same rule pollen follows, and the reason
@@ -383,7 +407,14 @@ function exposureLine(entry: DiaryEntry, tempUnit: TemperatureUnit): string {
   // the live reason rather than the historical one: an entry logged under a
   // plume carries the density, and a line that read back "PM2.5 20" and left
   // the smoke out would be describing the day by its least specific half.
-  for (const key of ['pm25', 'o3', 'smoke', 'pm10', 'no2'] as const) {
+  // `mold` joins on the smoke argument (specs/28-mold.md): an entry logged on
+  // a 50,000-spore day carries the count, and a line reading back "PM2.5 12"
+  // alone would describe that day by the one number that was fine. The genus
+  // variables stay off it — they are inside the total by construction, and
+  // three mold parts would crowd out everything else the line has to say. The
+  // proxy stays off it too: it is an index of weather conditions, and a
+  // read-back line is for the numbers somebody measured.
+  for (const key of ['pm25', 'o3', 'smoke', 'mold', 'pm10', 'no2'] as const) {
     const v = entry.exposure[key] ?? 0
     const prior = PRIORS[key]?.[2] ?? 1
     if (v > 0) {
