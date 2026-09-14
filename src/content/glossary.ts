@@ -43,7 +43,7 @@ export type GlossaryKey =
   | 'pm25'
   | 'o3'
   | 'so2'
-  | 'pm10'
+  | 'pm_coarse'
   | 'smoke'
   | 'mold'
   | 'dry_spore_index'
@@ -126,15 +126,15 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     breathing:
       'Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and in most of the US the rarest. How likely: rarely since the coal plants closed, except downwind of a refinery, a busy port, or a volcano. What helps: the tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.',
     window:
-      'Your Breathing Index takes the hour itself, since the reaction comes within minutes and is over soon after the air clears; there is no cumulative effect to take into account. The row appears only when the gas is present.',
+      'Your Breathing Index takes the hour itself, since the reaction comes within minutes and is over soon after the air clears; there is no cumulative effect to take into account. It appears only when the gas is present.',
     source: `${MONITOR_OR_MODEL} Not every monitor measures SO₂; the line under the table says when none nearby does.`,
   },
-  pm10: {
+  pm_coarse: {
     name: 'Coarse particles',
-    what: 'Particles smaller than 10 µm (micrometers). This includes the fine particles plus dust and road grit.',
-    breathing: `Weak on its own for sudden asthma symptoms; it rises and falls with fine particles. Shown so you can see the coarse dust; the diary does not grade it. How likely: rarely the thing that matters. It is the dust-storm number in the Southwest and the road-grit number beside construction, and the coarse part settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
+    what: 'Particles between 2.5 and 10 µm (micrometers, millionths of a meter): dust, road grit, soil, bits of pollen. Counted by taking everything under 10 µm and subtracting the fine particles, so this number is the coarse part alone.',
+    breathing: `Weak for asthma. Coarse particles land in the nose, throat and the big airways rather than the deep lung, so they irritate more than they trigger, and the EPA rates the evidence for sudden breathing effects as suggestive, not established. The diary does not grade this number. How likely: a read on how gritty the air is to be out in, a cough and a scratchy throat more than tightness. It climbs on dust-storm days, beside construction and on dry windy days, and settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
     window:
-      'Your Breathing Index shows the average of the last 24 hours, the same span as fine particles, since the two rise and fall together; it does not grade this one.',
+      'Your Breathing Index shows the average of the last 24 hours of the coarse part, the same span as fine particles, since the two are measured by the same instruments over the same day; it does not grade this number.',
     source: MONITOR_OR_MODEL,
   },
   smoke: {
@@ -220,7 +220,7 @@ export const GLOSSARY_ORDER: readonly GlossaryKey[] = [
   'pm25',
   'o3',
   'so2',
-  'pm10',
+  'pm_coarse',
   'smoke',
   'mold',
   'dry_spore_index',
@@ -236,7 +236,11 @@ const BY_VARIABLE: Record<string, GlossaryKey> = {
   pm25: 'pm25',
   o3: 'o3',
   so2: 'so2',
-  pm10: 'pm10',
+  // Both the coarse fraction and the total it was cut from: an old diary
+  // entry still carries a `pm10` verdict, and its `?` should explain coarse
+  // particles rather than nothing.
+  pm_coarse: 'pm_coarse',
+  pm10: 'pm_coarse',
   smoke: 'smoke',
   // Three variables, one thing: the genus split is how the stations report,
   // not a second kind of spore, and the entry says so in its own text.

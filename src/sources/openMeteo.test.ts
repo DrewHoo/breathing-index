@@ -326,8 +326,10 @@ describe('AirNow as the exposure source', () => {
     expect(series.source).toBe(AIRNOW_SOURCE)
     expect(now.exposure.pm25).toBe(12)
     expect(now.exposure.o3).toBeCloseTo(58.8, 6)
-    expect(now.display?.pm10).toBe(20)
+    // Coarse is the difference: 20 total − 12 fine.
+    expect(now.display?.pm_coarse).toBe(8)
     expect(now.exposure.pm10).toBeUndefined()
+    expect(now.display?.pm10).toBeUndefined()
   })
 
   it('fills the hours after now from the model, and says so', async () => {
@@ -506,15 +508,17 @@ describe('exposure windows', () => {
     expect(last.raw.pm25).toBe(23)
   })
 
-  it('gives PM10 the same window and keeps it out of the vector', async () => {
+  it('shows the coarse fraction on the same window and keeps PM10 out of the vector', async () => {
     stubSources('2026-09-13', null, { air: { pm2_5: ramp(1), pm10: ramp(2) } })
     const series = await fetchExposureSeries(HAMDEN.lat, HAMDEN.lon)
     const last = series.hours[23]!
     // Display only (specs/24-vector-diet.md), and still a 24-hour mean: the
-    // row shows the same span the graded row beside it does.
+    // row shows the same span the graded row beside it does. The number is
+    // the coarse fraction, PM10 − PM2.5 hour by hour: 2j − j = j, mean 11.5.
     expect(last.exposure.pm10).toBeUndefined()
-    expect(last.display?.pm10).toBeCloseTo(23, 6) // 0…46
-    // The fingerprint and the sparkline read the hour itself, so raw stays.
+    expect(last.display?.pm_coarse).toBeCloseTo(11.5, 6) // 0…23
+    expect(last.raw.pm_coarse).toBe(23)
+    // The fingerprint reads the total for the hour itself, so raw PM10 stays.
     expect(last.raw.pm10).toBe(46)
   })
 
@@ -530,7 +534,7 @@ describe('exposure windows', () => {
     expect(noon.exposure.pm25).toBe(20)
     expect(noon.exposure.o3).toBe(5)
     expect(Object.keys(noon.exposure)).not.toContain('pm10')
-    expect(noon.display?.pm10).toBe(30)
+    expect(noon.display?.pm_coarse).toBe(10)
   })
 
   it('averages a partial window over the hours it holds', async () => {

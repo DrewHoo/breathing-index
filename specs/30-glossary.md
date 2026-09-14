@@ -63,7 +63,7 @@ Third round, same day:
 - Nothing specific to one reader or one town: no "Connecticut", no "here". Regional facts stay ("the eastern US").
 - Numbers in the table's units: ozone's lab threshold is "about 120 µg/m³, below the US standard of about 140", not 0.06 / 0.07 ppm.
 - "this place" → "this location". Smoke says Canadian fire smoke has been reaching farther into the United States than it used to, since 2023.
-- Coarse particles: "the diary does not grade it" is strictly true and stays true under spec 32, which grades dust from CAMS's own dust column rather than from PM10. Whether the row should exist at all is Drew's call, open.
+- Coarse particles: "the diary does not grade it" is strictly true and stays true under spec 32, which grades dust from CAMS's own dust column rather than from PM10. Drew's call: the entry stays, reworded around what coarse particles are (upper-airway irritation, a read on how gritty the air is), and the number becomes the coarse fraction PM10 − PM2.5 so the name is true (spec 24, amended). No user-facing sentence says "the row".
 
 A test bans ppm/ppb and the place words.
 

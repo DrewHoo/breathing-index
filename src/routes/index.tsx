@@ -863,6 +863,7 @@ interface AirRow {
 const WINDOW_LABELS: Record<string, string> = {
   pm25: '24-h',
   pm10: '24-h',
+  pm_coarse: '24-h',
   o3: '8-h',
   // SO₂ has no window — the number is the hour (specs/29-sulfur-dioxide.md) —
   // and it says "1-h" anyway, because that is the span the reading covers and
@@ -1039,29 +1040,32 @@ function buildAirRows(
     })
   }
 
-  // PM10 keeps the row and loses the verdict (specs/24-vector-diet.md). Coarse
-  // particulate is worth seeing — it is what a dust day is made of, and it is
-  // the denominator of the smoke fingerprint on the PM2.5 row above — but it
-  // is PM2.5 plus the coarse fraction, so it walked into every candidate set
-  // alongside PM2.5 and no clean day could ever tell them apart. So: the same
+  // Coarse particles keep a row and carry no verdict (specs/24-vector-diet.md).
+  // The number is the coarse fraction, PM10 − PM2.5, so the row is what its
+  // name says rather than the fine particles above it counted a second time;
+  // raw PM10 still rides along as the denominator of the smoke fingerprint.
+  // Coarse mass is worth seeing — it is what a dust day and a gritty day are
+  // made of — and it is not graded: the acute-asthma evidence for it is thin
+  // and dust gets a variable of its own (specs/32-dust.md). So: the same
   // 24-hour mean, read from `display` instead of `exposure`, no waterline, no
   // tolerance lookup, and a chip that says out loud that nothing here is being
-  // graded. A series cached before the diet has no `display` block and simply
-  // draws no row, the same rule every other row follows about a missing
-  // number.
-  const pm10 = current.display?.pm10
-  if (pm10 !== undefined) {
-    const meta = VARIABLE_LABELS.pm10!
+  // graded. The sub-label is keyed `pm10` because the monitor that measured
+  // the total is the one to name. A series cached before this has no
+  // `pm_coarse` in `display` and simply draws no row, the same rule every
+  // other row follows about a missing number.
+  const pmCoarse = current.display?.pm_coarse
+  if (pmCoarse !== undefined) {
+    const meta = VARIABLE_LABELS.pm_coarse!
     const sub = subLabel('pm10', meta)
     rows.push({
-      key: 'pm10',
+      key: 'pm_coarse',
       name: meta.name,
-      help: 'pm10',
+      help: 'pm_coarse',
       ...(sub ? { sub } : {}),
-      value: Math.round(pm10),
+      value: Math.round(pmCoarse),
       unit: meta.unit,
       status: { chip: NOT_GRADED },
-      series: window.map((h) => h.raw.pm10 ?? null),
+      series: window.map((h) => h.raw.pm_coarse ?? null),
     })
   }
 
