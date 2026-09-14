@@ -29,6 +29,10 @@ describe('the entries', () => {
         if (text.includes(symbol)) expect(text, `${key} uses ${symbol} without ${word}`).toContain(word)
       }
       expect(text, `${key} says "mean" where "average" is the word`).not.toMatch(/\bmean\b/)
+      // The table's units, never a chemist's.
+      expect(text, `${key} uses ppm or ppb`).not.toMatch(/\bpp[mb]\b/)
+      // Nothing specific to one reader or one town.
+      expect(text, `${key} names a place or says "here"`).not.toMatch(/Connecticut|Hamden|\bhere\b/)
     }
   })
 

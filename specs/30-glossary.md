@@ -58,6 +58,15 @@ Second round, same day:
 
 A test guards the "How likely:" / "What helps:" phrases and the "Your Breathing Index ... since" shape.
 
+Third round, same day:
+
+- Nothing specific to one reader or one town: no "Connecticut", no "here". Regional facts stay ("the eastern US").
+- Numbers in the table's units: ozone's lab threshold is "about 120 µg/m³, below the US standard of about 140", not 0.06 / 0.07 ppm.
+- "this place" → "this location". Smoke says Canadian fire smoke has been reaching farther into the United States than it used to, since 2023.
+- Coarse particles: "the diary does not grade it" is strictly true and stays true under spec 32, which grades dust from CAMS's own dust column rather than from PM10. Whether the row should exist at all is Drew's call, open.
+
+A test bans ppm/ppb and the place words.
+
 ## Acceptance
 
 - `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.

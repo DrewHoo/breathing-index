@@ -23,14 +23,16 @@ import { PLANT_BY_VARIABLE } from '../sources/pollenPlants'
  * 2. Nothing here speaks about the reader's own day. The glossary explains a
  *    mechanism at the population level; the home screen's rule against naming
  *    a cause for today stands. `glossary.test.ts` guards this.
- * 3. Plain words. A symbol gets its English name in parentheses the first
+ * 3. Plain words, in the table's units (µg/m³, never ppm or ppb). A symbol gets its English name in parentheses the first
  *    time it appears in an entry ("2.5 µm (micrometers)"); "average", not
  *    "mean"; "monitor" and "model" are named and told apart, never left as
  *    jargon. Plain prose, no markdown.
  * 4. A part that would only state the obvious is left out rather than
  *    filled: Sick has nothing to say about what it is or where it comes
  *    from, so it has one part.
- * 5. The `window` part is titled "How Breathing Index measures it" and every
+ * 5. Nothing is specific to one reader or one town: no "Connecticut", no
+ *    "here". A regional fact ("the eastern US") is fine.
+ * 6. The `window` part is titled "How Breathing Index measures it" and every
  *    one starts "Your Breathing Index ..." and gives the span and the reason
  *    for the span, including "there is no cumulative effect" where the span
  *    is the hour.
@@ -104,7 +106,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm25: {
     name: 'Fine particles',
     what: 'Particles smaller than 2.5 µm (micrometers, millionths of a meter): smoke, exhaust, and particles that form in the air from gases. Small enough to reach the deepest parts of the lung.',
-    breathing: `Seen in emergency-room studies: asthma visits rise about 4 % for every 10 µg/m³ (micrograms per cubic meter of air), and wildfire smoke hits harder per microgram than city particles do. How likely: most days in Connecticut sit under 10 µg/m³, where the effect is small. The days that matter are smoke days and still winter days when the air does not move. ${PARTICLE_HELP}`,
+    breathing: `Seen in emergency-room studies: asthma visits rise about 4 % for every 10 µg/m³ (micrograms per cubic meter of air), and wildfire smoke hits harder per microgram than city particles do. How likely: in most of the US, most days sit under 10 µg/m³, where the effect is small. The days that matter are smoke days and still winter days when the air does not move. ${PARTICLE_HELP}`,
     window:
       'Your Breathing Index uses the average of the last 24 hours of measurements, since the health studies and the official limits are daily, and one bad hour says less than a bad day.',
     source: MONITOR_OR_MODEL,
@@ -113,16 +115,16 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     name: 'Ozone',
     what: 'Ozone at ground level, made from traffic exhaust and heat in sunlight. Peaks mid-afternoon.',
     breathing:
-      'Shown in lab studies: lung function drops and airways inflame after hours at 0.06 ppm (parts per million), below the US standard of 0.07, and exercise multiplies the dose because you breathe more of it. The effect lags by hours. How likely: a summer-afternoon problem, and Connecticut has more days over the standard than almost anywhere else in the eastern US; winter has none. What helps: ozone is a gas, so an ordinary mask does nothing, but it is low indoors and low in the morning, so hard exercise before noon or inside avoids most of the dose. A daily controller inhaler blunts the inflammation; a rescue inhaler treats the tightness after the fact.',
+      'Shown in lab studies: lung function drops and airways inflame after hours at about 120 µg/m³ (micrograms per cubic meter of air), below the US standard of about 140, and exercise multiplies the dose because you breathe more of it. The effect lags by hours. How likely: a summer-afternoon problem, worst downwind of big cities, and winter has none. What helps: ozone is a gas, so an ordinary mask does nothing, but it is low indoors and low in the morning, so hard exercise before noon or inside avoids most of the dose. A daily controller inhaler blunts the inflammation; a rescue inhaler treats the tightness after the fact.',
     window:
       'Your Breathing Index uses the average of the last 8 hours of measurements, since the damage builds over hours of breathing it and shows up hours later; the US standard uses the same 8-hour span.',
     source: `${MONITOR_OR_MODEL} For ozone the model runs high in the eastern US in summer.`,
   },
   so2: {
     name: 'SO₂',
-    what: 'Sulfur dioxide (SO₂), a gas from coal, refineries, ships and volcanoes. Usually near zero in Connecticut.',
+    what: 'Sulfur dioxide (SO₂), a gas from coal, refineries, ships and volcanoes. Usually near zero away from those sources.',
     breathing:
-      'Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and the rarest here. How likely: almost never in Connecticut since the coal plants closed; it matters downwind of a refinery, a busy port, or a volcano. What helps: the tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.',
+      'Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and in most of the US the rarest. How likely: rarely since the coal plants closed, except downwind of a refinery, a busy port, or a volcano. What helps: the tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.',
     window:
       'Your Breathing Index takes the hour itself, since the reaction comes within minutes and is over soon after the air clears; there is no cumulative effect to take into account. The row appears only when the gas is present.',
     source: `${MONITOR_OR_MODEL} Not every monitor measures SO₂; the line under the table says when none nearby does.`,
@@ -130,15 +132,15 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm10: {
     name: 'Coarse particles',
     what: 'Particles smaller than 10 µm (micrometers). This includes the fine particles plus dust and road grit.',
-    breathing: `Weak on its own for sudden asthma symptoms; it rises and falls with fine particles. Shown so you can see the coarse dust; the diary does not grade it. How likely: rarely the thing that matters here. It is the dust-storm number in the Southwest and the road-grit number beside construction, and the coarse part settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
+    breathing: `Weak on its own for sudden asthma symptoms; it rises and falls with fine particles. Shown so you can see the coarse dust; the diary does not grade it. How likely: rarely the thing that matters. It is the dust-storm number in the Southwest and the road-grit number beside construction, and the coarse part settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
     window:
       'Your Breathing Index shows the average of the last 24 hours, the same span as fine particles, since the two rise and fall together; it does not grade this one.',
     source: MONITOR_OR_MODEL,
   },
   smoke: {
     name: 'Smoke',
-    what: 'A smoke plume drawn over this place by an analyst at NOAA (the US weather agency) from satellite pictures, rated light, medium or heavy. Counted only when the particles at ground level are mostly fine ones, which is what smoke is made of.',
-    breathing: `Seen in emergency-room studies: asthma visits rose 82 % in New York in one day of June 2023 smoke, and per microgram, smoke is two to three times as bad as ordinary fine particles. How likely: a few days in a bad year and none in most. Canadian fire smoke reaching Connecticut is new since 2023, and nobody knows how often it will come back. The effect can linger a day or two after the sky clears. ${PARTICLE_HELP} Windows shut is the third thing, since a smoke day is the one day the air inside can be made cleaner than the air outside.`,
+    what: 'A smoke plume drawn over this location by an analyst at NOAA (the US weather agency) from satellite pictures, rated light, medium or heavy. Counted only when the particles at ground level are mostly fine ones, which is what smoke is made of.',
+    breathing: `Seen in emergency-room studies: asthma visits rose 82 % in New York in one day of June 2023 smoke, and per microgram, smoke is two to three times as bad as ordinary fine particles. How likely: a few days in a bad year and none in most. Since 2023, Canadian fire smoke has been reaching farther into the United States than it used to, and nobody knows how often it will come back. The effect can linger a day or two after the sky clears. ${PARTICLE_HELP} Windows shut is the third thing, since a smoke day is the one day the air inside can be made cleaner than the air outside.`,
     window:
       'Your Breathing Index takes the current hour, since a plume is either over a place or it is not; there is nothing to average. Satellites need daylight to see smoke, so at night the plume shown is the afternoon’s.',
     source: 'NOAA’s Hazard Mapping System, plus the fine-particle reading above it.',
@@ -165,7 +167,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pollen_tree: {
     name: 'Tree pollen',
     what: 'Tree pollen on a 0–5 scale, by kind of tree.',
-    breathing: `Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: March through May in Connecticut, oak and birch the big ones. For people sensitized to tree pollen, which most people with allergic asthma are, nose and eye symptoms are near-certain in season; asthma symptoms follow in a smaller share, mostly with a cold on top. ${POLLEN_HELP}`,
+    breathing: `Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: spring, and which trees depends on the region; oak and birch are the big ones in the eastern US. For people sensitized to tree pollen, which most people with allergic asthma are, nose and eye symptoms are near-certain in season; asthma symptoms follow in a smaller share, mostly with a cold on top. ${POLLEN_HELP}`,
     window:
       'Your Breathing Index takes the day’s value, since Google’s model resolves pollen by the day and the tree-pollen evidence does not support a longer window.',
     source: GOOGLE_POLLEN,
@@ -173,7 +175,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pollen_grass: {
     name: 'Grass pollen',
     what: 'Grass pollen on a 0–5 scale.',
-    breathing: `Seen in emergency-room studies: the only pollen with a firm asthma signal, and it builds over three days. How likely: May through July in Connecticut, and only for people sensitized to grass pollen, which most people with allergic asthma are. A thunderstorm in grass season is the rare case where it hits people with no asthma diagnosis at all, because the storm breaks pollen into pieces small enough to reach the lungs. ${POLLEN_HELP} Mowing, and standing near mowing, is the one exposure worth skipping outright.`,
+    breathing: `Seen in emergency-room studies: the only pollen with a firm asthma signal, and it builds over three days. How likely: late spring into summer, and only for people sensitized to grass pollen, which most people with allergic asthma are. A thunderstorm in grass season is the rare case where it hits people with no asthma diagnosis at all, because the storm breaks pollen into pieces small enough to reach the lungs. ${POLLEN_HELP} Mowing, and standing near mowing, is the one exposure worth skipping outright.`,
     window:
       'Your Breathing Index uses the highest of the last three days, since the emergency-room studies find the effect builds over about three days of exposure, and a same-day number under-counts it.',
     source: GOOGLE_POLLEN,
