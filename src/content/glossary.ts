@@ -36,6 +36,16 @@ import { PLANT_BY_VARIABLE } from '../sources/pollenPlants'
  *    one starts "Your Breathing Index ..." and gives the span and the reason
  *    for the span, including "there is no cumulative effect" where the span
  *    is the hour.
+ * 7. Every entry with a number has a photograph (`image`) and a mono `meta`
+ *    line under its name (the symbol, the unit, the span). The photo's
+ *    caption carries its credit and license; every file is public domain or
+ *    CC BY / CC BY-SA from Wikimedia Commons, downsampled into
+ *    public/glossary/img. Sick has neither: it is not a thing in the air.
+ * 8. Both surfaces draw "How it affects breathing" as three bullets —
+ *    Evidence, How likely, What helps — and "Where the number comes from" as
+ *    a Monitor bullet and a Model bullet where both apply. The copy stays one
+ *    string per part (that is what Drew edits); `breathingBullets` and
+ *    `sourceBullets` split it at the markers rule 1 requires.
  */
 
 /** The entries, keyed by the thing itself rather than by any one variable. */
@@ -67,6 +77,18 @@ export interface GlossaryEntry {
   window?: string
   /** where the number comes from, and what "monitor" or "model" means on this row */
   source?: string
+  /** the symbol, the unit and the span, in one mono line under the name */
+  meta?: string
+  /** a photograph of the thing, with its credit in the caption */
+  image?: GlossaryImage
+}
+
+export interface GlossaryImage {
+  /** under public/glossary/img, 720×480 */
+  src: string
+  alt: string
+  /** what the picture shows, then who took it and under what license */
+  caption: string
 }
 
 /**
@@ -76,7 +98,9 @@ export interface GlossaryEntry {
  * word the other lacks. A part an entry leaves out is skipped, not labelled
  * over nothing.
  */
-export const GLOSSARY_PARTS: readonly [keyof Omit<GlossaryEntry, 'name'>, string][] = [
+export type GlossaryPart = 'what' | 'breathing' | 'window' | 'source'
+
+export const GLOSSARY_PARTS: readonly [GlossaryPart, string][] = [
   ['what', 'What it is'],
   ['breathing', 'How it affects breathing'],
   ['window', 'How Breathing Index measures it'],
@@ -105,6 +129,12 @@ const POLLEN_HELP =
 export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm25: {
     name: 'Fine particles',
+    meta: 'PM2.5 · µg/m³ · 24-h average',
+    image: {
+      src: 'pm25.jpg',
+      alt: 'A human hair beside fine and coarse particles, drawn to scale',
+      caption: 'Fine and coarse particles beside a human hair, drawn to scale. EPA, public domain.',
+    },
     what: 'Particles smaller than 2.5 µm (micrometers, millionths of a meter): smoke, exhaust, and particles that form in the air from gases. Small enough to reach the deepest parts of the lung.',
     breathing: `Seen in emergency-room studies: asthma visits rise about 4 % for every 10 µg/m³ (micrograms per cubic meter of air), and wildfire smoke hits harder per microgram than city particles do. How likely: in most of the US, most days sit under 10 µg/m³, where the effect is small. The days that matter are smoke days and still winter days when the air does not move. ${PARTICLE_HELP}`,
     window:
@@ -113,6 +143,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   o3: {
     name: 'Ozone',
+    meta: 'O₃ · µg/m³ · 8-h average',
+    image: {
+      src: 'o3.jpg',
+      alt: 'A city skyline in afternoon haze',
+      caption: 'Afternoon haze over a city skyline. Photo: Ernst Halberstadt, public domain, via the Digital Public Library of America.',
+    },
     what: 'Ozone at ground level, made from traffic exhaust and heat in sunlight. Peaks mid-afternoon.',
     breathing:
       'Shown in lab studies: lung function drops and airways inflame after hours at about 120 µg/m³ (micrograms per cubic meter of air), below the US standard of about 140, and exercise multiplies the dose because you breathe more of it. The effect lags by hours. How likely: a summer-afternoon problem, worst downwind of big cities, and winter has none. What helps: ozone is a gas, so an ordinary mask does nothing, but it is low indoors and low in the morning, so hard exercise before noon or inside avoids most of the dose. A daily controller inhaler blunts the inflammation; a rescue inhaler treats the tightness after the fact.',
@@ -122,6 +158,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   so2: {
     name: 'SO₂',
+    meta: 'SO₂ · µg/m³ · the hour',
+    image: {
+      src: 'so2.jpg',
+      alt: 'A volcanic vent erupting, seen from orbit',
+      caption: 'A Kīlauea vent erupting, seen from orbit; the plume is mostly sulfur dioxide. NASA Earth Observatory, public domain.',
+    },
     what: 'Sulfur dioxide (SO₂), a gas from coal, refineries, ships and volcanoes. Usually near zero away from those sources.',
     breathing:
       'Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and in most of the US the rarest. How likely: rarely since the coal plants closed, except downwind of a refinery, a busy port, or a volcano. What helps: the tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.',
@@ -131,6 +173,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pm_coarse: {
     name: 'Coarse particles',
+    meta: 'PM10 − PM2.5 · µg/m³ · 24-h average',
+    image: {
+      src: 'pm_coarse.jpg',
+      alt: 'A wall of dust rolling over a city',
+      caption: 'A wall of dust rolling over Phoenix. Photo: Junebug172, public domain.',
+    },
     what: 'Particles between 2.5 and 10 µm (micrometers, millionths of a meter): dust, road grit, soil, bits of pollen. Counted by taking everything under 10 µm and subtracting the fine particles, so this number is the coarse part alone.',
     breathing: `Weak for asthma. Coarse particles land in the nose, throat and the big airways rather than the deep lung, so they irritate more than they trigger, and the EPA rates the evidence for sudden breathing effects as suggestive, not established. The diary does not grade this number. How likely: a read on how gritty the air is to be out in, a cough and a scratchy throat more than tightness. It climbs on dust-storm days, beside construction and on dry windy days, and settles out within hours of the wind dropping. ${PARTICLE_HELP}`,
     window:
@@ -139,6 +187,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   smoke: {
     name: 'Smoke',
+    meta: 'NOAA HMS · light, medium, heavy · the hour',
+    image: {
+      src: 'smoke.jpg',
+      alt: 'Wildfire smoke over the East Coast, seen from orbit',
+      caption: 'Canadian wildfire smoke over the East Coast, seen from orbit. NASA MODIS, public domain.',
+    },
     what: 'A smoke plume drawn over this location by an analyst at NOAA (the US weather agency) from satellite pictures, rated light, medium or heavy. Counted only when the particles at ground level are mostly fine ones, which is what smoke is made of.',
     breathing: `Seen in emergency-room studies: asthma visits rose 82 % in New York in one day of June 2023 smoke, and per microgram, smoke is two to three times as bad as ordinary fine particles. How likely: a few days in a bad year and none in most. Since 2023, Canadian fire smoke has been reaching farther into the United States than it used to, and nobody knows how often it will come back. The effect can linger a day or two after the sky clears. ${PARTICLE_HELP} Windows shut is the third thing, since a smoke day is the one day the air inside can be made cleaner than the air outside.`,
     window:
@@ -147,6 +201,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   mold: {
     name: 'Mold',
+    meta: 'spores/m³ · highest of the last 3 counts',
+    image: {
+      src: 'mold.jpg',
+      alt: 'A chain of Alternaria spores under a microscope',
+      caption: 'A chain of Alternaria spores under a microscope. CDC, public domain.',
+    },
     what: 'Outdoor fungal spores in the air, in spores/m³ (spores per cubic meter of air), counted under a microscope by the counting station you chose in Settings. Alternaria and Cladosporium are the two kinds that matter for asthma.',
     breathing:
       'Seen in emergency-room studies: every kind of fungal spore is linked to more asthma visits than any kind of pollen, and Alternaria is linked to near-fatal attacks. Spores are small enough to reach the lower airways. How likely: only for the minority of people with asthma who are sensitized to mold, and an allergist’s skin or blood test settles who is. For them it is a late-summer and fall problem, worst on dry windy days and around leaf piles, compost and mowing. What helps: the same daily controller inhaler and antihistamine that work for pollen, staying away from raking and mowing, and an N95 mask for yard work, since spores are particles a mask catches.',
@@ -157,6 +217,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   dry_spore_index: {
     name: 'Dry-spore conditions',
+    meta: 'weather proxy · 0–5 · each hour, in season',
+    image: {
+      src: 'dry_spore_index.jpg',
+      alt: 'Cladosporium spores under a microscope',
+      caption: 'Cladosporium, the dry-weather spore the forecast stands in for. Photo: Medmyco, CC BY-SA 4.0.',
+    },
     what: 'A guess at dry-air spores from the weather alone: warm, dry, windy, no rain in two days, after a wet spell. Each condition met adds a point, out of five.',
     breathing:
       'The same spores as mold, by a stand-in: a mechanism, thin data. It can raise a suspicion and never confirm one. How likely: the same as Mold, for people sensitized to mold. What helps: the same as Mold.',
@@ -166,6 +232,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_tree: {
     name: 'Tree pollen',
+    meta: 'Google pollen · 0–5 · the day',
+    image: {
+      src: 'pollen_tree.jpg',
+      alt: 'Oak catkins shedding pollen',
+      caption: 'White oak catkins shedding pollen in April. Photo: Famartin, CC BY-SA 4.0.',
+    },
     what: 'Tree pollen on a 0–5 scale, by kind of tree.',
     breathing: `Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: spring, and which trees depends on the region; oak and birch are the big ones in the eastern US. For people sensitized to tree pollen, which most people with allergic asthma are, nose and eye symptoms are near-certain in season; asthma symptoms follow in a smaller share, mostly with a cold on top. ${POLLEN_HELP}`,
     window:
@@ -174,6 +246,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_grass: {
     name: 'Grass pollen',
+    meta: 'Google pollen · 0–5 · highest of 3 days',
+    image: {
+      src: 'pollen_grass.jpg',
+      alt: 'A grass flower head with its anthers out',
+      caption: 'Orchard grass in flower, anthers out. Photo: Harry Rose, CC BY 2.0.',
+    },
     what: 'Grass pollen on a 0–5 scale.',
     breathing: `Seen in emergency-room studies: the only pollen with a firm asthma signal, and it builds over three days. How likely: late spring into summer, and only for people sensitized to grass pollen, which most people with allergic asthma are. A thunderstorm in grass season is the rare case where it hits people with no asthma diagnosis at all, because the storm breaks pollen into pieces small enough to reach the lungs. ${POLLEN_HELP} Mowing, and standing near mowing, is the one exposure worth skipping outright.`,
     window:
@@ -182,6 +260,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_weed: {
     name: 'Weed pollen',
+    meta: 'Google pollen · 0–5 · the day',
+    image: {
+      src: 'pollen_weed.jpg',
+      alt: 'Common ragweed in flower',
+      caption: 'Common ragweed in flower. Photo: Robert Flogaus-Faust, CC BY 4.0.',
+    },
     what: 'Weed pollen on a 0–5 scale, by kind of weed. Ragweed is the big one.',
     breathing: `Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: ragweed runs from mid-August to the first frost and is the most common pollen allergy in the eastern US, so nose and eye symptoms are near-certain for anyone sensitized. Asthma flares are less common and tend to come when a September cold lands on top of it. ${POLLEN_HELP}`,
     window:
@@ -195,6 +279,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   // is the dew point.
   dewpoint: {
     name: 'Dew point',
+    meta: '°F or °C · the hour',
+    image: {
+      src: 'dewpoint.jpg',
+      alt: 'Morning dew on grass',
+      caption: 'Morning dew on grass. Photo: Dietmar Rabich, CC BY-SA 4.0.',
+    },
     what: 'The temperature at which the water vapor in the air would condense into a dew drop. If it’s too high, the hot, wet air can set off a reflex that tightens airways. If it’s too low the dry air causes the lining of the airways to dry out. In between is comfortable.',
     breathing:
       'Two mechanisms, both shown in lab studies. On the dry side, below a dew point of about 11 °C (52 °F), what people call cold-air asthma is drying, not cold, and it needs hard breathing to start: hard exercise in dry air tightens the airways of most people with asthma within minutes. On the humid side, above about 18 °C (64 °F), a separate reflex that a drug in some inhalers blocked in the lab; it also needs hard breathing. How likely: the dry side is a winter problem and the humid side a July-and-August one. Both are among the most common asthma triggers there are, and both are the easiest to get out of. What helps: on the dry side, breathing through the nose nearly cancels it, a scarf or mask over the mouth warms and wets the air, and a rescue inhaler taken 15 minutes before exercise prevents it in most people. On the humid side, air conditioning removes the trigger.',
@@ -208,6 +298,56 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     breathing:
       'A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. Colds are the most common cause of an asthma flare bad enough for the emergency room, and the two weeks after school starts are the peak of the year. What helps: a cold is the one time to be strict about the daily controller inhaler, and to have the rescue inhaler close.',
   },
+}
+
+/** One bullet of "How it affects breathing": the lead the copy marks it with, and the text after it. */
+export interface GlossaryBullet {
+  lead: string
+  text: string
+}
+
+/**
+ * "How it affects breathing" as the three bullets both surfaces draw. The
+ * copy is one string with "How likely:" and "What helps:" in it (rule 1);
+ * this splits at those markers and names the first run "Evidence". An entry
+ * without a marker simply has fewer bullets — Sick has no "How likely".
+ */
+export const breathingBullets = (entry: GlossaryEntry): GlossaryBullet[] => {
+  const MARKERS: [string, string][] = [
+    ['How likely:', 'How likely'],
+    ['What helps:', 'What helps'],
+  ]
+  const bullets: GlossaryBullet[] = []
+  let rest = entry.breathing
+  let lead = 'Evidence'
+  for (const [marker, next] of MARKERS) {
+    const at = rest.indexOf(marker)
+    if (at === -1) continue
+    bullets.push({ lead, text: rest.slice(0, at).trim() })
+    rest = rest.slice(at + marker.length)
+    lead = next
+  }
+  bullets.push({ lead, text: rest.trim() })
+  // The copy after a marker runs on from it in lowercase ("How likely: in
+  // most of the US"); as a bullet the lead is its own sentence, so the text
+  // starts a new one.
+  return bullets
+    .filter((b) => b.text !== '')
+    .map((b) => ({ ...b, text: b.text.charAt(0).toUpperCase() + b.text.slice(1) }))
+}
+
+/**
+ * "Where the number comes from" as bullets: the monitor and the model are two
+ * things a reader should be able to tell apart at a glance, so the shared
+ * sentence splits into one bullet each; any sentence after the model's text
+ * (ozone's summer lean, SO₂'s absent line) stays with the model. A source
+ * that is one thing is one bullet.
+ */
+export const sourceBullets = (entry: GlossaryEntry): string[] => {
+  if (entry.source === undefined) return []
+  const marker = 'Otherwise a model:'
+  const at = entry.source.indexOf(marker)
+  return at === -1 ? [entry.source] : [entry.source.slice(0, at).trim(), entry.source.slice(at).trim()]
 }
 
 /**

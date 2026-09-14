@@ -1410,11 +1410,73 @@ a.air-note {
   background: var(--card);
 }
 
-.help-title {
+.help-heading {
   flex: 1;
-  font: 600 16px/1.3 var(--sans);
-  letter-spacing: -0.01em;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.help-title {
+  font: 600 20px/1.2 var(--sans);
+  letter-spacing: -0.02em;
   margin: 0;
+}
+
+.help-meta {
+  font: 500 11px/1.4 var(--mono);
+  color: var(--secondary);
+  margin: 0;
+}
+
+.help-figure {
+  margin: 0;
+}
+
+.help-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--hairline);
+}
+
+.help-figure figcaption {
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+  margin-top: 6px;
+}
+
+.help-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.help-list li {
+  position: relative;
+  padding-left: 15px;
+}
+
+.help-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+
+.help-list strong {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* The way out, at the 44 px the rest of the app's controls keep. */
@@ -1430,6 +1492,10 @@ a.air-note {
   margin: 0;
   font: 400 13px/1.55 var(--sans);
   color: var(--ink-2);
+}
+
+.help-part p {
+  margin: 3px 0 0;
 }
 
 /* The part labels borrow the section-rule register: they are captions over

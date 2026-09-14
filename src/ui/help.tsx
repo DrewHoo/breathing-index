@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import { GLOSSARY, GLOSSARY_PARTS, type GlossaryKey } from '../content/glossary'
+import {
+  GLOSSARY,
+  GLOSSARY_PARTS,
+  breathingBullets,
+  sourceBullets,
+  type GlossaryEntry,
+  type GlossaryKey,
+  type GlossaryPart,
+} from '../content/glossary'
 import { DISCLAIMER } from './labels'
 
 /**
@@ -122,21 +130,35 @@ function HelpSheet({
     >
       <div className="help-body">
         <div className="help-head">
-          <h2 className="help-title">{entry.name}</h2>
+          <div className="help-heading">
+            <h2 className="help-title">{entry.name}</h2>
+            {entry.meta && <p className="help-meta">{entry.meta}</p>}
+          </div>
           <button type="button" className="help-close" onClick={() => ref.current?.close()}>
             Close
           </button>
         </div>
+        {entry.image && (
+          <figure className="help-figure">
+            <img
+              src={`/glossary/img/${entry.image.src}`}
+              alt={entry.image.alt}
+              width={720}
+              height={480}
+              loading="lazy"
+            />
+            <figcaption>{entry.image.caption}</figcaption>
+          </figure>
+        )}
         {GLOSSARY_PARTS.map(([field, label]) => {
           // A part the entry leaves out is skipped, not labelled over nothing:
           // Sick has one sentence worth reading, so it has one part.
-          const part = entry[field]
-          if (part === undefined) return null
+          if (entry[field] === undefined) return null
           return (
-            <p key={field} className="help-part">
+            <div key={field} className="help-part">
               <span className="help-label">{label}</span>
-              {part}
-            </p>
+              <PartBody entry={entry} field={field} />
+            </div>
           )
         })}
         <p className="help-disclaimer">{DISCLAIMER}</p>
@@ -146,4 +168,37 @@ function HelpSheet({
       </div>
     </dialog>
   )
+}
+
+/**
+ * A part's body, in the same shape the generated page draws it: breathing as
+ * the Evidence / How likely / What helps bullets, the source as a Monitor
+ * bullet and a Model bullet where both apply, everything else a paragraph.
+ */
+function PartBody({ entry, field }: { entry: GlossaryEntry; field: GlossaryPart }) {
+  if (field === 'breathing') {
+    return (
+      <ul className="help-list">
+        {breathingBullets(entry).map(({ lead, text }) => (
+          <li key={lead}>
+            <strong>{lead}.</strong> {text}
+          </li>
+        ))}
+      </ul>
+    )
+  }
+  if (field === 'source') {
+    const bullets = sourceBullets(entry)
+    if (bullets.length > 1) {
+      return (
+        <ul className="help-list">
+          {bullets.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
+      )
+    }
+    return <p>{bullets[0]}</p>
+  }
+  return <p>{entry[field]}</p>
 }

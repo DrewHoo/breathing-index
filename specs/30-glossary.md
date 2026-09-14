@@ -67,6 +67,12 @@ Third round, same day:
 
 A test bans ppm/ppb and the place words.
 
+Fourth round, same day (from the design canvas Drew approved):
+
+- The entry name is a 24 px heading with a mono line under it (symbol · unit · span) and a rule above each entry; it no longer reads as body text.
+- Every thing in the air has a photograph under its name, 720×480 in `public/glossary/img`, from Wikimedia Commons, public domain or CC BY / CC BY-SA, with the credit and license in the caption. Sick has none.
+- "How it affects breathing" is drawn as three bullets, Evidence / How likely / What helps, and "Where the number comes from" as a Monitor bullet and a Model bullet. The copy stays one string per part; `breathingBullets` and `sourceBullets` split it at the markers, so Drew edits prose and both surfaces draw the same list. Tests guard the split and the photos.
+
 ## Acceptance
 
 - `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.
