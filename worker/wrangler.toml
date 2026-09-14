@@ -4,7 +4,6 @@ compatibility_date = "2026-01-01"
 
 # Secrets — never in this file, never in git. Set each with:
 #   npx wrangler secret put AIRNOW_API_KEY
-#   npx wrangler secret put PURPLEAIR_API_KEY
 #   npx wrangler secret put GOOGLE_MAPS_API_KEY
 # For local dev, put the same names in worker/.dev.vars (gitignored).
 

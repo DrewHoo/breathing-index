@@ -10,9 +10,15 @@ The code being public is part of the privacy promise: read `src/index.ts`.
 
 | Route | Upstream | Key |
 | --- | --- | --- |
-| `GET /v1/airnow?lat=&lon=` | AirNow official observations (AQI points; the client bridges to µg/m³) | free |
-| `GET /v1/purpleair?lat=&lon=` | PurpleAir outdoor sensors in the grid cell | free |
+| `GET /v1/airnow?lat=&lon=` | AirNow monitoring-site observations, 48 h of hourly concentrations in a ±0.25° box, plus today's reporting-area forecast for its Action Day flag | free |
 | `GET /v1/pollen?lat=&lon=` | Google Pollen 3-day forecast | metered |
+
+AirNow allows 500 requests an hour per key per service and will not raise it;
+the hour of KV holds a grid cell to one call, well under. The route used to
+call `aq/observation/latLong/current/` and `aq/forecast/latLong/`, both retired
+2026-09-30 — see `specs/21-airnow-migration.md`. `/v1/purpleair` went with
+them: nothing called it, and PurpleAir's licence forbids combining its data
+with open-source code, which this repo is.
 
 `lat`/`lon` must have at most one decimal place or the relay answers 400.
 Upstream errors pass through uncached so the client falls back the way it
@@ -25,7 +31,6 @@ cd worker
 npm install
 npx wrangler login                     # one-time browser auth
 npx wrangler secret put AIRNOW_API_KEY
-npx wrangler secret put PURPLEAIR_API_KEY
 npx wrangler secret put GOOGLE_MAPS_API_KEY
 npx wrangler kv namespace create CACHE # then paste the id into wrangler.toml
 npx wrangler deploy                    # prints the *.workers.dev URL

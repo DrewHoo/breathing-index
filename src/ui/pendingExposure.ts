@@ -9,7 +9,13 @@
  * tolerance for every variable at once.
  */
 import type { DiaryEntry } from '../engine/types'
-import { fetchExposureSeries, hourInstant, type ExposureSeries } from '../sources/openMeteo'
+import {
+  fetchExposureSeries,
+  hourInstant,
+  type ExposureOptions,
+  type ExposureSeries,
+} from '../sources/openMeteo'
+import { loadSettings } from './settings'
 
 const HOUR_MS = 3_600_000
 
@@ -102,13 +108,30 @@ const placeKey = (place: Place): string =>
  * Fill in what can be filled in, using the series already on screen where it
  * covers the entry and a history request per other place where it doesn't.
  * Returns null when nothing changed, so a caller can skip the write.
+ *
+ * The history request asks the same sources the live screen does, AirNow
+ * setting included. It has to: `buildModel` reads the active source off the
+ * newest entry that recorded one, so a backfill that quietly came back `cams`
+ * could be the newest entry in an otherwise `airnow` diary and push every
+ * station bound into `inert` until the next live log.
+ *
+ * Asking the monitors does not guarantee they answer. They cover 48 hours and
+ * this window reaches back three days, so an older hour resolves to a series
+ * labelled `airnow` whose pm2.5 and ozone are simply absent. That is the right
+ * outcome, not a bug to paper over: an absent variable is unknown air, which
+ * proves nothing in either direction, where a model number filled in behind
+ * the station's back would be a bound learned against the wrong instrument.
  */
 export async function backfillPending(
   diary: DiaryEntry[],
   series: ExposureSeries | null,
   at: Place | null,
   now: Date = new Date(),
-  fetchSeries: (lat: number, lon: number) => Promise<ExposureSeries> = fetchExposureSeries,
+  fetchSeries: (
+    lat: number,
+    lon: number,
+    options?: ExposureOptions,
+  ) => Promise<ExposureSeries> = fetchExposureSeries,
 ): Promise<DiaryEntry[] | null> {
   if (backfillable(diary, now).length === 0) return null
 
@@ -119,9 +142,10 @@ export async function backfillPending(
     const place = entry.pendingExposure!
     elsewhere.set(placeKey(place), place)
   }
+  const options: ExposureOptions = { airnow: loadSettings().airnowEnabled }
   for (const place of elsewhere.values()) {
     try {
-      next = resolvePending(next, await fetchSeries(place.lat, place.lon), place)
+      next = resolvePending(next, await fetchSeries(place.lat, place.lon, options), place)
     } catch {
       // Still offline, or the place is gone from the API's window. The entry
       // keeps waiting; it is a real rating either way.

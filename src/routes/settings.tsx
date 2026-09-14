@@ -158,9 +158,9 @@ function SettingsScreen() {
           </div>
           <div className="settings-row tall">
             <div className="settings-row-sub">
-              <span className="settings-row-label">AirNow station comparison</span>
+              <span className="settings-row-label">AirNow stations</span>
               <span className="settings-row-hint">
-                US only · station AQI, converted for comparison
+                US only · drives predictions where a monitor is near
               </span>
             </div>
             <button
@@ -168,7 +168,7 @@ function SettingsScreen() {
               className={`toggle${settings.airnowEnabled ? ' on' : ''}`}
               role="switch"
               aria-checked={settings.airnowEnabled}
-              aria-label="AirNow station comparison"
+              aria-label="AirNow stations"
               onClick={() => update({ ...settings, airnowEnabled: !settings.airnowEnabled })}
             >
               <span className="toggle-knob" />

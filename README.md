@@ -23,7 +23,7 @@ TypeScript, React, Vite, TanStack Router (file-based routes), vite-plugin-pwa. T
 ## Data sources
 
 - **Open-Meteo** air quality + weather APIs — model data, no key required, worldwide.
-- **AirNow** keyless widget endpoint — station measurements for comparison, US only, unofficial.
+- **AirNow** monitoring-site observations through the relay — hourly station concentrations, US only. In the US, with a monitor nearby reporting both PM2.5 and ozone, these *are* the exposure vector and entries log against `source: 'airnow'`; otherwise they stay a comparison strip and the model drives.
 
 All fetching is client-side; there is no backend. Logs live in `localStorage` — export and import are in Settings.
 
