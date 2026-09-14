@@ -1,6 +1,6 @@
 # Mold — take any measurement, run the proxy everywhere else
 
-**Status:** proposed; source directory in [`research/mold-sources.md`](../research/mold-sources.md) · **Effort:** L · **Deps:** [23-dew-point-air.md](23-dew-point-air.md) (humidity retired), relay · **Priority:** high. Mold is the best-evidenced acute trigger after airway drying and the worst-served by data. One decision gates the plan (§1).
+**Status:** relay half built 2026-09-14 (§2, §5); client unbuilt. Source directory in [`research/mold-sources.md`](../research/mold-sources.md) · **Effort:** L · **Deps:** [23-dew-point-air.md](23-dew-point-air.md) (humidity retired), relay · **Priority:** high. Mold is the best-evidenced acute trigger after airway drying and the worst-served by data. One decision gates the plan (§1).
 
 ## Problem
 
@@ -16,13 +16,31 @@ The app's current mold proxy, `humidity mean72h`, has the wrong sign for the spo
 
    The NAB's terms say any use without written consent is prohibited, and the data-release PDF says the AAAAI "chooses not to release data for commercial or for-profit use." The app is free today and has a supporter tier and a Plus tier in the spec queue ([16](16-supporter-tier.md), [13](13-forecast-alerts.md), [15](15-premium-sources.md)). So: write to the NAB Scientific Director before building on it, describing the app as a free personal tool with an optional supporter tier, and ask for a per-app exception. The precedent to cite: The Weather Company sells a licensed relay of this data (`U.S. Pollen Observations 1.0`, measured, "collects data from allergist offices"), so the AAAAI does license it commercially. Build the GraphQL client in parallel; it's small. If the answer is no, the fallback is §2 with about 8 US stations instead of 19, or TWC's relay, which is US-only, weekday-only, a single 0–4 mold index with the raw count dropped.
 
-2. **Ingest anything, by shape rather than by station.** Four scraper shapes cover about 80 % of what exists: (a) the NAB GraphQL client; (b) an OGC WFS/GeoJSON client, which unlocks POLLnet Italy's 58 stations under CC-BY 4.0 and any other GeoServer; (c) a static-HTML extractor with per-site selectors and a date parser, which covers Houston Health Department (20 genera, weekdays, monthly XLSX history), St. Louis County (daily total since 1960, numeric count in an RSS feed), Children's Mercy Kansas City, Canton OH, Oklahoma City, La Crosse, Met Éireann, Kraków; (d) a generic JSON REST client for SAPNET South Africa and keyed vendor APIs. Headless-browser and PDF shapes are phase two. Each shape is one relay module; each station is a config row naming its shape, URL, selectors and units.
+2. **Ingest anything, by shape rather than by station.** Each shape is one relay module; each station is a config row naming its shape, URL and units. Four scraper shapes cover about 80 % of what exists: (a) the NAB GraphQL client; (b) an OGC WFS/GeoJSON client, which unlocks POLLnet Italy's 58 stations under CC-BY 4.0 and any other GeoServer; (c) a static-HTML extractor with a date parser; (d) a generic JSON REST client for SAPNET South Africa and keyed vendor APIs. Headless-browser and PDF shapes are phase two.
+
+   **Built** (`worker/src/mold/`, one module and one test file each). A "static-HTML extractor with per-site selectors" turned out to be the wrong abstraction: the four pages have nothing structurally in common, and the shared part is small enough (tag stripping, entity decoding, thousands commas, `Month D, YYYY`) to live in `reading.ts` while each site gets its own module. So five modules, not a framework:
+
+   | Module | Station id | Source | Reading |
+   |---|---|---|---|
+   | `rss.ts` | `stl-county` | St. Louis County DPH's RSS feed | total only, `units: 'count'` — the page never states a unit |
+   | `houston.ts` | `houston-hhd` | Houston Health Department, two fetches | total + 20 genera, spores/m³ |
+   | `kc.ts` | `kc-childrens-mercy` | Children's Mercy Kansas City | total + a rotating top five |
+   | `canton.ts` | `canton-oh` | Canton City Public Health | Cladosporium / Alternaria / Unidentified; total is their sum |
+   | `nab.ts` | `nab:<guid>` | AAAAI NAB GraphQL, 19 mold-active stations | genus-level, gated |
+
+   No HTML parser dependency: the shapes are small and a regex over tag-stripped text is honest about being a scraper. Three of the four pages have a trap in them, and each is a test: Houston's slugs are hand-typed and inconsistent, so the newest day is found by crawling the index's links rather than constructing a URL; Children's Mercy renders a *later* regional forecast date a few lines below its own reporting date; Canton lays grass, tree, weed and mold out as four identical columns, mold last.
+
+   The NAB rides `MOLD_NAB_ENABLED`, a plain `[vars]` entry in `wrangler.toml` pinned to `"0"`. Exactly `"1"` turns it on; `nab:` ids answer 403 `{"error":"nab disabled"}` and are absent from the directory until it does. §1 is unchanged: nothing is deployed with it on until written consent is on file.
 
 3. **Two precision tiers.** About half of what exists is spores/m³ and half is Low/Moderate/High with no published mapping. `mold` carries a `precision: 'count' | 'category'` field. Category readings map to the 0–5 index scale the pollen rows use and are `estimated`; counts are measured. Never fake a number from a category.
 
 4. **Genus where the source has it.** `mold` is the total. `mold_alternaria` and `mold_cladosporium` appear when the station splits them (Houston, Children's Mercy, Canton, Sciensano, every NAB genus station). Same engine semantics as pollen plants under their type row.
 
-5. **Station by distance, not by cell.** Counting stations are 50–100 miles apart. The user picks a station in Settings from the directory, nearest first, the way they pick a saved location. The relay fetches each subscribed station on a cron trigger (once a day covers weekday counts) and caches the parsed reading in KV under the station id, so N users of one station cost one fetch.
+5. **Station by distance, not by cell.** Counting stations are 50–100 miles apart. The user picks a station in Settings from the directory, nearest first, the way they pick a saved location.
+
+   **Built.** `GET /v1/mold/stations` returns the directory — `worker/src/mold/stations.ts`, one row per station with its name, city, coordinates, cadence, precision, units and genus slugs, and never its URL or parser shape — cached in KV for 24 h, keyed by the NAB flag's state so a flip is not hidden behind a day of stale menu. `GET /v1/mold?station=<id>` returns one normalised reading: `{ stationId, name, date, total, precision, category, units, genera, fetchedAt }`, cached under `mold:v1:{id}` for **6 h**. No cron: a cron would fetch every station in the directory whether anyone had chosen it or not, and pull-with-a-long-TTL gets the same "N users of one station cost one fetch" without scraping a health department's site on behalf of nobody. Six hours is four fetches a day against a page that changes once a weekday morning. An unknown id is 404, never an empty reading.
+
+   Both routes take a station id and no coordinates, so they are routed *before* the relay's coordinate gate and keep only its origin gate — `/v1/mold?station=…` would otherwise 400 for the crime of not sending a location it has no use for.
 
 6. **The observation date is required.** The scraper stores the date the page states. A page with no date is a failed fetch, not a reading. The Asthma Center Philadelphia renders a live-looking mold category with no date on three pages; Waterbury Hospital has rendered a normal-looking count page for four years past its last reading (2022-08-19). A reading older than 3 days is `estimated` under the [18](18-measured-pollen.md) provenance rule, and the row shows the date.
 

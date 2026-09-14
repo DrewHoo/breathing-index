@@ -91,7 +91,12 @@
             the relay described above, so those sources see the relay's request, not your browser —
             and the relay itself never receives your location sharper than about 11 km. Its routes
             are <code>/v1/pollen</code>, <code>/v1/airnow</code> and <code>/v1/smoke</code>, each
-            taking nothing but those rounded coordinates.
+            taking nothing but those rounded coordinates, plus
+            <code>/v1/mold/stations</code> and <code>/v1/mold</code>, which take no coordinates at
+            all. Mold counts come from health departments and hospitals that post a number on a web
+            page once a weekday morning; you choose a counting station by name in Settings, and the
+            relay is told that station's id and nothing else. Every reader of that station gets the
+            same answer, so the request says nothing about which of them you are.
           </td>
         </tr>
         <tr>

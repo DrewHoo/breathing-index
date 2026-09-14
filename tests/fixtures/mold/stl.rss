@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+<title>Saint Louis County Department of Health - Pollen and Mold Center</title>
+<description>Pollen and Mold Center. Saint Louis County, Missouri: Aeroallergen Reports</description>
+<skipDays>
+    <day>Saturday</day>
+    <day>Sunday</day>
+</skipDays>
+<skipHours>
+    <hour>11</hour>
+    <hour>10</hour>
+    <hour>9</hour>
+    <hour>8</hour>
+    <hour>7</hour>
+    <hour>6</hour>
+    <hour>5</hour>
+    <hour>4</hour>
+    <hour>3</hour>
+    <hour>2</hour>
+    <hour>1</hour>
+    <hour>0</hour>
+</skipHours>
+
+<atom:link href="http://pollenandmold.stlouisco.com/Feed/Rss.aspx?Type=Atom" rel="self" type="application/rss+xml" />
+
+<item>
+
+    <title>Mold Count: 54862 (Very High) </title>
+    <pubDate>Fri, 11 Sep 2026 08:38:09</pubDate>
+    <link>http://pollenandmold.stlouisco.com/Default.aspx</link>
+    <guid>http://pollenandmold.stlouisco.com/Default.aspx</guid>
+    <description>Air Quality for 9/11/2026: Green</description>
+
+</item>
+</channel></rss>

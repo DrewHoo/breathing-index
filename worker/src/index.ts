@@ -11,10 +11,29 @@
  * the other. Keys live in Wrangler secrets; nothing here reads them from git.
  */
 import { smokeAt } from './geo'
+import { parseCanton } from './mold/canton'
+import { newestHoustonDay, parseHoustonDay } from './mold/houston'
+import { parseKansasCity } from './mold/kc'
+import { fetchNab, parseNabSets } from './mold/nab'
+import type { MoldObservation, MoldReading } from './mold/reading'
+import { parseStlRss } from './mold/rss'
+import {
+  type Station,
+  availableStations,
+  findStation,
+  nabEnabled,
+  publicStation,
+} from './mold/stations'
 
 export interface Env {
   AIRNOW_API_KEY: string
   GOOGLE_MAPS_API_KEY: string
+  /**
+   * `"1"` switches on the AAAAI National Allergy Bureau stations, and nothing
+   * else does. It is a licence term rather than a preference — see
+   * `mold/nab.ts` — and `wrangler.toml` pins it to `"0"` for production.
+   */
+  MOLD_NAB_ENABLED?: string
   /** Optional KV cache — see wrangler.toml. Absent, every request goes upstream. */
   CACHE?: KVNamespace
 }
@@ -39,6 +58,20 @@ const COARSE = /^-?\d{1,3}(\.\d)?$/
 
 /** Seconds a cached upstream answer is served before refetching. */
 const TTL = 3600
+
+/**
+ * Mold is the slow one. Counting stations post once a weekday morning — a
+ * technician reads a slide and types a number into a web page — so an hourly
+ * refetch would be six pointless scrapes a day of somebody's health department
+ * site. Six hours keeps every user of one station to four fetches a day, and
+ * still picks up the morning's post within half a working morning.
+ */
+const MOLD_TTL = 6 * 3600
+
+/** The station directory is a constant in this worker's source; a day of KV is
+ * about sparing the parse, and about the flag flip below being the only thing
+ * that can change the answer. */
+const STATIONS_TTL = 24 * 3600
 
 const json = (body: unknown, status: number, cors: HeadersInit): Response =>
   new Response(JSON.stringify(body), {
@@ -66,6 +99,7 @@ async function relay(
   cacheKey: string,
   upstream: () => Promise<Response>,
   cors: HeadersInit,
+  ttl = TTL,
 ): Promise<Response> {
   const hit = await env.CACHE?.get(cacheKey)
   if (hit != null) {
@@ -84,7 +118,7 @@ async function relay(
       headers: { 'content-type': 'application/json', ...cors },
     })
   }
-  await env.CACHE?.put(cacheKey, body, { expirationTtl: TTL })
+  await env.CACHE?.put(cacheKey, body, { expirationTtl: ttl })
   return new Response(body, {
     headers: { 'content-type': 'application/json', 'x-relay-cache': 'miss', ...cors },
   })
@@ -182,6 +216,99 @@ async function smokeAnswer(env: Env, lat: string, lon: string): Promise<Response
   )
 }
 
+/**
+ * One station's page (or two, for Houston), fetched and reduced to the
+ * observation its parser found.
+ *
+ * An upstream failure comes back as the upstream response so `relay()` passes
+ * its status through uncached, exactly as a dead AirNow does — a health
+ * department's 503 is their outage, not a reading, and caching it would make
+ * it ours for six hours.
+ */
+async function observe(station: Station): Promise<{ observation: MoldObservation } | Response> {
+  switch (station.shape) {
+    case 'rss': {
+      const feed = await fetch(station.url)
+      if (!feed.ok) return feed
+      return dated(parseStlRss(await feed.text()))
+    }
+
+    // Two fetches, because Houston publishes one page per day under a
+    // hand-typed slug and has no "today" URL. The index names the newest page;
+    // the URL is resolved from the href the index gave, never constructed.
+    case 'houston': {
+      const index = await fetch(station.url)
+      if (!index.ok) return index
+      const newest = newestHoustonDay(await index.text())
+      if (newest === null) return dated(null)
+      // Resolved against the index, and pinned to its origin. The href comes
+      // out of a document this worker does not control, and "follow whatever
+      // link the page gave us" is how a relay becomes somebody's proxy.
+      const day = new URL(newest.href, station.url)
+      if (day.origin !== new URL(station.url).origin) return dated(null)
+      const page = await fetch(day.toString())
+      if (!page.ok) return page
+      return dated(parseHoustonDay(await page.text(), day.pathname))
+    }
+
+    case 'kc': {
+      const page = await fetch(station.url)
+      if (!page.ok) return page
+      return dated(parseKansasCity(await page.text()))
+    }
+
+    case 'canton': {
+      const page = await fetch(station.url)
+      if (!page.ok) return page
+      return dated(parseCanton(await page.text()))
+    }
+
+    case 'nab': {
+      const response = await fetchNab(station.id.slice('nab:'.length))
+      if (!response.ok) return response
+      // A 200 carrying an HTML error page, or a GraphQL `errors` document,
+      // both land in `dated(null)` — the endpoint answering oddly is not a
+      // reading either.
+      let payload: unknown = null
+      try {
+        payload = await response.json()
+      } catch {
+        payload = null
+      }
+      return dated(parseNabSets(payload))
+    }
+  }
+}
+
+/** No date, no reading. `reading.ts` says why at length; the short version is
+ * that Waterbury Hospital's count page has looked entirely normal every day
+ * for four years past its last real reading. */
+const dated = (observation: MoldObservation | null): { observation: MoldObservation } | Response =>
+  observation === null
+    ? new Response(JSON.stringify({ error: 'no date' }), {
+        status: 502,
+        headers: { 'content-type': 'application/json' },
+      })
+    : { observation }
+
+/** The station's observation, wearing the station's own metadata: who measured
+ * it, in what units, and how precisely. */
+async function moldAnswer(station: Station): Promise<Response> {
+  const result = await observe(station)
+  if (result instanceof Response) return result
+  const reading: MoldReading = {
+    stationId: station.id,
+    name: station.name,
+    ...result.observation,
+    precision: station.precision,
+    units: station.units,
+    fetchedAt: new Date().toISOString(),
+  }
+  return new Response(JSON.stringify(reading), {
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -199,6 +326,43 @@ export default {
     }
     if (request.method !== 'GET') return json({ error: 'GET only' }, 405, cors)
     if (origin && !ALLOWED_ORIGINS.has(origin)) return json({ error: 'origin not allowed' }, 403, cors)
+
+    // Mold is the one family of routes that is not about where you are
+    // (specs/28-mold.md). Counting stations are 50–100 miles apart, so a user
+    // picks one by name the way they pick a saved location, and the reading is
+    // the same reading for everyone who picked it. These two therefore skip
+    // the coordinate gate — which would otherwise 400 them for the crime of
+    // not sending a location — and keep the origin gate above. Nothing below
+    // this point learns anything about anybody.
+    if (url.pathname === '/v1/mold/stations') {
+      const flag = env.MOLD_NAB_ENABLED
+      return relay(
+        env,
+        // The flag rides the key. Turning the NAB on and then serving a day of
+        // the old menu would be a support ticket nobody could reproduce.
+        `mold:stations:v1:${nabEnabled(flag) ? 'nab' : 'local'}`,
+        async () =>
+          new Response(JSON.stringify(availableStations(flag).map(publicStation)), {
+            headers: { 'content-type': 'application/json' },
+          }),
+        cors,
+        STATIONS_TTL,
+      )
+    }
+
+    if (url.pathname === '/v1/mold') {
+      const station = findStation(url.searchParams.get('station') ?? '')
+      // An id this relay does not have is a 404 and never an empty reading:
+      // the client must be able to tell "your saved station is gone" from
+      // "your station has nothing today".
+      if (station === null) return json({ error: 'unknown station' }, 404, cors)
+      if (station.gated === true && !nabEnabled(env.MOLD_NAB_ENABLED)) {
+        return json({ error: 'nab disabled' }, 403, cors)
+      }
+      // One key per station, six hours: N users of one station cost one fetch,
+      // which is the promise made to a health department whose page this is.
+      return relay(env, `mold:v1:${station.id}`, () => moldAnswer(station), cors, MOLD_TTL)
+    }
 
     const coords = coarseCoords(url)
     if (!coords) {
