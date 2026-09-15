@@ -291,6 +291,21 @@ h1 {
   font-style: italic;
 }
 
+/* A note too long for the space beside the label drops under the rule,
+   right-aligned, instead of squeezing the label; beside it where it fits. */
+.rule-row.wrap {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.rule-row.wrap .rule-line {
+  flex: 1 1 40px;
+}
+
+.rule-row.wrap .rule-note {
+  margin-left: auto;
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -1002,7 +1017,18 @@ a.air-note {
   color: var(--faint);
 }
 
-/* The rule note's key to the dots. */
+/* The rule note's key to the dots, which is also the tally by level. */
+.evidence-key {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 10px;
+}
+
+.evidence-key-item {
+  white-space: nowrap;
+}
+
 .dot-swatch {
   display: inline-block;
   width: 8px;
