@@ -20,7 +20,6 @@ import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismisse
 import { BackupChip } from '../ui/durabilityUi'
 import {
   sourceTag,
-  sourceWord,
   stackDots,
   stripRange,
   type StripPoint,
@@ -500,7 +499,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
     .map((e) => ({
       value: row.axis.to(e.exposure[row.variable]!),
       rating: e.rating,
-      source: e.source,
     }))
   if (points.length === 0) {
     return <div className="evidence-detail evidence-note">No day in your logs carries a reading for this.</div>
@@ -511,17 +509,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
   const X1 = 334
   const x = (v: number): number => X0 + ((v - range.lo) / (range.hi - range.lo)) * (X1 - X0)
   const dots = stackDots(points, x, 7)
-  // A strip that mixes eras says so: the order of days carries across
-  // instruments, the numbers do not (specs/27-one-ozone.md).
-  const eras = SOURCE_SCOPED_VARIABLES.has(row.variable)
-    ? [...new Set(points.map((p) => sourceWord(p.source)))]
-    : []
-  const eraNote =
-    eras.length > 1
-      ? eras
-          .map((era) => `${points.filter((p) => sourceWord(p.source) === era).length} on ${era}`)
-          .join(', ')
-      : null
   const INK: Record<Rating, string> = { 1: 'var(--l1)', 2: 'var(--l2)', 3: 'var(--l3)', 4: 'var(--l4)' }
   return (
     <div className="evidence-detail">
@@ -574,7 +561,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
         <span>{row.axis.short(range.lo)}</span>
         <span>{row.axis.short(range.hi)}</span>
       </div>
-      {eraNote && <span className="evidence-note">{eraNote}.</span>}
     </div>
   )
 }

@@ -10,8 +10,6 @@ export interface StripPoint {
   /** the value on the row's display axis (a dew point in °F, a µg/m³, an index) */
   value: number
   rating: Rating
-  /** the entry's exposure source, so a mixed strip can say so */
-  source?: string
 }
 
 /** The axis a strip spans: the dots, plus any reference marks it must contain. */
@@ -48,15 +46,6 @@ export function stackDots(
     })
 }
 
-/** What to call a source in a sentence: the model, the monitor. */
-export function sourceWord(source: string | undefined): string {
-  if (source === undefined || source === 'unspecified') return 'earlier logs'
-  if (source.startsWith('cams')) return 'the model'
-  if (source === 'airnow') return 'the monitor'
-  return source
-}
-
-/** The same, as a tag on a number: "near 185 (model)". */
 export function sourceTag(source: string): string {
   if (source.startsWith('cams')) return 'model'
   if (source === 'airnow') return 'monitor'

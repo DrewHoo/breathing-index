@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  sourceTag,
-  sourceWord,
-  stackDots,
-  stripRange,
-  type StripPoint,
-} from './evidenceStrip'
+import { sourceTag, stackDots, stripRange, type StripPoint } from './evidenceStrip'
 
 const pt = (value: number, rating: 1 | 2 | 3 | 4 = 1): StripPoint => ({ value, rating })
 
@@ -30,12 +24,8 @@ describe('stackDots', () => {
   })
 })
 
-describe('sourceWord', () => {
+describe('sourceTag', () => {
   it('names sources the way the rows do', () => {
-    expect(sourceWord('cams')).toBe('the model')
-    expect(sourceWord('cams-w2')).toBe('the model')
-    expect(sourceWord('airnow')).toBe('the monitor')
-    expect(sourceWord(undefined)).toBe('earlier logs')
     expect(sourceTag('cams-w2')).toBe('model')
     expect(sourceTag('airnow')).toBe('monitor')
   })

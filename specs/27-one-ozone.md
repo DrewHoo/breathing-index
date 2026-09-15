@@ -42,6 +42,16 @@ Two more things this PR added that the original design did not name:
 - With AirNow off inside the eastern US (east of the 100th meridian), the row runs on CAMS `mean8h`, the sub-label says "model", and the bias note appears under the ozone row.
 - The row's verdict and its number come from the same value. Test: a series where the current hour is low and the 8-h mean is high grades high and displays the mean.
 
+## Amendment 2026-09-15: the era seam comes off the Log strip, unsolved
+
+Design item 4 marked the seam between instruments on the by-hour curve, where a time axis makes it legible. The Log screen's evidence strip borrowed the same idea and could not carry it, because the strip has no time axis: it plots each logged day at its value on the variable's own scale, so days from different instruments interleave along that scale with nothing to separate them.
+
+What shipped there was a sentence under the strip counting the days by instrument — "2 on earlier logs, 17 on the model, 2 on the monitor." It is true, and a reader can do nothing with it. It names a problem, gives no way to see which dots belong to which era, and offers no action: you cannot re-measure a logged day, and the app already scopes learned bounds by source so the inference is not reading across the seam anyway. A caveat the reader cannot act on is noise, and it sat under every source-scoped row on a screen whose job is to show what the logs found.
+
+Removed. `sourceWord` went with it, being its only caller; `sourceTag` stays, since the row verdicts still name a source.
+
+**The underlying problem is real and is deferred, not solved.** A strip that mixes a model era with a monitor era is comparing numbers that were never the same quantity, and at some point the dots should say so. The place to fix it is the view-logs-over-time feature, which has an axis the strip lacks: with days laid along time, the instrument change is a boundary you can draw once and read, rather than a count you have to hold in your head while looking at an unordered scatter. Whoever specs that view should treat the era seam as a requirement of it and not rediscover this.
+
 ## Non-goals
 
 Changing the ozone breakpoints. Using AirNow's daily forecast AQI for the ozone curve.
