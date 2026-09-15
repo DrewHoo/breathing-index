@@ -1029,9 +1029,20 @@ a.air-note {
   background: var(--l4);
 }
 
+/* A fixed-width cell, so the name column lines up whatever the glyph's own
+   advance: the four marks are text, and the dotted ring is a narrow one. */
 .evidence-glyph {
-  font: 500 12px var(--sans);
+  width: 14px;
+  flex: none;
+  text-align: center;
+  font: 500 12px/1 var(--sans);
   color: var(--faint);
+}
+
+/* The dotted ring draws small at 12 px; a step up brings it to the size of
+   the other three without changing what it says. */
+.evidence-glyph.none {
+  font-size: 15px;
 }
 
 .evidence-glyph.trigger {

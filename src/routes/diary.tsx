@@ -238,7 +238,7 @@ function EvidencePanel({
                   aria-label={`${row.name}: ${row.text}. ${isOpen ? 'Hide' : 'Show'} the days.`}
                   onClick={() => toggle(row.variable)}
                 >
-                  <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
+                  <span className={`evidence-glyph ${row.cls || 'none'}`}>{row.glyph}</span>
                   <span className="evidence-name">{row.name}</span>
                 </button>
                 {entry ? help(entry, row.name) : null}
@@ -592,11 +592,7 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
           ))}
         </span>
       )}
-      {eraNote && (
-        <span className="evidence-note">
-          {eraNote}. The order of the days carries across; the numbers don&rsquo;t.
-        </span>
-      )}
+      {eraNote && <span className="evidence-note">{eraNote}.</span>}
     </div>
   )
 }
