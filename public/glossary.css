@@ -338,3 +338,21 @@
     margin: 0;
   }
 }
+
+/*
+  The one line on every glossary page that says a tool exists. A crawler
+  reading about ozone otherwise leaves knowing nothing about the app; this is
+  the sentence that tells it. Set quieter than the entry copy, because for a
+  reader who came for the ozone it is an aside, not the point.
+*/
+.gl-product {
+  font: 400 12.5px/1.6 var(--sans);
+  color: var(--secondary);
+  margin: 26px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--hairline);
+}
+
+.gl-product a {
+  white-space: nowrap;
+}

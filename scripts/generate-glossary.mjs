@@ -68,8 +68,22 @@ const INDEX_DESCRIPTION =
 // own credit is one tap away.
 const INDEX_CREDIT =
   'The photographs come from Wikimedia Commons, public domain or CC BY / CC BY-SA. Each entry carries its own credit.'
+// Every glossary page named the app and never said what it was: a crawler
+// could learn what ozone does to asthma here and leave with no idea a tool
+// existed. One sentence above the footer, on all thirteen.
+const PRODUCT_LINE =
+  'Breathing Index is a free logbook for this. You rate your breathing from 1 to 4, it stores every one of these readings alongside the rating, and over time it marks which of them your own days say affect you.'
+const PRODUCT_SLUG = 'asthma-logbook'
+const PRODUCT_TITLE = 'A free asthma logbook that finds your own triggers'
+const PRODUCT_DESCRIPTION =
+  'Rate your breathing 1 to 4. It stores the ozone, particles, pollen and dew point behind each rating, then marks which ones your own days say affect you.'
+
 const FOOTER = [
+  '      <p class="gl-product">',
+  `        ${esc(PRODUCT_LINE)} <a href="/${PRODUCT_SLUG}/">What this is</a> · <a href="/">Open it</a>`,
+  '      </p>',
   '      <footer>',
+
   '        <a href="/">Breathing Index</a><a href="/pollen/">Pollen</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>',
   '      </footer>',
 ]
@@ -325,8 +339,69 @@ function indexPage() {
   })
 }
 
+function productPage() {
+  const para = (t) => ['      <p>', `        ${esc(t)}`, '      </p>', '']
+  return page({
+    title: PRODUCT_TITLE,
+    description: PRODUCT_DESCRIPTION,
+    canonical: `${SITE}/${PRODUCT_SLUG}/`,
+    trail: [['Breathing Index', `${SITE}/`], [PRODUCT_TITLE]],
+    body: [
+      '  <body class="gl-page">',
+      '    <main>',
+      `      ${WORDMARK}`,
+      '      <nav class="crumbs">What this is</nav>',
+      '',
+      `      <h1>${esc(PRODUCT_TITLE)}</h1>`,
+      '',
+      ...para(
+        'A “moderate” air quality index can floor you one day and be fine the next. That is not the index being wrong. It is one composite number standing in for a dozen different things, and it cannot tell you which of them is high today, so it cannot tell you whether today is one of your bad ones.',
+      ),
+      ...para(
+        'Breathing Index takes it apart. Fine particles, coarse particles, ozone, sulphur dioxide, wildfire smoke, mold, dew point, and pollen split into tree, grass and weed, each on its own row with its own trace across the last two days.',
+      ),
+      '      <h2>How it learns</h2>',
+      '',
+      ...para(
+        'You rate your breathing on four levels: 1 Easy, 2 Noticeable, 3 Limiting, 4 Dangerous. Every rating is stored with the full set of readings for that moment. An easy day is evidence that everything in that air was fine for you. A bad day with several things elevated is ambiguous, and it stays ambiguous until later days settle it.',
+      ),
+      ...para(
+        'After enough entries each row carries a verdict drawn from your own days rather than a population average, and the dashed line on it becomes your level instead of the public guidance. It tells you how today compares to the days you have already logged.',
+      ),
+      '      <h2>What it costs, and what it keeps</h2>',
+      '',
+      ...para(
+        'It is free, there is no account, and there is nothing to install from a store. It is a web app, so it opens in a browser and can be added to a home screen. Your diary is written to that browser and is never uploaded, which also means it is yours to lose: there is an export in Settings. The source is public.',
+      ),
+      '      <h2>Where the numbers come from</h2>',
+      '',
+      ...para(
+        'In the United States, readings come from the EPA AirNow monitoring station nearest you when there is one in reach. Everywhere else, and for anything no station measures, they come from Open-Meteo’s model. Mold comes from the health departments that publish a spore count. Every row says which source produced it, because a measurement and a model are not the same claim.',
+      ),
+      '      <h2>What it is not</h2>',
+      '',
+      ...para(
+        'It is not a diagnosis, not a treatment plan, and not a substitute for a clinician or an asthma action plan. It does not know about your medication. It cannot see indoor air, which is where most people spend most of their day. Coverage is strongest in the United States because the monitoring network is.',
+      ),
+      '      <p class="callout">',
+      `        <strong>${esc(DISCLAIMER)}</strong>`,
+      '      </p>',
+      '',
+      ...para(
+        `Every measurement has its own page explaining what it is, what it does to breathing, and where the number comes from. They start at the glossary.`,
+      ),
+      '      <p><a href="/glossary/">What\u2019s in the air</a> · <a href="/">Open Breathing Index</a></p>',
+      '',
+      ...FOOTER.slice(3),
+      '    </main>',
+      '  </body>',
+    ],
+  })
+}
+
 /** Every page this script owns, whole, by the file it is written to. */
 const PAGES = {
+  [`public/${PRODUCT_SLUG}/index.html`]: productPage(),
   'public/glossary/index.html': indexPage(),
   ...Object.fromEntries(
     GLOSSARY_ORDER.map((key) => [`public/glossary/${GLOSSARY[key].slug}/index.html`, termPage(key)]),
