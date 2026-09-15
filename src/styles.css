@@ -998,20 +998,6 @@ a.air-note {
   color: var(--faint);
 }
 
-.evidence-rates {
-  font: 400 12px/1.5 var(--sans);
-  color: var(--secondary);
-}
-
-.evidence-rates b {
-  font-weight: 500;
-  color: var(--ink-2);
-}
-
-.evidence-sep {
-  color: var(--rule);
-}
-
 .evidence-note {
   font: 400 11.5px/1.5 var(--sans);
   color: var(--faint);
