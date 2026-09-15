@@ -129,7 +129,7 @@ const POLLEN_HELP =
 export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm25: {
     name: 'Fine particles',
-    meta: 'PM2.5 · µg/m³ · 24-h average',
+    meta: 'PM2.5 · µg/m³ · 24h average',
     image: {
       src: 'pm25.jpg',
       alt: 'A human hair beside fine and coarse particles, drawn to scale',
@@ -143,7 +143,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   o3: {
     name: 'Ozone',
-    meta: 'O₃ · µg/m³ · 8-h average',
+    meta: 'O₃ · µg/m³ · 8h average',
     image: {
       src: 'o3.jpg',
       alt: 'A city skyline in afternoon haze',
@@ -173,7 +173,7 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pm_coarse: {
     name: 'Coarse particles',
-    meta: 'PM10 − PM2.5 · µg/m³ · 24-h average',
+    meta: 'PM10 − PM2.5 · µg/m³ · 24h average',
     image: {
       src: 'pm_coarse.jpg',
       alt: 'A tractor working a dry field, dust billowing behind it',

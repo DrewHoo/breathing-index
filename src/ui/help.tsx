@@ -249,7 +249,95 @@ function GoodSheet({
           so a day under it can still be a bad one for you.
         </p>
         <p className="help-part">
-          Once your diary has an easy day on this row, your own level replaces it.
+          Once your diary has an easy day with {reference.name}, your own level replaces it.
+        </p>
+        <p className="help-disclaimer">{DISCLAIMER}</p>
+      </div>
+    </dialog>
+  )
+}
+
+/**
+ * The waterline's own sheet, the same shape as Good's: the word "Easy" is the
+ * diary's, and the `?` beside it says so — what the dashes mark, where the
+ * number comes from, and what span it covers. One sheet per screen.
+ */
+export interface EasyReference {
+  /** the pollutant's name, lowercased into the sentence ("fine particles") */
+  name: string
+  /** the logged easy level in display units */
+  value: number
+  unit: string
+  /** the span the number covers, spelled out ("8 hours"); unset when the
+   * figure is the hour or the day itself rather than a trailing average */
+  span?: string
+}
+
+export function useEasyHelp(): {
+  easyHelp: (reference: EasyReference) => ReactElement
+  easySheet: ReactElement
+} {
+  const [open, setOpen] = useState<EasyReference | null>(null)
+  const easyHelp = useCallback(
+    (reference: EasyReference) => (
+      <button
+        type="button"
+        className="help"
+        aria-label="About your Easy level"
+        onClick={() => setOpen(reference)}
+      >
+        ?
+      </button>
+    ),
+    [],
+  )
+  return {
+    easyHelp,
+    easySheet: <EasySheet reference={open} onClose={() => setOpen(null)} />,
+  }
+}
+
+function EasySheet({
+  reference,
+  onClose,
+}: {
+  reference: EasyReference | null
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (reference && el && !el.open) el.showModal()
+  }, [reference])
+
+  if (!reference) return null
+  return (
+    <dialog
+      className="help-sheet"
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === ref.current) ref.current?.close()
+      }}
+    >
+      <div className="help-body">
+        <div className="help-head">
+          <div className="help-heading">
+            <h2 className="help-title">“Easy” is your diary’s word</h2>
+          </div>
+          <button type="button" className="help-close" onClick={() => ref.current?.close()}>
+            Close
+          </button>
+        </div>
+        <p className="help-part">
+          You’ve logged Easy breathing — a 1 — with {reference.name} at this level:{' '}
+          {reference.value} {reference.unit}
+          {reference.span ? `, as a trailing average over ${reference.span}` : ''}. The dashes
+          mark it on the graph.
+        </p>
+        <p className="help-part">
+          It comes from your diary alone, and it moves as you log.
         </p>
         <p className="help-disclaimer">{DISCLAIMER}</p>
       </div>

@@ -26,7 +26,13 @@ import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
 import { ESTIMATE_ASIDE, evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
-import { useGlossaryHelp, useGoodHelp, type GoodReference } from '../ui/help'
+import {
+  useEasyHelp,
+  useGlossaryHelp,
+  useGoodHelp,
+  type EasyReference,
+  type GoodReference,
+} from '../ui/help'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
@@ -801,6 +807,13 @@ interface AirRow {
    * pulled every other hour's shape flat with it.
    */
   series: (number | null)[]
+  /** the span the number covers ("8h avg", "1h"), shown beside the unit */
+  window?: string
+  /**
+   * The hour-by-hour readings behind a windowed `series`, for the quiet
+   * second line (see AirSpark's `live`). Set only where the two differ.
+   */
+  live?: (number | null)[]
   /**
    * Parallel to `series`: true where the hour's number is the last reading
    * copied forward rather than one taken that day (`Hour.carried`). The
@@ -852,24 +865,25 @@ interface AirRow {
 }
 
 /**
- * The span each pollutant's number covers, for the row's sub-label. Every row
+ * The span each pollutant's number covers, riding beside its unit. Every row
  * shows the feature the engine grades (specs/22-exposure-windows.md), and
- * "PM2.5 · 24-h" is a different claim from the reading at the top of the hour
- * — a screen that shows one and means the other is the gaslighting this app
- * exists to undo. PM10 keeps its entry after leaving the vector
- * (specs/24-vector-diet.md): ungraded is not the same as unaveraged, and the
- * row still owes the reader the span its number covers.
+ * "PM2.5 · 24h avg" is a different claim from the reading at the top of the
+ * hour — a screen that shows one and means the other is the gaslighting this
+ * app exists to undo. "avg" is said out loud on the windowed rows so the
+ * number cannot read as the reading right now. PM10 keeps its entry after
+ * leaving the vector (specs/24-vector-diet.md): ungraded is not the same as
+ * unaveraged, and the row still owes the reader the span its number covers.
  */
 const WINDOW_LABELS: Record<string, string> = {
-  pm25: '24-h',
-  pm10: '24-h',
-  pm_coarse: '24-h',
-  o3: '8-h',
+  pm25: '24h avg',
+  pm10: '24h avg',
+  pm_coarse: '24h avg',
+  o3: '8h avg',
   // SO₂ has no window — the number is the hour (specs/29-sulfur-dioxide.md) —
-  // and it says "1-h" anyway, because that is the span the reading covers and
+  // and it says "1h" anyway, because that is the span the reading covers and
   // a row that named a span for every neighbour and not for itself would read
-  // as an oversight rather than as a claim.
-  so2: '1-h',
+  // as an oversight rather than as a claim. No "avg": the hour is not one.
+  so2: '1h',
 }
 
 /** HMS's three analyst-drawn steps, indexed by the density the relay returns. */
@@ -963,13 +977,15 @@ function buildAirRows(
   // has a monitor behind it, so the two rules never disagree, and if one ever
   // did the row would still be telling the truth about itself.
   const subLabel = (key: string, meta: VariableLabel): string =>
-    [
-      meta.sub,
-      WINDOW_LABELS[key],
-      key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null,
-    ]
+    [meta.sub, key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null]
       .filter((part): part is string => Boolean(part))
       .join(' · ')
+  // The window rides the unit, not the name: "14 µg/m³ · 8h avg" is one
+  // claim about one number, read in one glance, where a window beside the
+  // name left the figure on the right looking like the hour's own reading.
+  // Kept apart from `unit` so the help sheets can say "µg/m³ over 8 hours"
+  // without the label repeating itself.
+  const windowOf = (key: string): string | undefined => WINDOW_LABELS[key]
   // The instrument, on the row rather than in its sub-label: the table names
   // it once for everyone when every row agrees, and per row when they don't.
   const sourceOf = (key: string): string =>
@@ -1018,8 +1034,16 @@ function buildAirRows(
       ...(key === 'o3' && modelOzoneInUs ? { note: { text: MODEL_OZONE_BIAS } } : {}),
       value: Math.round(reading),
       unit: meta.unit ?? '',
+      window: windowOf(key),
       status: { variable: key, value: reading },
-      series: window.map((h) => h.raw[key] ?? null),
+      // The sparkline draws the window feature too. Spec 22 kept raw
+      // hourlies here so a spike stayed visible, but the easy level is a
+      // threshold on the window mean: drawn over raw hourlies it shaded
+      // ink for hours the verdict never called past, and the marker could
+      // sit at the line on a row whose number was a quarter of it. The
+      // hourlies keep their spike as the quiet `live` line underneath.
+      series: window.map((h) => h.exposure[key] ?? null),
+      live: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
       source: sourceOf(key),
       floor: 0,
@@ -1049,6 +1073,7 @@ function buildAirRows(
       ...(sub ? { sub } : {}),
       value: Math.round(so2),
       unit: meta.unit,
+      window: windowOf('so2'),
       status: { variable: 'so2', value: so2 },
       series: window.map((h) => h.raw.so2 ?? null),
       tol: tolerance('so2'),
@@ -1082,8 +1107,13 @@ function buildAirRows(
       ...(sub ? { sub } : {}),
       value: Math.round(pmCoarse),
       unit: meta.unit,
+      window: windowOf('pm10'),
       status: { chip: NOT_GRADED },
-      series: window.map((h) => h.raw.pm_coarse ?? null),
+      // The same average-plus-live pair as the graded pollutants: the number
+      // is the 24-hour figure, so the solid line is too, and the hourlies
+      // ride underneath.
+      series: window.map((h) => h.display?.pm_coarse ?? null),
+      live: window.map((h) => h.raw.pm_coarse ?? null),
       source: sourceOf('pm10'),
       floor: 0,
     })
@@ -1459,6 +1489,7 @@ function AirTable({
   // is the same shape: one per screen, opened from whichever row drew the line.
   const { help, sheet } = useGlossaryHelp()
   const { goodHelp, goodSheet } = useGoodHelp()
+  const { easyHelp, easySheet } = useEasyHelp()
   // Every pollutant row names its instrument (specs/27-one-ozone.md). When
   // every row that has one names the same instrument, the section names it
   // once on the rule and the rows stop repeating it three times; the moment
@@ -1467,6 +1498,7 @@ function AirTable({
   const sources = new Set(rows.map((r) => r.source).filter((x): x is string => x !== undefined))
   const shared = sources.size === 1 ? [...sources][0] : undefined
   // The legend under the table names only the lines that are actually drawn.
+  const showLive = rows.some((r) => r.live !== undefined)
   const showEasy = rows.some((r) => r.tol !== undefined)
   const showGood = rows.some((r) => r.tol === undefined && r.guide !== undefined)
   return (
@@ -1481,19 +1513,29 @@ function AirTable({
           const sub = [row.sub, shared ? undefined : row.source]
             .filter((x): x is string => x !== undefined)
             .join(' · ')
-          // The verdict names the level it was spoken against, so the number
-          // in the gutter and the sentence under the name are one claim.
-          const verdict =
-            'chip' in row.status
-              ? status.text
-              : row.tol !== undefined
-                ? `${status.text} · your easy level is ${Math.round(row.tol)}`
-                : status.text === 'no logs yet'
-                  ? status.text
-                  : `${status.text} · no easy level of yours yet`
+          // The verdict is the verdict alone. The level it was spoken
+          // against is named once, on the line's own label ("Easy: 58",
+          // "Good: 9"); repeating it here said one fact twice per pollutant.
+          const verdict = status.text
           const good: GoodReference | undefined =
             row.tol === undefined && row.guide !== undefined
               ? { name: row.name.toLowerCase(), value: row.guide.value, unit: row.unit, span: row.guide.span }
+              : undefined
+          // The waterline's sheet gets a span only where the figure is a
+          // trailing average — an "avg" window; SO₂'s "1h" is the hour
+          // itself, and the pollens' and mold's figures have no window.
+          const easySpan =
+            row.window?.includes('avg') === true
+              ? `${Number.parseInt(row.window, 10)} hours`
+              : undefined
+          const easy: EasyReference | undefined =
+            row.tol !== undefined
+              ? {
+                  name: row.name.toLowerCase(),
+                  value: Math.round(row.tol),
+                  unit: row.unit,
+                  ...(easySpan ? { span: easySpan } : {}),
+                }
               : undefined
           return (
             <div key={row.key} className="air-row">
@@ -1503,7 +1545,11 @@ function AirTable({
                 {sub && <span className="air-sub">{sub}</span>}
                 <span className="air-spacer" />
                 <span className="air-value">
-                  {row.value} <span className="air-unit">{row.unit}</span>
+                  {row.value}{' '}
+                  <span className="air-unit">
+                    {row.unit}
+                    {row.window ? ` · ${row.window}` : ''}
+                  </span>
                 </span>
               </div>
               <span className={`air-status ${status.cls}`}>{verdict}</span>
@@ -1519,6 +1565,7 @@ function AirTable({
                 ))}
               <AirSpark
                 series={row.series}
+                live={row.live}
                 carried={row.carried}
                 tol={row.tol}
                 guide={good ? row.guide : undefined}
@@ -1527,7 +1574,7 @@ function AirTable({
                 invert={row.invert}
                 name={row.name}
                 goodHelp={good ? goodHelp(good) : undefined}
-                sayNoLevel={'chip' in row.status}
+                easyHelp={easy ? easyHelp(easy) : undefined}
               />
               <div className="air-ticks" aria-hidden="true">
                 <span>−48 h</span>
@@ -1538,24 +1585,34 @@ function AirTable({
           )
         })}
       </div>
-      {(showEasy || showGood) && (
+      {(showLive || showEasy || showGood) && (
         <span className="air-legend">
-          {showEasy && (
-            <>
-              <span className="rule-dash" /> your easy level, from your diary
-            </>
+          {showLive && (
+            <span>
+              <span className="rule-avg" /> trailing avg
+            </span>
           )}
-          {showEasy && showGood && ' · '}
+          {showLive && (
+            <span>
+              <span className="rule-live" /> live measure
+            </span>
+          )}
+          {showEasy && (
+            <span>
+              <span className="rule-dash" /> your easy level, from your diary
+            </span>
+          )}
           {showGood && (
-            <>
+            <span>
               <span className="rule-dot" /> EPA&rsquo;s &ldquo;Good&rdquo; ceiling, until you have one
-            </>
+            </span>
           )}
         </span>
       )}
       <AbsentNames data={data} help={help} />
       {sheet}
       {goodSheet}
+      {easySheet}
     </section>
   )
 }
@@ -1565,8 +1622,8 @@ function AirTable({
  * ink appears only between the line and the dashed easy level, so a calm
  * window is a bare line and the table's total ink literally equals hours
  * past this person. A row with no easy day logged yet draws the EPA's Good
- * ceiling instead, dotted and in the AQI's own green, and a row with neither
- * says so in the gutter.
+ * ceiling instead, dotted and in the AQI's own green; a row with neither
+ * draws no line and labels nothing.
  *
  * The axis starts at the row's floor (zero for anything measured in air) and
  * reaches the reference line or the highest reading, whichever is higher, so
@@ -1576,6 +1633,7 @@ function AirTable({
  */
 function AirSpark({
   series,
+  live,
   carried,
   tol,
   guide,
@@ -1584,9 +1642,16 @@ function AirSpark({
   invert,
   name,
   goodHelp,
-  sayNoLevel,
+  easyHelp,
 }: {
   series: (number | null)[]
+  /**
+   * The hour-by-hour readings behind a windowed `series`, drawn as a quiet
+   * line beneath it: the spike the average damps stays visible without
+   * putting a second scale on the plot. Absent where the feature *is* the
+   * hour (SO₂, dew point) and where nothing is averaged.
+   */
+  live?: (number | null)[]
   /** parallel to `series`: hours whose number is a copy of the last reading */
   carried?: boolean[]
   /** "your easy level" in the row's display units */
@@ -1602,24 +1667,22 @@ function AirSpark({
   name: string
   /** the `?` beside the Good label, from the table's one Good sheet */
   goodHelp?: ReactElement
-  /**
-   * With no line to label, whether the gutter says so. Off where the verdict
-   * line under the name already says "no easy level of yours yet"; on for
-   * the rows that carry a chip instead ("not graded"), which say nothing.
-   */
-  sayNoLevel?: boolean
+  /** the `?` beside the Easy label, from the table's one Easy sheet */
+  easyHelp?: ReactElement
 }) {
   const clip = useId()
   const readings = series.filter((v): v is number => v !== null)
   if (readings.length < 2) return null
-  // Plot in x 2..286; the right gutter holds the reference line's label.
+  // Plot in x 2..246; the right gutter holds the reference line's label,
+  // sized so "your logged easy level: 58" sits on one unwrapped line.
   const X0 = 2
-  const X1 = 286
+  const X1 = 246
   const Y0 = 6
   const Y1 = 42
   const H = 48
   const ref = tol ?? guide?.value
-  const values = ref === undefined ? readings : [...readings, ref]
+  const liveReadings = live?.filter((v): v is number => v !== null) ?? []
+  const values = [...readings, ...liveReadings, ...(ref === undefined ? [] : [ref])]
   let lo = floor ?? Math.min(...values)
   let hi = Math.max(...values, ceiling ?? -Infinity)
   if (hi - lo < 1e-9) {
@@ -1659,6 +1722,23 @@ function AirSpark({
     points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
   const line = runs.filter((r) => !r.carried).map((r) => trace(r.points)).join(' ')
   const copied = runs.filter((r) => r.carried).map((r) => trace(r.points)).join(' ')
+  // The live line under the average: same null discipline (the line stops
+  // where the monitor did), no carried variant — the copies live on the
+  // feature line, whose quantity they were copied into.
+  const liveRuns: { x: number; y: number }[][] = []
+  if (live) {
+    let liveRun: { x: number; y: number }[] = []
+    live.forEach((v, i) => {
+      if (v === null) {
+        if (liveRun.length > 0) liveRuns.push(liveRun)
+        liveRun = []
+      } else {
+        liveRun.push({ x: x(i), y: y(v) })
+      }
+    })
+    if (liveRun.length > 0) liveRuns.push(liveRun)
+  }
+  const liveLine = liveRuns.map(trace).join(' ')
   const endsCarried = carried?.[series.length - 1] ?? false
   // The marker sits on the last hour that has a number, which is not always
   // the last hour: AirNow publishes the NowCast before the raw hourly, so the
@@ -1673,16 +1753,14 @@ function AirSpark({
   const yTol = tol !== undefined ? y(tol) : 0
   const yRef = ref !== undefined ? y(ref) : undefined
   // The gutter label is HTML, not SVG text, so it wears the app's type and
-  // the `?` beside "Good" is a real button with a real target. It is centred
-  // on the line, except near either edge, where it hangs inside the plot.
+  // the `?` beside it is a real button with a real target. Always centred on
+  // the line — one spot, every plot — the edge clamps made the label sit
+  // below one line and on the next. The plot's 6-unit top and bottom margins
+  // absorb the half-label height when the line runs at an extreme.
   const gutterStyle =
     yRef === undefined
-      ? { bottom: 0, display: sayNoLevel ? undefined : 'none' }
-      : yRef < 14
-        ? { top: `${(yRef / H) * 100}%` }
-        : yRef > Y1 - 8
-          ? { top: `${(yRef / H) * 100}%`, transform: 'translateY(-100%)' }
-          : { top: `${(yRef / H) * 100}%`, transform: 'translateY(-50%)' }
+      ? undefined
+      : { top: `${(yRef / H) * 100}%`, transform: 'translateY(-50%)' }
   return (
     <div className="air-spark-wrap">
       <svg
@@ -1697,6 +1775,7 @@ function AirSpark({
             : guide !== undefined
               ? `${name}, past 48 hours; dots mark the EPA's Good ceiling, ${guide.value}.`
               : `${name}, past 48 hours.`) +
+          (liveLine ? ' The solid line is the trailing average; the faint line is the live measure.' : '') +
           (copied ? ' The dotted end is the last count carried forward, not a new one.' : '') +
           (endsBlank ? ' The latest hour has no reading yet; the marker is the last one taken.' : '')
         }
@@ -1727,11 +1806,14 @@ function AirSpark({
             />
           </>
         )}
+        {/* The reference line runs on through the gutter, under its label:
+            the dashes reaching the text are what say the number names the
+            line, not the marker that also ends at the plot's right edge. */}
         {tol !== undefined ? (
           <line
             x1={X0}
             y1={yTol}
-            x2={X1}
+            x2={340}
             y2={yTol}
             stroke="var(--l2)"
             strokeWidth={1}
@@ -1742,7 +1824,7 @@ function AirSpark({
             <line
               x1={X0}
               y1={yRef}
-              x2={X1}
+              x2={340}
               y2={yRef}
               stroke="var(--good)"
               strokeWidth={1}
@@ -1751,6 +1833,16 @@ function AirSpark({
               opacity={0.85}
             />
           )
+        )}
+        {liveLine && (
+          <path
+            d={liveLine}
+            fill="none"
+            stroke="var(--l1-soft)"
+            strokeWidth={1.25}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
         )}
         {line && (
           <path
@@ -1785,27 +1877,28 @@ function AirSpark({
           <circle cx={x(lastIndex)} cy={y(lastValue)} r={4} fill="var(--ink)" />
         )}
       </svg>
-      <div
-        className={`spark-gutter${tol === undefined && guide !== undefined ? ' good' : ''}`}
-        style={gutterStyle}
-        aria-hidden={goodHelp ? undefined : true}
-      >
-        {tol !== undefined ? (
-          <>
-            <span className="spark-gutter-word">your easy</span>
-            <span className="spark-gutter-num">{Math.round(tol)}</span>
-          </>
-        ) : guide !== undefined ? (
-          <>
-            <span className="spark-gutter-word">
-              Good {goodHelp}
+      {/* One sentence in one font: a big numeral under a word read as a data
+          callout on the marker beside it, so the number now lives inside the
+          label's own text and scale, and the label wears the paper so the
+          dashes running beneath stay off the glyphs. A plot with no
+          reference line labels nothing. */}
+      {gutterStyle && (
+        <div
+          className={`spark-gutter${tol === undefined ? ' good' : ''}`}
+          style={gutterStyle}
+          aria-hidden={goodHelp || easyHelp ? undefined : true}
+        >
+          {tol !== undefined ? (
+            <span className="spark-gutter-label easy">
+              Easy: {Math.round(tol)} {easyHelp}
             </span>
-            <span className="spark-gutter-num">{guide.value}</span>
-          </>
-        ) : (
-          <span className="spark-gutter-word">no level yet</span>
-        )}
-      </div>
+          ) : (
+            <span className="spark-gutter-label">
+              Good: {guide!.value} {goodHelp}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -2018,7 +2111,7 @@ function MeasuredStrip({
         // Two honest numbers about different things (specs/27-one-ozone.md).
         <span className="settings-note">
           Chips are AirNow&rsquo;s NowCast AQI for that reporting area, walked back to µg/m³.
-          The rows above are the model&rsquo;s own 8- and 24-hour means for this spot — a
+          The numbers above are the model&rsquo;s own 8- and 24-hour averages for this spot — a
           different quantity from a different place, so a gap is not by itself a contradiction.
         </span>
       )}
