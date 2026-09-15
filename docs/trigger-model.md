@@ -129,6 +129,12 @@ C = { p : x_p > guard_p,L }
 guard_p,L = max(tol_p,L·(1−ε_p), negligible_p) · (1 + ε_p/2)
 ```
 
+A **retired** name (`RETIRED_VARIABLES` in engine config: the pre-spec-23 weather features) is
+never in `C`, whatever its exposure. Old entries keep the value and it still renders, but the
+mechanism it stood for was wrong, and a seat in the set only costs the live variable beside it the
+lone-candidate day that would have confirmed it. The retired grains/m³ pollen names are not
+retired in this sense — that was a change of scale, not of mechanism.
+
 `negligible_p` is a per-variable background floor (engine config): an exposure below it cannot be
 a suspect even with no tolerance evidence — otherwise every bad day would implicate trace levels
 of every pollutant it tracks (o3 at 6 µg/m³ is background, not a candidate). Floors sit well below any
@@ -498,6 +504,13 @@ from, and a source switch starts a **fresh bound set** for the variables that so
 different pipe and survives). The old set is retained, inert, never predicted from. Entries logged
 before the app recorded a source are not evidence of a switch and always count. Historical
 backfill is the eventual bridge between two bound sets.
+
+An entry the switch stripped (`amputated`) is a day the engine can only half see, and it is
+treated that way: what is left of it can raise a ceiling as an ambiguous constraint, but it can
+never be a lone candidate (the stripped air might have been the cause), never floor a repeat of
+itself (repeating what is left is not repeating the day), and never re-open a tolerance. Without
+this, switching to a monitor on a diary of model-era days left the weather alone on three bad
+days and minted it a trigger the full vector never supported.
 
 ## Test cases
 

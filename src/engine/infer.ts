@@ -19,6 +19,7 @@ import {
 } from './types'
 import {
   INDOOR_PROXY_VARIABLES,
+  RETIRED_VARIABLES,
   SOURCE_SCOPED_VARIABLES,
   UNSPECIFIED_SOURCE,
   negligibleFor,
@@ -175,10 +176,15 @@ function candidatesFor(
   tolerance: Bounds,
   excluded: ReadonlySet<string> = NO_EXCLUSIONS,
 ): string[] {
+  // A retired name is never a suspect (RETIRED_VARIABLES): the mechanism it
+  // stood for was wrong, and a seat in the set only costs the live variable
+  // next to it the day that would have confirmed it.
   return Object.entries(exposure)
     .filter(
       ([variable, x]) =>
-        !excluded.has(variable) && x > candidateGuard(variable, level, tolerance),
+        !excluded.has(variable) &&
+        !RETIRED_VARIABLES.has(variable) &&
+        x > candidateGuard(variable, level, tolerance),
     )
     .map(([variable]) => variable)
 }
@@ -234,10 +240,14 @@ function extract(usable: Usable[], tolerance: Tolerance): Extraction {
 
       if (candidates.length === 0) {
         // Which tolerance bounds did the silencing? Those are the claims a
-        // repeat of this day is entitled to re-open.
+        // repeat of this day is entitled to re-open. Not on an amputated day:
+        // the air that was stripped might have been the explanation, so
+        // nothing here was silenced by a tolerance for certain.
         let against: number | undefined
         for (const [variable, x] of Object.entries(entry.exposure)) {
-          if (excluded.has(variable) || !aboveNegligible(variable, x)) continue
+          if (amputated) break
+          if (excluded.has(variable) || RETIRED_VARIABLES.has(variable)) continue
+          if (!aboveNegligible(variable, x)) continue
           if (tolerance.bounds[variable]?.[level] === undefined) continue
           const key = boundKey(variable, level)
           blocked.set(key, [...(blocked.get(key) ?? []), { entryIndex: index, exposure: x }])
@@ -258,7 +268,14 @@ function extract(usable: Usable[], tolerance: Tolerance): Extraction {
         continue
       }
 
-      if (candidates.length === 1) {
+      // A lone candidate on an amputated day is not a lone candidate: the
+      // pollutants a source switch stripped from this entry were there too,
+      // and one of them may have been the cause. On a real diary the switch to
+      // a monitor left heat alone on three August days and minted it a
+      // trigger the full vector never supported. The day keeps what it can
+      // honestly say — this variable was up, with company unknown — as an
+      // ambiguous constraint, and confirms nothing.
+      if (candidates.length === 1 && !amputated) {
         const variable = candidates[0]!
         const context: Exposure = {}
         let clean = true
@@ -283,6 +300,7 @@ function extract(usable: Usable[], tolerance: Tolerance): Extraction {
           candidates,
           exposure: entry.exposure,
           ...(candidates.some((v) => estimated.has(v)) ? { estimated: true } : {}),
+          ...(amputated ? { amputated: true } : {}),
         })
       }
     }
@@ -507,13 +525,16 @@ export function predict(model: TriggerModel, exposure: Exposure, priors: Priors 
       })
       break
     }
-    // Estimated constraints are excluded here and only here: repeating a
-    // combination that was partly a guess is not proof of anything, so it
-    // raises the ceiling below without ever guaranteeing the floor.
+    // Estimated and amputated constraints are excluded here and only here:
+    // repeating a combination that was partly a guess is not proof of
+    // anything, and repeating the part of a day a source switch left visible
+    // is not repeating the day. Both raise the ceiling below without ever
+    // guaranteeing the floor.
     const comboHit = model.constraints.find(
       (c) =>
         c.level === level &&
         !c.estimated &&
+        !c.amputated &&
         c.candidates.every((v) => value(exposure, v) >= c.exposure[v]!),
     )
     if (comboHit) {

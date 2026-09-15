@@ -177,14 +177,16 @@
       ]
     },
     {
-      "name": "pm25+humidity without observations stays ambiguous",
+      "name": "a retired weather feature is never a candidate: pm25 is attributed on its own",
+      "why": "Was 'pm25+humidity without observations stays ambiguous'. Spec 23 retired humidity as a mechanism (a mold proxy with the wrong sign), and a retired name no longer takes a seat in the candidate set. The day still counts the humidity as company, so one day is a suspicion, not a proof.",
       "diary": [
         { "rating": 3, "exposure": { "pm25": 20, "humidity": 75 } }
       ],
-      "expectCandidates": { "3": [["pm25", "humidity"]] },
       "expectConfirmed": {},
+      "expectSuspectedStrong": { "pm25": { "2": 20, "3": 20 } },
       "predict": [
-        { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 3] }
+        { "exposure": { "pm25": 20, "humidity": 40 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 3, "humidity": 75 }, "expect": [1, 1] }
       ]
     },
     {
@@ -291,16 +293,30 @@
       ]
     },
     {
-      "name": "correlated variables (heat+ozone) stay ambiguous but the combo predicts",
+      "name": "correlated variables (humid heat+ozone) stay ambiguous but the combo predicts",
+      "why": "Was written on heat_stress, retired by spec 23 and no longer a candidate; humid_heat is the live feature with the same shape.",
       "diary": [
-        { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }
+        { "rating": 3, "exposure": { "pm25": 5, "o3": 150, "humid_heat": 6 } }
       ],
-      "expectCandidates": { "3": [["o3", "heat_stress"]] },
+      "expectCandidates": { "3": [["o3", "humid_heat"]] },
       "expectConfirmed": {},
       "predict": [
-        { "exposure": { "pm25": 5, "o3": 150, "heat_stress": 0 }, "expect": [1, 3] },
-        { "exposure": { "pm25": 5, "o3": 10, "heat_stress": 6 }, "expect": [1, 3] },
-        { "exposure": { "pm25": 5, "o3": 155, "heat_stress": 7 }, "expect": [3, 3] }
+        { "exposure": { "pm25": 5, "o3": 150, "humid_heat": 0 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "o3": 10, "humid_heat": 6 }, "expect": [1, 3] },
+        { "exposure": { "pm25": 5, "o3": 155, "humid_heat": 7 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "a retired weather feature does not crowd a live variable out of its lone-candidate day",
+      "$comment": "An entry logged before spec 23 carries heat_stress, and ozone was up too. Heat is retired, so ozone is the lone candidate and the day points at it; the heat is still the day's company, so one day is a suspicion.",
+      "diary": [
+        { "rating": 2, "exposure": { "pm25": 5, "o3": 150, "heat_stress": 6 } }
+      ],
+      "expectConfirmed": {},
+      "expectSuspectedStrong": { "o3": { "2": 150 } },
+      "predict": [
+        { "exposure": { "pm25": 5, "o3": 150, "humid_heat": 0 }, "expect": [1, 2] },
+        { "exposure": { "pm25": 5, "o3": 10, "heat_stress": 6 }, "expect": [1, 1] }
       ]
     },
     {
@@ -418,6 +434,22 @@
       "expectInertSources": ["cams"],
       "predict": [
         { "exposure": { "pm25": 15 }, "expect": [3, 3] }
+      ]
+    },
+    {
+      "name": "a source switch strips a day's air; what is left cannot confirm alone",
+      "$comment": "Two cams days, then a monitor day. The switch strips ozone from the bad cams day, leaving only its pollen. Pollen was not the lone candidate on that day — ozone was there too — so the day may not confirm it and may not floor a repeat of it; it keeps an ambiguous constraint that can still raise a ceiling.",
+      "diary": [
+        { "rating": 1, "exposure": { "o3": 60, "pollen_ragweed": 1 }, "source": "cams" },
+        { "rating": 2, "exposure": { "o3": 150, "pollen_ragweed": 3 }, "source": "cams" },
+        { "rating": 1, "exposure": { "o3": 40, "pollen_ragweed": 1 }, "source": "airnow" }
+      ],
+      "expectCandidates": { "2": [["pollen_ragweed"]] },
+      "expectConfirmed": {},
+      "expectSuspectedStrong": {},
+      "expectConflicts": [],
+      "predict": [
+        { "exposure": { "o3": 40, "pollen_ragweed": 3 }, "expect": [1, 2] }
       ]
     },
     {

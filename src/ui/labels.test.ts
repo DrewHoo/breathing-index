@@ -23,9 +23,12 @@ describe('retired weather features (pre-spec-23)', () => {
     expect(variableName('humidity')).toBe('Humidity')
   })
 
-  it('still renders in a Why line built from an old entry', () => {
-    // The whole point of keeping the names: this sentence is generated from
-    // whatever the diary holds, and a diary predating spec 23 holds these.
+  it('is never blamed in a Why line, even by an old entry that carried it', () => {
+    // The names stay so old entries still read; the mechanism does not stay.
+    // A retired feature is never a candidate (RETIRED_VARIABLES), so an old
+    // bad day whose only elevated air was cold and dry is now a day the model
+    // cannot explain, and the forecast says nothing about it rather than
+    // blaming a variable the app no longer believes in.
     const diary: DiaryEntry[] = [
       {
         id: 'e1',
@@ -35,7 +38,8 @@ describe('retired weather features (pre-spec-23)', () => {
       },
     ]
     const model = buildModel(diary)
+    expect(model.conflicts).toEqual([{ entryIndex: 0, kind: 'unmodeled-trigger' }])
     const prediction = predict(model, { pm25: 4, o3: 5, cold_dry_stress: 9 }, PRIORS)
-    expect(evidence(prediction, model, diary).main).toContain('Cold, dry')
+    expect(evidence(prediction, model, diary).main).not.toContain('Cold, dry')
   })
 })

@@ -171,6 +171,27 @@ export const UNSPECIFIED_SOURCE = 'unspecified'
 export const INDOOR_PROXY_VARIABLES: ReadonlySet<string> = new Set(['humidity'])
 
 /**
+ * Names that left the live vector because the *mechanism* was wrong
+ * (specs/23-dew-point-air.md): heat was a temperature the drying reflex does
+ * not depend on, cold was gated on the wrong quantity, humidity was a mold
+ * proxy with the wrong sign. Old entries still carry them, and they still
+ * render — "fine in everything up to" is still true of the days that said so —
+ * but they are never candidates for a bad day. A trigger on one could never
+ * act on a forecast, since no live vector names it, and while it sat in a
+ * candidate set it cost the live variable beside it the lone-candidate day
+ * that would have confirmed it. On a real diary that was the difference
+ * between ozone confirmed and "never seen it act alone".
+ *
+ * The retired grains/m³ pollen names are deliberately not here: that was a
+ * change of scale, not of mechanism, and a pollen day is still a pollen day.
+ */
+export const RETIRED_VARIABLES: ReadonlySet<string> = new Set([
+  'heat_stress',
+  'cold_dry_stress',
+  'humidity',
+])
+
+/**
  * Population priors, ceiling-only: "at this exposure, a sensitive person is
  * *potentially* at this level." Personal diary evidence replaces these.
  *
