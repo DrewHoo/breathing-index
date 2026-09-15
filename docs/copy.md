@@ -224,7 +224,7 @@ One sentence, `DISCLAIMER` in `src/ui/labels.ts`, reused verbatim by the intro s
 Settings footer, `index.html` (`<meta name="disclaimer">` and the noscript block) and both legal
 pages. The last three are literal copies — they ship without the bundle and cannot import it.
 
-> Breathing Index is a diary lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.
+> Breathing Index is a breathing lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.
 
 Deliberately not on Today. The home screen is where someone checks the air in ten seconds; the
 intro and Settings are where trust is negotiated.
