@@ -200,29 +200,32 @@ function EvidencePanel({
   // The days the model reasons over: confounded entries are out of it, and
   // out of the strips too, so the dots are the evidence and nothing else.
   const usable = diary.filter((e) => !e.confounders?.length)
-  const easy = usable.filter((e) => e.rating === 1).length
-  const worst = Math.max(1, ...usable.map((e) => e.rating)) as Rating
   const rows = evidenceRows(model, tempUnit)
+  // The key to the dots is also the tally: every level, always, with a zero
+  // where the diary has none of it — a dangerous day the reader has never
+  // logged is a fact about the diary, not a row to leave out.
+  const levels: Rating[] = [1, 2, 3, 4]
+  const counts = Object.fromEntries(
+    levels.map((r) => [r, usable.filter((e) => e.rating === r).length]),
+  ) as Record<Rating, number>
   return (
     <section className="section">
       <SectionRule
         label="What your logs show"
         note={
           usable.length > 0 ? (
-            <>
-              {easy} easy {easy === 1 ? 'day' : 'days'} · {usable.length - easy} not ·{' '}
-              <span className="dot-swatch easy" /> easy{' '}
-              {([2, 3, 4] as const)
-                .filter((r) => r <= worst)
-                .map((r) => (
-                  <Fragment key={r}>
-                    <span className={`dot-swatch l${r}`} /> {r}{' '}
-                  </Fragment>
-                ))}
-            </>
+            <span className="evidence-key">
+              {levels.map((r) => (
+                <span key={r} className="evidence-key-item">
+                  <span className={`dot-swatch ${r === 1 ? 'easy' : `l${r}`}`} /> {counts[r]}{' '}
+                  {levelWord(r)}
+                </span>
+              ))}
+            </span>
           ) : undefined
         }
         faint
+        wrap
       />
       <div className="row-card">
         {rows.map((row) => {
@@ -238,7 +241,7 @@ function EvidencePanel({
                   aria-label={`${row.name}: ${row.text}. ${isOpen ? 'Hide' : 'Show'} the days.`}
                   onClick={() => toggle(row.variable)}
                 >
-                  <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
+                  <span className={`evidence-glyph ${row.cls || 'none'}`}>{row.glyph}</span>
                   <span className="evidence-name">{row.name}</span>
                 </button>
                 {entry ? help(entry, row.name) : null}
@@ -592,11 +595,7 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
           ))}
         </span>
       )}
-      {eraNote && (
-        <span className="evidence-note">
-          {eraNote}. The order of the days carries across; the numbers don&rsquo;t.
-        </span>
-      )}
+      {eraNote && <span className="evidence-note">{eraNote}.</span>}
     </div>
   )
 }

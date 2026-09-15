@@ -8,14 +8,17 @@ export function SectionRule({
   note,
   faint,
   italic,
+  wrap,
 }: {
   label: string
   note?: ReactNode
   faint?: boolean
   italic?: boolean
+  /** let a long note drop under the rule on a narrow screen instead of squeezing the label */
+  wrap?: boolean
 }) {
   return (
-    <div className="rule-row">
+    <div className={`rule-row${wrap ? ' wrap' : ''}`}>
       <span className="rule-label">{label}</span>
       <span className="rule-line" />
       {note !== undefined && (
