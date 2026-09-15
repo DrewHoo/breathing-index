@@ -2,6 +2,17 @@
 
 A personal air quality PWA. Live at [breathingindex.com](https://breathingindex.com/).
 
+<table>
+<tr>
+<td width="33%"><img src="docs/img/dark-today.png" alt="The Today screen: the four rating buttons, a forecast reading Easy, maybe noticeable, and the first measurements with the diary's own thresholds beside them."></td>
+<td width="33%"><img src="docs/img/dark-air.png" alt="The rest of In the air: dry-spore conditions, grass and weed pollen and dew point, each with a 48-hour trace and a dashed line marking the level this diary has handled."></td>
+<td width="33%"><img src="docs/img/dark-diary.png" alt="The Log screen: twenty-two entries, and a verdict on each variable including ozone marked as a trigger."></td>
+</tr>
+<tr>
+<td colspan="3" align="center"><em>Twenty-two real entries from my own diary, in Hamden, on the New Haven monitor. The dashed line on each row is my easy level rather than the EPA's, because there are enough logs now to have one. Ozone came out a trigger; dry air and the pollens have so far not.</em></td>
+</tr>
+</table>
+
 ## Why
 
 I’ve always struggled to correlate the published air quality index with my personal ability to breathe. It’s no fun being gaslit by a “moderate” AQI of 70 that some days is fine to breathe and somedays is cripplingly bad. The AQI is doesn't take into account how the combination of pollutants affects breathing, but your lungs sure do! So this app helps you create your own BQI (Breathing Quality Index) by recording how you feel about your breathing alongside a vector of all available measures, helping you map how your lungs are affected by different pollutants like ozone, smoke, pollen, dust, mold, etc, many of which are lumped into broad-based categories by AQI that, again, your lungs don't consider whilst breathing.
@@ -33,7 +44,7 @@ Freshness comes from the payload's own newest hour rather than from when the res
 
 Temperatures display in °F for browsers whose locale resolves to a Fahrenheit region and °C everywhere else, overridable in Settings. Stored exposures are always metric, so the setting relabels the display and never rewrites logged history.
 
-The palette follows `prefers-color-scheme`, with no manual toggle: a 4 AM breathing check should not be a flashlight to the face, and the four severity colours are re-pointed rather than inverted so the quiet end of the ramp stays quiet on a dark ground. Screenshots at phone size: [Today](docs/img/dark-today.png) · [Log](docs/img/dark-diary.png) · [Settings](docs/img/dark-settings.png).
+The palette follows `prefers-color-scheme`, with no manual toggle: a 4 AM breathing check should not be a flashlight to the face, and the four severity colours are re-pointed rather than inverted so the quiet end of the ramp stays quiet on a dark ground. Every screenshot in this README is the dark palette at phone size; [Settings](docs/img/dark-settings.png) and the [first-run screen](docs/img/dark-intro.png) are in `docs/img/` too.
 
 Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) and content-free: events record that a screen was viewed or an entry saved, never what was rated, tagged, noted, or measured, and IP geolocation is off. Turn it off entirely in Settings. Fonts are self-hosted, so the app makes no third-party request for chrome either.
 
