@@ -112,3 +112,12 @@ Per-verdict explanations beyond the words listed. Translation. A glossary for re
   and the generator's `--check` covers the page. The sheet was verified by hand: open from an
   air row, a diary row and an absent-line name; close by button and by backdrop; the anchor
   link lands on the right section.
+
+## Amended 2026-09-15 by [36-glossary-pages.md](36-glossary-pages.md)
+
+§2's one page is now thirteen: an index at `/glossary/` and a page per entry at
+`/glossary/<slug>/`, so each of the twelve questions gets its own title, description and
+canonical URL. §3's "Full glossary →" link lands on the entry's own page instead of
+`/glossary#{key}`; the index keeps `id="{key}"` on each card so an old anchor still lands
+somewhere that leads to the page. Everything else here stands, including the rule that
+neither surface may carry a word the other lacks.

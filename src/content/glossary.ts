@@ -66,6 +66,23 @@ export type GlossaryKey =
 export interface GlossaryEntry {
   /** the name the row wears, so the `?` beside it says "About {name}" */
   name: string
+  /**
+   * the last segment of this entry's own page, `/glossary/<slug>/`. Here and
+   * not in the generator because the sheet's "Full glossary" link and the
+   * generated page both need it, and two lists of twelve slugs would be one
+   * list too many. Spelled the way a person searches — `dew-point`, not
+   * `dewpoint`; `sulfur-dioxide`, not `so2` — since a URL is read by someone
+   * deciding whether to click it.
+   */
+  slug: string
+  /** the page's `<title>`, without the site name the generator appends */
+  title: string
+  /**
+   * the page's meta description, under 155 characters so a search result
+   * shows all of it. Page metadata rather than entry copy: it is written to
+   * be read in a search result, and the part rules above do not govern it.
+   */
+  description: string
   /** what the number measures — omitted where the name already says it */
   what?: string
   /**
@@ -129,6 +146,10 @@ const POLLEN_HELP =
 export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm25: {
     name: 'Fine particles',
+    slug: 'fine-particles',
+    title: 'Fine particles (PM2.5) and asthma',
+    description:
+      'What PM2.5 is, why asthma visits rise about 4 % for every 10 µg/m³, and why the number that matters is a 24-hour average.',
     meta: 'PM2.5 · µg/m³ · 24h average',
     image: {
       src: 'pm25.jpg',
@@ -143,6 +164,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   o3: {
     name: 'Ozone',
+    slug: 'ozone',
+    title: 'Ozone and asthma',
+    description:
+      'Ground-level ozone peaks on summer afternoons, inflames airways over hours, and exercise multiplies the dose. What it does to asthmatic breathing.',
     meta: 'O₃ · µg/m³ · 8h average',
     image: {
       src: 'o3.jpg',
@@ -158,6 +183,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   so2: {
     name: 'SO₂',
+    slug: 'sulfur-dioxide',
+    title: 'Sulfur dioxide (SO₂) and asthma',
+    description:
+      'Sulfur dioxide tightens exercising asthmatic airways within minutes at levels healthy lungs ignore: the best-proven sudden trigger, and the rarest.',
     meta: 'SO₂ · µg/m³ · the hour',
     image: {
       src: 'so2.jpg',
@@ -173,6 +202,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pm_coarse: {
     name: 'Coarse particles',
+    slug: 'coarse-particles',
+    title: 'Coarse particles, dust and grit in the air',
+    description:
+      'Dust, road grit and soil between 2.5 and 10 micrometers. They land in the nose and throat rather than the deep lung, so they irritate more than trigger.',
     meta: 'PM10 − PM2.5 · µg/m³ · 24h average',
     image: {
       src: 'pm_coarse.jpg',
@@ -187,6 +220,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   smoke: {
     name: 'Smoke',
+    slug: 'wildfire-smoke',
+    title: 'Wildfire smoke and asthma',
+    description:
+      'Per microgram, smoke is two to three times as bad as ordinary fine particles. Asthma visits rose 82 % in New York in one day of June 2023 smoke.',
     meta: 'NOAA HMS · light, medium, heavy · the hour',
     image: {
       src: 'smoke.jpg',
@@ -201,6 +238,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   mold: {
     name: 'Mold',
+    slug: 'mold-spores',
+    title: 'Outdoor mold spores and asthma',
+    description:
+      'Fungal spores are linked to more asthma visits than any pollen, and Alternaria to near-fatal attacks. How spores are counted and who they matter for.',
     meta: 'spores/m³ · highest of the last 3 counts',
     image: {
       src: 'mold.jpg',
@@ -217,6 +258,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   dry_spore_index: {
     name: 'Dry-spore conditions',
+    slug: 'dry-spore-conditions',
+    title: 'Mold spores read off the weather',
+    description:
+      'Warm, dry, windy, no rain in two days, after a wet spell. Five weather conditions standing in for a spore count where nobody is counting spores.',
     meta: 'weather proxy · 0–5 · each hour, in season',
     image: {
       src: 'dry_spore_index.jpg',
@@ -232,6 +277,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_tree: {
     name: 'Tree pollen',
+    slug: 'tree-pollen',
+    title: 'Tree pollen and asthma',
+    description:
+      'Oak and birch drive the spring season in the eastern US. Mostly a hay-fever story; the asthma evidence is thinner than it is for grass. What helps.',
     meta: 'Google pollen · 0–5 · the day',
     image: {
       src: 'pollen_tree.jpg',
@@ -246,6 +295,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_grass: {
     name: 'Grass pollen',
+    slug: 'grass-pollen',
+    title: 'Grass pollen and asthma',
+    description:
+      'The only pollen with a firm asthma signal, and it builds over three days. Why a thunderstorm in grass season reaches people with no diagnosis.',
     meta: 'Google pollen · 0–5 · highest of 3 days',
     image: {
       src: 'pollen_grass.jpg',
@@ -260,6 +313,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   pollen_weed: {
     name: 'Weed pollen',
+    slug: 'weed-pollen',
+    title: 'Ragweed and weed pollen with asthma',
+    description:
+      'Ragweed runs from mid-August to the first frost and is the most common pollen allergy in the eastern US. What it does to breathing, and what helps.',
     meta: 'Google pollen · 0–5 · the day',
     image: {
       src: 'pollen_weed.jpg',
@@ -279,6 +336,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   // is the dew point.
   dewpoint: {
     name: 'Dew point',
+    slug: 'dew-point',
+    title: 'Dew point, dry air and asthma',
+    description:
+      'Cold-air asthma is drying, not cold. Below a dew point of 52 °F dry air tightens airways; above 64 °F a separate reflex does. What helps on each side.',
     meta: '°F or °C · the hour',
     image: {
       src: 'dewpoint.jpg',
@@ -295,6 +356,10 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   },
   viral: {
     name: 'Sick',
+    slug: 'colds-and-asthma',
+    title: 'Colds and asthma',
+    description:
+      'A cold alone does little; a cold plus a pollen allergy does a lot. Colds are the most common cause of an asthma flare bad enough for the emergency room.',
     breathing:
       'A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. Colds are the most common cause of an asthma flare bad enough for the emergency room, and the two weeks after school starts are the peak of the year. What helps: a cold is the one time to be strict about the daily controller inhaler, and to have the rescue inhaler close.',
   },
@@ -370,6 +435,13 @@ export const GLOSSARY_ORDER: readonly GlossaryKey[] = [
   'dewpoint',
   'viral',
 ]
+
+/**
+ * Where an entry's own page lives. One spelling of that path, so the sheet's
+ * "Full glossary" link, the index's cards and the rail on every term page
+ * cannot disagree about the URL of a thing (specs/36-glossary-pages.md).
+ */
+export const glossaryHref = (key: GlossaryKey): string => `/glossary/${GLOSSARY[key].slug}/`
 
 /** Engine variable names that are one entry between them. */
 const BY_VARIABLE: Record<string, GlossaryKey> = {

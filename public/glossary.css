@@ -1,0 +1,340 @@
+/*
+ * Chrome the /glossary pages add on top of legal.css: the entry itself, the
+ * rail of twelve terms every term page carries, and the card grid the index
+ * is. Loaded after legal.css; everything else (palette, type, layout) is
+ * inherited from there, and every colour in here is one of its variables.
+ *
+ * A stylesheet rather than the inline block the one-page glossary carried,
+ * for the reason that block gave for staying inline: /pollen earned its own
+ * stylesheet by being five pages. This is thirteen, and they are generated,
+ * so an inline block would be the same two hundred lines written thirteen
+ * times by a script.
+ *
+ * Mobile first, because most of the traffic is. The rail is a scrolling row
+ * of chips by default and becomes a column beside the text at 840px, which is
+ * the first width where 560px of prose and a column of names both fit.
+ */
+
+/* The breadcrumb's own type, from the page this replaced; the link colour is
+   pollen.css's, since both documents draw the same trail. */
+.crumbs {
+  font: 400 11px var(--sans);
+  color: var(--faint);
+  margin: 2px 0 0;
+}
+
+.crumbs a {
+  color: var(--secondary);
+  text-decoration: none;
+}
+
+/* ---- the rail: twelve terms, on every term page ---- */
+
+.gl-rail {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  /* Full bleed to the screen edges, so a chip half off the right edge reads
+     as "there is more this way" rather than as a layout mistake. The numbers
+     are legal.css's own `main` padding, given back as the scroller's. */
+  margin: 12px -18px 0;
+  padding: 8px 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Pinned under the header: the wordmark and the trail scroll away, the
+     twelve terms do not. */
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 1;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.gl-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* The group names are the column's headings and the row has no room for them. */
+.gl-rail .gl-group {
+  display: none;
+}
+
+.gl-all,
+.gl-chip {
+  flex: none;
+  /* 44 px of thumb (specs/11-ui-polish.md), bought with padding: 20 of line
+     and 12 either side of it. */
+  font: 400 12.5px/20px var(--sans);
+  padding: 11px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  white-space: nowrap;
+  color: var(--secondary);
+  text-decoration: none;
+}
+
+/* Current term first, whatever its place in the groups, and everything else in
+   the order the column shows it. CSS alone: there is no script on this page,
+   and one list of markup serves both arrangements. */
+.gl-rail .gl-here {
+  order: -1;
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--hairline);
+  border-color: var(--rule);
+}
+
+.gl-all {
+  color: var(--accent);
+}
+
+/* ---- the entry ---- */
+
+.gl-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+/* The name is the page's heading, at the size the one-page glossary gave it. */
+.gl-entry h1 {
+  font: 600 24px/1.15 var(--sans);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* The mono line under a name: the symbol, the unit and the span. */
+.gl-meta {
+  font: 500 11px/1.4 'Spline Sans Mono', ui-monospace, monospace;
+  letter-spacing: 0.01em;
+  color: var(--secondary);
+}
+
+.gl-entry .gl-meta {
+  margin: -8px 0 0;
+}
+
+.gl-figure {
+  margin: 4px 0 0;
+}
+
+.gl-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--hairline);
+}
+
+.gl-figure figcaption {
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+  margin-top: 6px;
+}
+
+.gl-part {
+  margin: 0;
+}
+
+.gl-part p {
+  margin: 3px 0 0;
+}
+
+/* legal.css sets h2 as a small uppercase section caption, which is right for
+   a caption and wrong for a thing's name. The name is a real heading on these
+   pages, and the caption register does the job it was drawn for: the labels. */
+.gl-label {
+  display: block;
+  font: 600 10px var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.gl-list {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gl-list li {
+  position: relative;
+  padding-left: 15px;
+  margin: 0 0 8px;
+}
+
+.gl-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+
+/* ---- previous and next, along the air table's own order ---- */
+
+.gl-updown {
+  display: flex;
+  gap: 16px;
+  margin: 26px 0 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.gl-prev,
+.gl-next {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 44px;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--accent);
+}
+
+/* The first entry has no previous, and the last no next; the one that is
+   there keeps its side of the line. */
+.gl-next {
+  margin-left: auto;
+  text-align: right;
+}
+
+.gl-updown-label {
+  font: 600 10px var(--sans);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.gl-updown-name {
+  font: 400 13.5px/1.4 var(--sans);
+}
+
+/* ---- the index ---- */
+
+.gl-intro {
+  margin-bottom: 20px;
+}
+
+.gl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 14px;
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.gl-card {
+  margin: 0;
+  /* The sheet that shipped links to /glossary#pm25; an anchor that lands here
+     should not be tucked under the top of the viewport. */
+  scroll-margin-top: 14px;
+}
+
+.gl-card a {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-decoration: none;
+}
+
+.gl-card img,
+.gl-card-blank {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--hairline);
+}
+
+.gl-card-name {
+  font: 600 13.5px/1.35 var(--sans);
+  color: var(--ink);
+}
+
+.gl-card a:hover .gl-card-name {
+  color: var(--accent);
+}
+
+.gl-credit {
+  font: 400 11px/1.5 var(--sans);
+  color: var(--faint);
+  margin: 0 0 20px;
+}
+
+/* ---- wide enough for the rail to stand beside the text ---- */
+
+@media (min-width: 840px) {
+  /* 800 less the 36 of padding, less the rail and its gap, leaves the 560 of
+     prose legal.css sets everywhere else. */
+  .gl-term main {
+    max-width: 800px;
+  }
+
+  .gl-layout {
+    display: grid;
+    grid-template-columns: 172px minmax(0, 1fr);
+    gap: 32px;
+    align-items: start;
+    margin-top: 18px;
+  }
+
+  .gl-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    position: sticky;
+    top: 18px;
+    background: none;
+    border-bottom: none;
+  }
+
+  .gl-rail .gl-group {
+    display: block;
+    font: 600 10px var(--sans);
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 14px 0 4px;
+  }
+
+  /* A column of names, not a row of pills: the pill was there to be a target
+     under a thumb, and this is a pointer and a list. */
+  .gl-all,
+  .gl-chip {
+    padding: 5px 0 5px 9px;
+    border: none;
+    border-left: 2px solid transparent;
+    border-radius: 0;
+    white-space: normal;
+    font: 400 12.5px/1.4 var(--sans);
+  }
+
+  .gl-all {
+    margin-bottom: 2px;
+  }
+
+  .gl-rail .gl-here {
+    order: 0;
+    background: none;
+    border-left-color: var(--accent);
+  }
+
+  .gl-entry {
+    margin: 0;
+  }
+}

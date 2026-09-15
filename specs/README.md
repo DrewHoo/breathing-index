@@ -41,6 +41,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 |---|------|--------|----------|
 | 17 | [Content pages](17-content-pages.md) | M | Three prerendered essays so the domain can rank for "AQI moderate but hard to breathe" |
 | 19 | [Pollen content pages](19-pollen-content-pages.md) | M | The first content wave, reshaped: per-plant pages + the region×month calendar, generated from the app's own data |
+| 36 | [Glossary pages](36-glossary-pages.md) | M | The one `/glossary` page becomes thirteen: an index and a page per thing in the air, so twelve questions can rank apart |
 
 ## Measurement and sources (September 2026 research)
 
@@ -77,7 +78,7 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 22 ──► 27
 26, 28 independent (28 wants 23 for the humidity retirement)
 21 ──► 29
-29 ──► 30 (the glossary needs the final row list)
+29 ──► 30 (the glossary needs the final row list) ─► 36
 29 ──► 31, 32, 35 (the floor argument and the absent line)
 33, 34 independent; 30 wants all of them for entries
 ```
