@@ -472,11 +472,21 @@ function inertBounds(diary: InferenceEntry[], active: string): InertBounds[] {
     (s): s is string => s !== undefined && s !== active,
   )
   return sources.map((source) => {
+    // The same rule the live model follows: an entry from before the app
+    // recorded a source is not evidence of a switch and always counts. The
+    // two such days on a real diary were the ones that confirmed ozone, and
+    // an inert set built without them had no ozone verdict to keep.
     const model = buildModel(
-      diary.filter((entry) => entry.source === source),
+      diary.filter((entry) => entry.source === source || entry.source === undefined),
       { source, includeInert: false },
     )
-    return { source, tolerance: model.tolerance, confirmed: model.confirmed }
+    return {
+      source,
+      tolerance: model.tolerance,
+      confirmed: model.confirmed,
+      confirmations: model.confirmations,
+      constraints: model.constraints,
+    }
   })
 }
 

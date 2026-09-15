@@ -911,16 +911,122 @@ a.air-note {
   text-decoration: none;
 }
 
+/* One name: the verdict line, and under it (on a tap) the days themselves. */
+.evidence-item {
+  border-bottom: 1px solid var(--hairline-light);
+}
+
+.evidence-item:last-child {
+  border-bottom: none;
+}
+
 .evidence-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 34px;
-  border-bottom: 1px solid var(--hairline-light);
 }
 
-.evidence-row:last-child {
-  border-bottom: none;
+/* The row's two halves are one control split around the `?`, which is a
+   control of its own. Both toggle the strip; only the first is in the tab
+   order and speaks. */
+.evidence-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  flex: none;
+}
+
+.evidence-toggle.text {
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+}
+
+.evidence-chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 2px 6px;
+  border-right: 1.5px solid var(--faint);
+  border-bottom: 1.5px solid var(--faint);
+  transform: rotate(-45deg);
+  transition: transform 150ms ease-out;
+}
+
+.evidence-chevron.open {
+  transform: rotate(45deg);
+  margin-bottom: 4px;
+}
+
+.evidence-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 0 10px;
+}
+
+/* Every usable day as a dot on the variable's own axis; 340×40 like the
+   sparklines, so the strokes stay put across widths. */
+.evidence-strip {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.evidence-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -3px;
+  font: 400 10.5px var(--mono);
+  color: var(--faint);
+}
+
+.evidence-rates {
+  font: 400 12px/1.5 var(--sans);
+  color: var(--secondary);
+}
+
+.evidence-rates b {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.evidence-sep {
+  color: var(--rule);
+}
+
+.evidence-note {
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--faint);
+}
+
+/* The rule note's key to the dots. */
+.dot-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+.dot-swatch.easy {
+  width: 7px;
+  height: 7px;
+  border: 1.4px solid var(--l2);
+}
+
+.dot-swatch.l2 {
+  background: var(--l2);
+}
+
+.dot-swatch.l3 {
+  background: var(--l3);
+}
+
+.dot-swatch.l4 {
+  background: var(--l4);
 }
 
 .evidence-glyph {

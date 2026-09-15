@@ -1,15 +1,32 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { Fragment, useMemo, useState } from 'react'
 import { glossaryKeyFor } from '../content/glossary'
-import { PRIORS, negligibleFor } from '../engine/config'
+import { PRIORS, SOURCE_SCOPED_VARIABLES, negligibleFor } from '../engine/config'
 import { buildModel } from '../engine/infer'
-import type { Conflict, DiaryEntry, TriggerModel } from '../engine/types'
+import type {
+  AmbiguousConstraint,
+  Bounds,
+  Confirmation,
+  Conflict,
+  DiaryEntry,
+  Rating,
+  TriggerModel,
+} from '../engine/types'
 import { POLLEN_PLANT_VARIABLES } from '../sources/pollenPlants'
 import { track } from '../ui/analytics'
 import { LevelPill, SectionRule } from '../ui/bits'
 import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismissed'
 import { BackupChip } from '../ui/durabilityUi'
+import {
+  bandEdges,
+  bandRates,
+  sourceTag,
+  sourceWord,
+  stackDots,
+  stripRange,
+  type StripPoint,
+} from '../ui/evidenceStrip'
 import { useGlossaryHelp } from '../ui/help'
 import { VARIABLE_LABELS, levelWord, variableName } from '../ui/labels'
 import { isPending, settled } from '../ui/pendingExposure'
@@ -88,26 +105,8 @@ function Diary() {
       )}
       <BackupChip entryCount={diary.length} />
 
-      <section className="section">
-        <SectionRule label="What your logs show" />
-        <div className="row-card">
-          {evidenceRows(model, tempUnit).map((row) => {
-            // Retired variables have no entry and get no `?`: the name is kept
-            // so an old entry renders as words, and there is nothing left to
-            // explain about a measurement the app stopped taking.
-            const entry = glossaryKeyFor(row.variable)
-            return (
-              <div key={row.name} className="evidence-row">
-                <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
-                <span className="evidence-name">{row.name}</span>
-                {entry ? help(entry, row.name) : null}
-                <span className="evidence-text">{row.text}</span>
-              </div>
-            )
-          })}
-        </div>
-        {sheet}
-      </section>
+      <EvidencePanel model={model} diary={modelDiary} tempUnit={tempUnit} help={help} />
+      {sheet}
 
       {conflicts.map((conflict) => (
         <ConflictCard
@@ -171,19 +170,139 @@ function Diary() {
 
 /* --- what your diary shows --- */
 
+/**
+ * The verdicts, one row per name the diary has something to say about, and
+ * under each row (on a tap) the days themselves: every usable entry as a dot
+ * along that variable's own axis, and the rate of easy days by band. The
+ * strip is what the panel owes a reader when no verdict is reachable yet —
+ * twenty days have a shape long before they have a proof.
+ */
+function EvidencePanel({
+  model,
+  diary,
+  tempUnit,
+  help,
+}: {
+  model: TriggerModel
+  /** the settled diary the model was built on, indexed the same way */
+  diary: DiaryEntry[]
+  tempUnit: TemperatureUnit
+  help: ReturnType<typeof useGlossaryHelp>['help']
+}) {
+  const [open, setOpen] = useState<Set<string>>(() => new Set())
+  const toggle = (variable: string) =>
+    setOpen((cur) => {
+      const next = new Set(cur)
+      if (next.has(variable)) next.delete(variable)
+      else next.add(variable)
+      return next
+    })
+  // The days the model reasons over: confounded entries are out of it, and
+  // out of the strips too, so the dots are the evidence and nothing else.
+  const usable = diary.filter((e) => !e.confounders?.length)
+  const easy = usable.filter((e) => e.rating === 1).length
+  const worst = Math.max(1, ...usable.map((e) => e.rating)) as Rating
+  const rows = evidenceRows(model, tempUnit)
+  return (
+    <section className="section">
+      <SectionRule
+        label="What your logs show"
+        note={
+          usable.length > 0 ? (
+            <>
+              {easy} easy {easy === 1 ? 'day' : 'days'} · {usable.length - easy} not ·{' '}
+              <span className="dot-swatch easy" /> easy{' '}
+              {([2, 3, 4] as const)
+                .filter((r) => r <= worst)
+                .map((r) => (
+                  <Fragment key={r}>
+                    <span className={`dot-swatch l${r}`} /> {r}{' '}
+                  </Fragment>
+                ))}
+            </>
+          ) : undefined
+        }
+        faint
+      />
+      <div className="row-card">
+        {rows.map((row) => {
+          const entry = glossaryKeyFor(row.variable)
+          const isOpen = open.has(row.variable)
+          return (
+            <div key={row.variable} className="evidence-item">
+              <div className="evidence-row">
+                <button
+                  type="button"
+                  className="evidence-toggle"
+                  aria-expanded={isOpen}
+                  aria-label={`${row.name}: ${row.text}. ${isOpen ? 'Hide' : 'Show'} the days.`}
+                  onClick={() => toggle(row.variable)}
+                >
+                  <span className={`evidence-glyph ${row.cls}`}>{row.glyph}</span>
+                  <span className="evidence-name">{row.name}</span>
+                </button>
+                {entry ? help(entry, row.name) : null}
+                {/* The second half of the same control: one action, two spans
+                    of the row, because the `?` between them is a control of
+                    its own and a button cannot contain a button. */}
+                <button
+                  type="button"
+                  className="evidence-toggle text"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onClick={() => toggle(row.variable)}
+                >
+                  <span className="evidence-text">{row.text}</span>
+                  <span className={`evidence-chevron${isOpen ? ' open' : ''}`} />
+                </button>
+              </div>
+              {isOpen && <EvidenceStrip row={row} diary={usable} />}
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
+interface EvidenceAxis {
+  /** a stored feature value -> the number on the strip's axis (folded for dew point) */
+  to: (v: number) => number
+  /** a number on that axis, short, for the axis ends and the band labels */
+  short: (d: number) => string
+}
+
 interface EvidenceRowData {
   name: string
   /**
    * The exposure variable the row is about, so the `?` beside its name can
    * find the entry that explains it (specs/30-glossary.md §6). The name alone
-   * would not do: "Alternaria" and "Mold" are two rows and one entry, and the
-   * retired names have none at all. `summarize` carries it out, since it is
-   * the one thing every caller already had to pass in.
+   * would not do: "Alternaria" and "Mold" are two rows and one entry.
    */
   variable: string
   glyph: string
   cls: string
   text: string
+  axis: EvidenceAxis
+  /** reference marks on the strip's axis, from whichever bound set spoke */
+  marks: { easy?: number; trigger?: number }
+}
+
+/** The part of a model (live or inert) a verdict is read from. */
+interface EvidenceView {
+  confirmed: Bounds
+  tolerance: Bounds
+  confirmations: Confirmation[]
+  constraints: AmbiguousConstraint[]
+}
+
+interface Verdict {
+  glyph: string
+  cls: string
+  text: string
+  /** trigger 4 · one-day suspect 3 · never-alone suspect 2 · fine 1 · nothing 0 */
+  rank: number
+  marks: { easy?: number; trigger?: number }
 }
 
 function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceRowData[] {
@@ -192,49 +311,103 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   // from and the row reads as air a person could stand outside in.
   const fmtAt = (celsius: number): string =>
     `${Math.round(displayTemperature(celsius, tempUnit))} °${tempUnit}`
-  const summarize = (variable: string, fmt: (v: number) => string): Omit<EvidenceRowData, 'name'> => {
-    const confirmed = model.confirmed[variable]
+  const bare = (v: number) => `${Math.round(v)}`
+  const plain: EvidenceAxis = { to: (v) => v, short: bare }
+  const dewpoint = (fold: (v: number) => number): EvidenceAxis => ({
+    to: (v) => displayTemperature(fold(v), tempUnit),
+    short: (d) => `${Math.round(d)} °${tempUnit}`,
+  })
+
+  const verdict = (
+    view: EvidenceView,
+    variable: string,
+    fmt: (v: number) => string,
+    tag: string,
+  ): Verdict => {
+    const confirmed = view.confirmed[variable]
     const level = ([4, 3, 2] as const).find((l) => confirmed?.[l] !== undefined)
-    const tol = model.tolerance[variable]?.[2]
+    const tol = view.tolerance[variable]?.[2]
     const hasTol = tol !== undefined && tol > negligibleFor(variable)
+    const marks = hasTol ? { easy: tol } : {}
     if (level !== undefined) {
+      const at = confirmed![level]!
       return {
-        variable,
         glyph: '●',
         cls: 'trigger',
-        text: `trigger — ${levelWord(level)} near ${fmt(confirmed![level]!)}${hasTol ? `, fine up to ${fmt(tol)}` : ''}`,
+        text: `trigger — ${levelWord(level)} near ${fmt(at)}${tag}${hasTol ? `, fine up to ${fmt(tol)}` : ''}`,
+        rank: 4,
+        marks: { ...marks, trigger: at },
       }
     }
     // One bad day where this was the lone candidate, but other air was about:
     // a real lead, and not yet a claim the forecast will stand on.
-    const oneDay = model.confirmations.find(
+    const oneDay = view.confirmations.find(
       (c) => c.variable === variable && c.strength === 'suspected-strong',
     )
     if (oneDay) {
       return {
-        variable,
         glyph: '◐',
         cls: 'suspect',
-        text: `suspect — one day points at it near ${fmt(oneDay.bound)}`,
+        text: `suspect — one day points at it near ${fmt(oneDay.bound)}${tag}`,
+        rank: 3,
+        marks,
       }
     }
-    if (model.constraints.some((c) => c.candidates.includes(variable))) {
-      return { variable, glyph: '◐', cls: 'suspect', text: 'suspect — never seen it act alone' }
+    if (view.constraints.some((c) => c.candidates.includes(variable))) {
+      return { glyph: '◐', cls: 'suspect', text: `suspect — never seen it act alone${tag}`, rank: 2, marks }
     }
     if (hasTol) {
-      return { variable, glyph: '○', cls: 'fine', text: `fine in everything up to ${fmt(tol)}` }
+      return { glyph: '○', cls: 'fine', text: `fine in everything up to ${fmt(tol)}${tag}`, rank: 1, marks }
     }
-    return { variable, glyph: '◌', cls: '', text: 'no evidence yet either way' }
+    return { glyph: '◌', cls: '', text: 'no evidence yet either way', rank: 0, marks: {} }
   }
 
-  const bare = (v: number) => `${Math.round(v)}`
+  // The verdict the diary can stand behind, from whichever bound set has the
+  // most to say. Bounds are source-scoped (specs/27-one-ozone.md): a level
+  // learned on the model never predicts against the monitor, and the live
+  // model is built on the active source alone. But "what your logs show" is
+  // a question about the logs, not a forecast, and twenty model-era days
+  // that isolated ozone are still what the logs show after two monitor
+  // days. So a source-scoped row reads every era and takes the strongest
+  // verdict, tagged with the era it came from when that is not the live one.
+  const summarize = (
+    variable: string,
+    fmt: (v: number) => string,
+    axis: EvidenceAxis = plain,
+  ): Omit<EvidenceRowData, 'name'> => {
+    let best = verdict(model, variable, fmt, '')
+    if (SOURCE_SCOPED_VARIABLES.has(variable)) {
+      for (const inert of model.inert) {
+        const candidate = verdict(inert, variable, fmt, ` (${sourceTag(inert.source)})`)
+        if (candidate.rank > best.rank) best = candidate
+      }
+    }
+    return {
+      variable,
+      glyph: best.glyph,
+      cls: best.cls,
+      text: best.text,
+      axis,
+      marks: {
+        ...(best.marks.easy !== undefined ? { easy: axis.to(best.marks.easy) } : {}),
+        ...(best.marks.trigger !== undefined ? { trigger: axis.to(best.marks.trigger) } : {}),
+      },
+    }
+  }
+
   const rows: EvidenceRowData[] = [
     { name: variableName('pm25'), ...summarize('pm25', bare) },
     { name: variableName('o3'), ...summarize('o3', bare) },
     // Both bounds are dew points once folded back: dry air is counted down
     // from 11 °C, humid heat up from 18 °C (specs/23-dew-point-air.md).
-    { name: variableName('dry_air'), ...summarize('dry_air', (v) => fmtAt(11 - v)) },
-    { name: variableName('humid_heat'), ...summarize('humid_heat', (v) => fmtAt(18 + v)) },
+    {
+      name: variableName('dry_air'),
+      ...summarize('dry_air', (v) => fmtAt(11 - v), dewpoint((v) => 11 - v)),
+    },
+    {
+      name: variableName('humid_heat'),
+      ...summarize('humid_heat', (v) => fmtAt(18 + v), dewpoint((v) => 18 + v)),
+    },
   ]
   // Smoke is live but conditional, which is a third case and worth naming
   // (specs/25-smoke-variable.md). The four rows above are standing because the
@@ -244,13 +417,13 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
   // standing row would read "no evidence yet either way" on every screen for
   // years, which is the panel promising a verdict it has no way to reach.
   //
-  // The test the retired names and pollen already use says exactly the right
-  // thing here without any new machinery: a row appears once the diary holds a
-  // verdict. For smoke the two are the same question — a 0 can neither be a
-  // suspect (it is at the floor) nor raise a tolerance (same), so the row shows
-  // up precisely when some entry was logged under a real plume, good day or
-  // bad. The number wears its scale, because "near 2" means nothing and
-  // "near 2 of 3" is a thing a person can picture.
+  // The test the pollen rows already use says exactly the right thing here
+  // without any new machinery: a row appears once the diary holds a verdict.
+  // For smoke the two are the same question — a 0 can neither be a suspect
+  // (it is at the floor) nor raise a tolerance (same), so the row shows up
+  // precisely when some entry was logged under a real plume, good day or bad.
+  // The number wears its scale, because "near 2" means nothing and "near 2 of
+  // 3" is a thing a person can picture.
   const ofThree = (v: number): string => `${Math.round(v)} ${VARIABLE_LABELS.smoke!.unit}`
   const smoke = summarize('smoke', ofThree)
   if (smoke.cls !== '') rows.push({ name: variableName('smoke'), ...smoke })
@@ -295,32 +468,137 @@ function evidenceRows(model: TriggerModel, tempUnit: TemperatureUnit): EvidenceR
     const row = summarize(variable, fmt)
     if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
   }
-  // Variables that have left the vector: the weather stresses in spec 23, PM10
-  // and NO₂ in spec 24. They earn a row only while an old entry still has
-  // something to say about one — the same rule pollen follows, and the reason
-  // the names survive in config and labels at all. A standing row for any of
-  // them would promise a verdict that is never coming: nothing logged from now
-  // on carries the name, so the panel would be advertising evidence the app
-  // has stopped collecting.
-  const retired: [string, (v: number) => string][] = [
-    ['pm10', bare],
-    ['no2', bare],
-    ['heat_stress', (v) => fmtAt(25 + v)],
-    ['cold_dry_stress', (v) => fmtAt(10 - v)],
-    ['humidity', (v) => `${Math.round(v)}%`],
-  ]
-  for (const [variable, fmt] of retired) {
-    const row = summarize(variable, fmt)
-    if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
-  }
-  // Pollen earns a line once the diary has a verdict on a species — named by
-  // species, since that is what the evidence is about. Outside Europe it is
+  // Names that have left the vector get no row here at all — the weather
+  // stresses of spec 23, PM10 and NO₂ of spec 24, the grains/m³ pollen of
+  // spec 18. Nothing logged from now on carries them, so a row would be
+  // advertising evidence the app has stopped collecting, and (for the weather
+  // three) a verdict on a mechanism the app no longer believes in. Their
+  // values still show on the entries that carry them.
+  //
+  // Pollen earns a line once the diary has a verdict on a plant — named by
+  // plant, since that is what the evidence is about. Outside Europe it is
   // usually a calendar estimate, which can reach "suspect" and no further.
-  for (const variable of POLLEN_VARIABLES) {
+  for (const variable of POLLEN_PLANT_VARIABLES) {
     const row = summarize(variable, bare)
     if (row.cls !== '') rows.push({ name: variableName(variable), ...row })
   }
   return rows
+}
+
+/**
+ * The row's days, as dots. Rings are easy days, filled dots the rest, in the
+ * level inks. A dashed tick is the easy level the verdict rests on, a solid
+ * one the trigger bound. Under it, the rate of easy days by band — cut at
+ * the population breakpoints where the data reaches them, else at the easy
+ * level — which is the shape of the evidence even when no single trigger can
+ * be isolated from it.
+ */
+function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry[] }) {
+  const points: StripPoint[] = diary
+    .filter((e) => e.exposure[row.variable] !== undefined)
+    .map((e) => ({
+      value: row.axis.to(e.exposure[row.variable]!),
+      rating: e.rating,
+      source: e.source,
+    }))
+  if (points.length === 0) {
+    return <div className="evidence-detail evidence-note">No day in your logs carries a reading for this.</div>
+  }
+  const marks = [row.marks.easy, row.marks.trigger].filter((m): m is number => m !== undefined)
+  const range = stripRange(points, marks)
+  const X0 = 6
+  const X1 = 334
+  const x = (v: number): number => X0 + ((v - range.lo) / (range.hi - range.lo)) * (X1 - X0)
+  const dots = stackDots(points, x, 7)
+  const prior = PRIORS[row.variable]
+  const edges = bandEdges(
+    [prior?.[2], prior?.[3]].map((e) => (e === undefined ? undefined : row.axis.to(e))),
+    row.marks.easy,
+    range,
+  )
+  const rates = bandRates(points, edges, row.axis.short)
+  // A strip that mixes eras says so: the order of days carries across
+  // instruments, the numbers do not (specs/27-one-ozone.md).
+  const eras = SOURCE_SCOPED_VARIABLES.has(row.variable)
+    ? [...new Set(points.map((p) => sourceWord(p.source)))]
+    : []
+  const eraNote =
+    eras.length > 1
+      ? eras
+          .map((era) => `${points.filter((p) => sourceWord(p.source) === era).length} on ${era}`)
+          .join(', ')
+      : null
+  const INK: Record<Rating, string> = { 1: 'var(--l1)', 2: 'var(--l2)', 3: 'var(--l3)', 4: 'var(--l4)' }
+  return (
+    <div className="evidence-detail">
+      <svg
+        className="evidence-strip"
+        viewBox="0 0 340 40"
+        role="img"
+        aria-label={`${points.length} days along the ${row.name.toLowerCase()} scale.${
+          rates.length ? ' ' + rates.map((r) => `${r.label}: ${r.easy} of ${r.total} easy.`).join(' ') : ''
+        }`}
+      >
+        <line x1={X0} y1={32} x2={X1} y2={32} stroke="var(--hairline)" strokeWidth={1} />
+        {row.marks.easy !== undefined && (
+          <line
+            x1={x(row.marks.easy)}
+            y1={6}
+            x2={x(row.marks.easy)}
+            y2={34}
+            stroke="var(--l2)"
+            strokeWidth={1}
+            strokeDasharray="3 3"
+          />
+        )}
+        {row.marks.trigger !== undefined && (
+          <line
+            x1={x(row.marks.trigger)}
+            y1={6}
+            x2={x(row.marks.trigger)}
+            y2={34}
+            stroke="var(--ink)"
+            strokeWidth={1}
+          />
+        )}
+        {dots.map(({ point, x: px, stack }, i) => {
+          const cy = 26 - stack * 7
+          return point.rating === 1 ? (
+            <circle
+              key={i}
+              cx={px.toFixed(1)}
+              cy={cy}
+              r={3.2}
+              fill="var(--card)"
+              stroke="var(--l2)"
+              strokeWidth={1.4}
+            />
+          ) : (
+            <circle key={i} cx={px.toFixed(1)} cy={cy} r={3.6} fill={INK[point.rating]} />
+          )
+        })}
+      </svg>
+      <div className="evidence-axis" aria-hidden="true">
+        <span>{row.axis.short(range.lo)}</span>
+        <span>{row.axis.short(range.hi)}</span>
+      </div>
+      {rates.length > 0 && (
+        <span className="evidence-rates">
+          {rates.map((r, i) => (
+            <Fragment key={r.label}>
+              {i > 0 && <span className="evidence-sep"> · </span>}
+              <b>{r.label}:</b> {r.easy} of {r.total} easy
+            </Fragment>
+          ))}
+        </span>
+      )}
+      {eraNote && (
+        <span className="evidence-note">
+          {eraNote}. The order of the days carries across; the numbers don&rsquo;t.
+        </span>
+      )}
+    </div>
+  )
 }
 
 /* --- conflicts --- */
