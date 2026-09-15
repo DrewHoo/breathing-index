@@ -502,8 +502,12 @@ Every learned bound therefore records the source it came
 from, and a source switch starts a **fresh bound set** for the variables that source measures
 (`SOURCE_SCOPED_VARIABLES` in engine config: the air-quality pollutants; weather comes from a
 different pipe and survives). The old set is retained, inert, never predicted from. Entries logged
-before the app recorded a source are not evidence of a switch and always count. Historical
-backfill is the eventual bridge between two bound sets.
+before the app recorded a source are not evidence of a switch and always count — in the live set
+and in every inert one, which is built by the same rule. An inert set also keeps the attributions
+and ambiguous days behind its bounds, so the Log screen can say what that era showed: "what your
+logs show" is a question about the logs, not a forecast, and it reads every era and reports the
+strongest verdict, tagged with the era it came from. Historical backfill is the eventual bridge
+between two bound sets.
 
 An entry the switch stripped (`amputated`) is a day the engine can only half see, and it is
 treated that way: what is left of it can raise a ceiling as an ambiguous constraint, but it can

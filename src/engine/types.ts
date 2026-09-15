@@ -131,6 +131,9 @@ export interface InertBounds {
   source: string
   tolerance: Bounds
   confirmed: Bounds
+  /** the attributions and ambiguous days behind them, so a screen can say what that era showed */
+  confirmations: Confirmation[]
+  constraints: AmbiguousConstraint[]
 }
 
 export interface TriggerModel {
