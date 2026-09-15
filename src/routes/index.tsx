@@ -1,5 +1,13 @@
 import { Link, createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Fragment, useEffect, useId, useMemo, useState, type ReactElement } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react'
 import type { GlossaryKey } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
 import { buildModel, predict, variableStatus } from '../engine/infer'
@@ -16,14 +24,15 @@ import { hasStoredDiary, loadDiary, saveDiary } from '../ui/diaryStorage'
 import { sentinelInLocalStorage } from '../ui/durability'
 import { InstallNudge } from '../ui/durabilityUi'
 import { newEntryId } from '../ui/entryId'
-import { evidence } from '../ui/evidence'
+import { ESTIMATE_ASIDE, evidence } from '../ui/evidence'
 import { exposureAgeMinutes, isEstimatedAge, isStale } from '../ui/freshness'
-import { useGlossaryHelp } from '../ui/help'
+import { useGlossaryHelp, useGoodHelp, type GoodReference } from '../ui/help'
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
   COMFORTABLE,
   DRY_SPORE_ESTIMATE,
+  EPA_GOOD_CEILING,
   FORECAST_MEANING,
   MODEL_OZONE_BIAS,
   MOLD_ESTIMATE,
@@ -312,13 +321,9 @@ function Home() {
         coldStart={coldStart}
         holdOut={showCard && chosenPlace && echo !== null}
         banked={coldStart ? heldOut.length : 0}
-      />
-      <WhyBlock
-        prediction={prediction}
         model={model}
         diary={modelDiary}
         diaryCount={diary.length}
-        coldStart={coldStart}
         nowCounting={released && !coldStart && modelDiary.length > 0 ? modelDiary.length : 0}
         estimated={current.estimated ?? []}
       />
@@ -448,7 +453,7 @@ function QuickLogCard({
       onAmend({ [key]: next.length ? next : undefined })
     }
     return (
-      <section className="card quicklog" key="saved">
+      <section className="quicklog" key="saved">
         <div className="quicklog-saved-row">
           <LevelPill level={saved.rating} variant="inline" />
           <div className="quicklog-saved-text">
@@ -506,7 +511,7 @@ function QuickLogCard({
   }
 
   return (
-    <section className={`card quicklog${coldStart ? ' cold' : ''}`} key="asking">
+    <section className="quicklog" key="asking">
       {coldStart ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span className="quicklog-question">How is your breathing?</span>
@@ -515,10 +520,7 @@ function QuickLogCard({
           </span>
         </div>
       ) : (
-        <div className="quicklog-ask-row">
-          <span className="quicklog-question">How is your breathing?</span>
-          <span className="quicklog-hint">one tap saves this air</span>
-        </div>
+        <span className="quicklog-question">How is your breathing?</span>
       )}
       <RatingRow onLog={onLog} />
     </section>
@@ -562,7 +564,7 @@ function OfflineLog({
 }) {
   if (saved) {
     return (
-      <section className="card quicklog" key="saved-offline">
+      <section className="quicklog" key="saved-offline">
         <div className="quicklog-saved-row">
           <LevelPill level={saved.rating} variant="inline" />
           <div className="quicklog-saved-text">
@@ -579,7 +581,7 @@ function OfflineLog({
     )
   }
   return (
-    <section className="card quicklog" key="asking-offline">
+    <section className="quicklog" key="asking-offline">
       <div className="quicklog-ask-row">
         <span className="quicklog-question">How is your breathing?</span>
         <span className="quicklog-hint">the air catches up later</span>
@@ -596,12 +598,26 @@ function ForecastBlock({
   coldStart,
   holdOut,
   banked,
+  model,
+  diary,
+  diaryCount,
+  nowCounting,
+  estimated,
 }: {
   prediction: Prediction
   coldStart: boolean
   holdOut: boolean
   /** entries logged today against a model that can't use them yet */
   banked: number
+  model: TriggerModel
+  /** the model diary: everything the forecast is allowed to use */
+  diary: DiaryEntry[]
+  /** the whole diary, held-out entries included */
+  diaryCount: number
+  /** entries released from the hold-out overnight, announced once */
+  nowCounting: number
+  /** today's estimated variables, so the sentence can admit to guessing */
+  estimated: string[]
 }) {
   const { floor, ceiling } = prediction
   const headline = coldStart
@@ -609,14 +625,22 @@ function ForecastBlock({
     : floor === ceiling
       ? `${BI_LABELS[ceiling].label}.`
       : `${BI_LABELS[floor].label}, maybe ${levelWord(ceiling)}.`
+  const meaning = coldStart
+    ? 'Averages for sensitive lungs — not you, yet.'
+    : FORECAST_MEANING[ceiling]
+  const { main, aside } = forecastReason(prediction, model, diary, diaryCount, coldStart, estimated)
   return (
     <section className="section">
       <SectionRule label="Forecast" note={coldStart ? 'unpersonalized' : undefined} />
       <div className="forecast-headline">{headline}</div>
-      <NumberLine floor={floor} ceiling={ceiling} coldStart={coldStart} />
-      <span className="forecast-meaning">
-        {coldStart ? 'Averages for sensitive lungs — not you, yet.' : FORECAST_MEANING[ceiling]}
-      </span>
+      <ForecastScale floor={floor} ceiling={ceiling} coldStart={coldStart} />
+      {/* What it means and why, one paragraph: the reason is part of the
+          forecast, not a section beside it, and a label of its own made it
+          read as a peer of "Forecast" rather than the forecast's own footing. */}
+      <p className="forecast-meaning">
+        {meaning} {main}
+      </p>
+      {aside && <span className="forecast-aside">{aside}</span>}
       {/* Only where it is predicted. A 4 the user logged is their own report. */}
       {ceiling === 4 && <span className="rescue-note">{RESCUE_CLAUSE}</span>}
       {holdOut && (
@@ -630,11 +654,72 @@ function ForecastBlock({
           {banked} {banked === 1 ? 'entry' : 'entries'} banked · starts counting tomorrow
         </span>
       )}
+      {nowCounting > 0 && (
+        <span className="why-new">
+          Now drawing on your {nowCounting} {nowCounting === 1 ? 'entry' : 'entries'}.
+        </span>
+      )}
     </section>
   )
 }
 
-function NumberLine({
+/**
+ * The forecast's footing, in the diary's voice. Before the diary can speak
+ * the sentence says where the ceiling comes from instead; after, it is the
+ * evidence line. The calendar caveat is the one aside left out: the pollen
+ * row under this block carries it as its own note, and the same sentence
+ * twice on one screen is what made the block hard to scan.
+ */
+function forecastReason(
+  prediction: Prediction,
+  model: TriggerModel,
+  diary: DiaryEntry[],
+  diaryCount: number,
+  coldStart: boolean,
+  estimated: string[],
+): { main: ReactNode; aside?: string } {
+  if (coldStart) {
+    if (diary.length === 0 && diaryCount > 0) {
+      return {
+        main: (
+          <>
+            Your first entries are from today, so they&rsquo;re held aside — today&rsquo;s rating
+            can&rsquo;t grade itself. Tomorrow they start driving this forecast.
+          </>
+        ),
+      }
+    }
+    if (diaryCount > 0) {
+      return {
+        main: (
+          <>
+            Every entry so far came with something else going on, so this ceiling still comes from
+            population breakpoints for sensitive groups.
+          </>
+        ),
+      }
+    }
+    return {
+      main: (
+        <>
+          No logs yet, so this ceiling comes from population breakpoints for sensitive groups. Every
+          entry you log replaces a piece of it with <em>you</em>.
+        </>
+      ),
+    }
+  }
+  const { main, aside } = evidence(prediction, model, diary, estimated)
+  return aside === undefined || aside === ESTIMATE_ASIDE ? { main } : { main, aside }
+}
+
+/**
+ * The forecast on the scale the reader just tapped: the four numerals sit on
+ * the same four columns as the log buttons above, each in its level ink, and
+ * a bracket under the likely span. No fill, because a filled bar reads as an
+ * amount and this is a range. Cold start draws the bracket dashed from 1 to
+ * the ceiling and lights only the ceiling, which is all the averages claim.
+ */
+function ForecastScale({
   floor,
   ceiling,
   coldStart,
@@ -643,17 +728,10 @@ function NumberLine({
   ceiling: Rating
   coldStart: boolean
 }) {
-  const x = (level: number): number => 10 + ((level - 1) * 320) / 3
-  const lo = coldStart ? 1 : floor
-  const inRange = RATINGS.filter((l) => l >= lo && l <= ceiling)
-  const bracket =
-    ceiling > lo
-      ? `M${x(lo)},19 V12 H${x(ceiling)} V19`
-      : `M${x(ceiling) - 12},19 V12 H${x(ceiling) + 12} V19`
+  const lo: Rating = coldStart ? 1 : floor
   return (
-    <svg
-      className="forecast-svg"
-      viewBox="0 0 340 50"
+    <div
+      className="forecast-scale"
       role="img"
       aria-label={
         coldStart
@@ -663,129 +741,28 @@ function NumberLine({
             : `Forecast: ${floor} to ${ceiling}, ${levelWord(floor)} to ${levelWord(ceiling)}, on a 1 to 4 scale.`
       }
     >
-      <line x1={10} y1={28} x2={330} y2={28} stroke="var(--rule)" strokeWidth={1.5} />
-      <line x1={10} y1={24} x2={10} y2={32} stroke="var(--rule)" strokeWidth={1.5} />
-      <line x1={330} y1={24} x2={330} y2={32} stroke="var(--rule)" strokeWidth={1.5} />
-      <path
-        d={bracket}
-        fill="none"
-        stroke={coldStart ? 'var(--l2)' : 'var(--ink)'}
-        strokeWidth={1.3}
-        strokeDasharray={coldStart ? '3 3' : undefined}
-      />
-      <text
-        x={(x(lo) + x(ceiling)) / 2}
-        y={9}
-        textAnchor="middle"
-        fontFamily="Instrument Sans, sans-serif"
-        fontStyle="italic"
-        fontSize={10}
-        fill={coldStart ? 'var(--secondary)' : 'var(--ink-2)'}
-      >
-        {coldStart ? 'at most' : 'likely'}
-      </text>
-      {coldStart ? (
-        <circle
-          cx={x(ceiling)}
-          cy={28}
-          r={5}
-          fill="var(--paper)"
-          stroke="var(--l2)"
-          strokeWidth={1.5}
+      <div className="scale-numerals">
+        {RATINGS.map((level) => {
+          const within = level >= lo && level <= ceiling
+          const emphasized = coldStart ? level === ceiling : within
+          return (
+            <span
+              key={level}
+              className={`scale-numeral${emphasized ? ' on' : ''}`}
+              style={emphasized ? { color: LEVEL_INK[level] } : undefined}
+            >
+              {level}
+            </span>
+          )
+        })}
+      </div>
+      <div className="scale-bracket-row">
+        <span
+          className={`scale-bracket${coldStart ? ' cold' : ''}`}
+          style={{ gridColumn: `${lo} / ${ceiling + 1}` }}
         />
-      ) : (
-        inRange.map((level) => (
-          <circle key={level} cx={x(level)} cy={28} r={5} fill={LEVEL_INK[level]} />
-        ))
-      )}
-      {RATINGS.map((level) => {
-        const within = level >= lo && level <= ceiling
-        const emphasized = coldStart ? level === ceiling : within
-        return (
-          <text
-            key={level}
-            x={x(level)}
-            y={46}
-            textAnchor="middle"
-            fontFamily="Spline Sans Mono, monospace"
-            fontSize={11}
-            fontWeight={emphasized ? 600 : 400}
-            fill={
-              !within
-                ? 'var(--l1)'
-                : !coldStart && level === ceiling
-                  ? 'var(--ink)'
-                  : 'var(--secondary)'
-            }
-          >
-            {level}
-          </text>
-        )
-      })}
-    </svg>
-  )
-}
-
-/* --- why --- */
-
-function WhyBlock({
-  prediction,
-  model,
-  diary,
-  diaryCount,
-  coldStart,
-  nowCounting,
-  estimated,
-}: {
-  prediction: Prediction
-  model: TriggerModel
-  /** the model diary: everything the forecast is allowed to use */
-  diary: DiaryEntry[]
-  /** the whole diary, held-out entries included */
-  diaryCount: number
-  coldStart: boolean
-  /** entries released from the hold-out overnight, announced once */
-  nowCounting: number
-  /** today's estimated variables, so the sentence can admit to guessing */
-  estimated: string[]
-}) {
-  if (coldStart) {
-    return (
-      <section className="section tight">
-        <SectionRule label="Why" />
-        <span className="why-text">
-          {diary.length === 0 && diaryCount > 0 ? (
-            <>
-              Your first entries are from today, so they&rsquo;re held aside — today&rsquo;s rating
-              can&rsquo;t grade itself. Tomorrow they start driving this forecast.
-            </>
-          ) : diaryCount > 0 ? (
-            <>
-              Every entry so far came with something else going on, so this ceiling still comes from
-              population breakpoints for sensitive groups.
-            </>
-          ) : (
-            <>
-              No logs yet, so this ceiling comes from population breakpoints for sensitive groups.
-              Every entry you log replaces a piece of it with <em>you</em>.
-            </>
-          )}
-        </span>
-      </section>
-    )
-  }
-  const { main, aside } = evidence(prediction, model, diary, estimated)
-  return (
-    <section className="section tight">
-      <SectionRule label="Why" />
-      {nowCounting > 0 && (
-        <span className="why-new">
-          Now drawing on your {nowCounting} {nowCounting === 1 ? 'entry' : 'entries'}.
-        </span>
-      )}
-      <span className="why-text">{main}</span>
-      {aside && <span className="why-aside">{aside}</span>}
-    </section>
+      </div>
+    </div>
   )
 }
 
@@ -834,6 +811,31 @@ interface AirRow {
   carried?: boolean[]
   /** "your easy level" (highest handled fine) in display units — the waterline */
   tol?: number
+  /**
+   * The instrument behind the number ("New Haven monitor", "model"), kept
+   * apart from `sub` so the table can name it once at the top when every row
+   * shares it and per row when they do not (specs/27-one-ozone.md).
+   */
+  source?: string
+  /**
+   * Where the sparkline's axis starts. Concentrations and counts start at
+   * zero, so a row's headroom under its reference line is a visible gap and
+   * a barely-present row draws flat instead of filling the plot; the dew
+   * point row, a temperature, has no zero worth drawing and leaves it unset.
+   */
+  floor?: number
+  /**
+   * Where the axis must reach even when nothing does: the top of an index
+   * ("4 of 5" belongs four-fifths of the way up, not at the top). Unset for
+   * a concentration, which has no ceiling of its own.
+   */
+  ceiling?: number
+  /**
+   * The top of the EPA's "Good" band, for a row whose diary has no easy level
+   * yet to draw instead. `span` spells out the window for the sheet the `?`
+   * opens ("24 hours").
+   */
+  guide?: { value: number; span: string }
   /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
   /**
@@ -965,10 +967,22 @@ function buildAirRows(
       meta.sub,
       WINDOW_LABELS[key],
       key === 'pm25' && likelySmoke && smokeDensity === 0 ? 'likely smoke' : null,
-      data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : 'model',
     ]
       .filter((part): part is string => Boolean(part))
       .join(' · ')
+  // The instrument, on the row rather than in its sub-label: the table names
+  // it once for everyone when every row agrees, and per row when they don't.
+  const sourceOf = (key: string): string =>
+    data.siteNames?.[key] ? `${data.siteNames[key]} monitor` : 'model'
+  // The EPA's Good ceiling, for the reference line a row draws before the
+  // diary has graded it. Only the pollutants the EPA publishes a band for.
+  const guideFor = (key: string): AirRow['guide'] => {
+    const value = EPA_GOOD_CEILING[key]
+    const window = WINDOW_LABELS[key]
+    if (value === undefined || window === undefined) return undefined
+    const hours = Number.parseInt(window, 10)
+    return { value, span: `${hours} ${hours === 1 ? 'hour' : 'hours'}` }
+  }
 
   // The one caveat on this screen that is about a region rather than a
   // reading, so it is gated on both: the number has to have come from the
@@ -1007,6 +1021,9 @@ function buildAirRows(
       status: { variable: key, value: reading },
       series: window.map((h) => h.raw[key] ?? null),
       tol: tolerance(key),
+      source: sourceOf(key),
+      floor: 0,
+      guide: guideFor(key),
     })
   }
 
@@ -1035,6 +1052,9 @@ function buildAirRows(
       status: { variable: 'so2', value: so2 },
       series: window.map((h) => h.raw.so2 ?? null),
       tol: tolerance('so2'),
+      source: sourceOf('so2'),
+      floor: 0,
+      guide: guideFor('so2'),
     })
   }
 
@@ -1064,6 +1084,8 @@ function buildAirRows(
       unit: meta.unit,
       status: { chip: NOT_GRADED },
       series: window.map((h) => h.raw.pm_coarse ?? null),
+      source: sourceOf('pm10'),
+      floor: 0,
     })
   }
 
@@ -1100,6 +1122,8 @@ function buildAirRows(
       // The ungated density, so the curve draws the plume overhead rather than
       // the hours the PM columns happened to have posted by.
       series: window.map((h) => h.raw.hms_density ?? null),
+      floor: 0,
+      ceiling: 3,
       tol: tolerance('smoke'),
     })
   }
@@ -1156,6 +1180,7 @@ function buildAirRows(
       // a day is what a once-a-morning instrument looks like on an hourly axis,
       // and smoothing it would be drawing hours nobody counted.
       series: window.map((h) => h.raw.mold ?? null),
+      floor: 0,
       carried: window.map((h) => h.carried?.includes('mold') ?? false),
       tol: tolerance('mold'),
     })
@@ -1181,6 +1206,7 @@ function buildAirRows(
       note: { text: DRY_SPORE_ESTIMATE },
       status: { variable: 'dry_spore_index', value: drySpore },
       series: window.map((h) => h.raw.dry_spore_index ?? null),
+      floor: 0,
       tol: tolerance('dry_spore_index'),
     })
   }
@@ -1222,6 +1248,8 @@ function buildAirRows(
       unit: 'of 5',
       status: { variable: top.variable, value: current.exposure[top.variable] ?? top.value },
       series: window.map((h) => h.pollenDisplay?.[type]?.value ?? 0),
+      floor: 0,
+      ceiling: 5,
       tol: tolerance(top.variable),
     })
   }
@@ -1427,45 +1455,58 @@ function AirTable({
 }) {
   const rows = buildAirRows(data, model, tempUnit, lat, lon)
   // One sheet for the whole surface — the rows and the two absent lines under
-  // them — rather than one per name (specs/30-glossary.md §3).
+  // them — rather than one per name (specs/30-glossary.md §3). The Good sheet
+  // is the same shape: one per screen, opened from whichever row drew the line.
   const { help, sheet } = useGlossaryHelp()
-  // The dash needs its legend only once a row actually draws a waterline.
-  const showWaterline = rows.some((r) => r.tol !== undefined)
+  const { goodHelp, goodSheet } = useGoodHelp()
+  // Every pollutant row names its instrument (specs/27-one-ozone.md). When
+  // every row that has one names the same instrument, the section names it
+  // once on the rule and the rows stop repeating it three times; the moment
+  // two rows would disagree, each says its own. Either way no number on the
+  // screen is unmarked.
+  const sources = new Set(rows.map((r) => r.source).filter((x): x is string => x !== undefined))
+  const shared = sources.size === 1 ? [...sources][0] : undefined
+  // The legend under the table names only the lines that are actually drawn.
+  const showEasy = rows.some((r) => r.tol !== undefined)
+  const showGood = rows.some((r) => r.tol === undefined && r.guide !== undefined)
   return (
     <section className="section" style={{ gap: 4 }}>
-      <SectionRule
-        label="In the air"
-        note={
-          <>
-            last 48 h → now
-            {showWaterline && (
-              <>
-                {' · '}
-                <span className="rule-dash" /> your easy level
-              </>
-            )}
-          </>
-        }
-        faint
-      />
+      <SectionRule label="In the air" note={shared ? `${shared} · last 48 h` : 'last 48 h'} faint />
       <div className="air-table">
         {rows.map((row) => {
           const status =
             'chip' in row.status
               ? { text: row.status.chip, cls: '' }
               : statusChip(model, row.status.variable, row.status.value)
+          const sub = [row.sub, shared ? undefined : row.source]
+            .filter((x): x is string => x !== undefined)
+            .join(' · ')
+          // The verdict names the level it was spoken against, so the number
+          // in the gutter and the sentence under the name are one claim.
+          const verdict =
+            'chip' in row.status
+              ? status.text
+              : row.tol !== undefined
+                ? `${status.text} · your easy level is ${Math.round(row.tol)}`
+                : status.text === 'no logs yet'
+                  ? status.text
+                  : `${status.text} · no easy level of yours yet`
+          const good: GoodReference | undefined =
+            row.tol === undefined && row.guide !== undefined
+              ? { name: row.name.toLowerCase(), value: row.guide.value, unit: row.unit, span: row.guide.span }
+              : undefined
           return (
             <div key={row.key} className="air-row">
               <div className="air-name-row">
                 <span className="air-name">{row.name}</span>
                 {help(row.help, row.name)}
-                {row.sub && <span className="air-sub">{row.sub}</span>}
+                {sub && <span className="air-sub">{sub}</span>}
                 <span className="air-spacer" />
                 <span className="air-value">
                   {row.value} <span className="air-unit">{row.unit}</span>
                 </span>
-                <span className={`air-status ${status.cls}`}>{status.text}</span>
               </div>
+              <span className={`air-status ${status.cls}`}>{verdict}</span>
               {row.note &&
                 (row.note.href ? (
                   <a className={`air-note${row.note.claim ? ' claim' : ''}`} href={row.note.href}>
@@ -1480,8 +1521,13 @@ function AirTable({
                 series={row.series}
                 carried={row.carried}
                 tol={row.tol}
+                guide={good ? row.guide : undefined}
+                floor={row.floor}
+                ceiling={row.ceiling}
                 invert={row.invert}
                 name={row.name}
+                goodHelp={good ? goodHelp(good) : undefined}
+                sayNoLevel={'chip' in row.status}
               />
               <div className="air-ticks" aria-hidden="true">
                 <span>−48 h</span>
@@ -1492,46 +1538,90 @@ function AirTable({
           )
         })}
       </div>
+      {(showEasy || showGood) && (
+        <span className="air-legend">
+          {showEasy && (
+            <>
+              <span className="rule-dash" /> your easy level, from your diary
+            </>
+          )}
+          {showEasy && showGood && ' · '}
+          {showGood && (
+            <>
+              <span className="rule-dot" /> EPA&rsquo;s &ldquo;Good&rdquo; ceiling, until you have one
+            </>
+          )}
+        </span>
+      )}
       <AbsentNames data={data} help={help} />
       {sheet}
+      {goodSheet}
     </section>
   )
 }
 
 /**
- * The row's last 48 hours against the personal waterline. The line is the
- * air; ink appears only between the line and the dashed easy level, so a
- * calm window is a bare line and the table's total ink literally equals
- * hours past this person. A row with no easy day logged yet has no
- * waterline to be past.
+ * The row's last 48 hours against its reference line. The line is the air;
+ * ink appears only between the line and the dashed easy level, so a calm
+ * window is a bare line and the table's total ink literally equals hours
+ * past this person. A row with no easy day logged yet draws the EPA's Good
+ * ceiling instead, dotted and in the AQI's own green, and a row with neither
+ * says so in the gutter.
+ *
+ * The axis starts at the row's floor (zero for anything measured in air) and
+ * reaches the reference line or the highest reading, whichever is higher, so
+ * the gap between the line and the air is headroom you can see, and a row
+ * that is barely present draws flat along the bottom instead of filling the
+ * plot with its own noise.
  */
 function AirSpark({
   series,
   carried,
   tol,
+  guide,
+  floor,
+  ceiling,
   invert,
   name,
+  goodHelp,
+  sayNoLevel,
 }: {
   series: (number | null)[]
   /** parallel to `series`: hours whose number is a copy of the last reading */
   carried?: boolean[]
   /** "your easy level" in the row's display units */
   tol?: number
+  /** the EPA's Good ceiling, drawn only when there is no easy level */
+  guide?: { value: number; span: string }
+  /** where the axis starts; unset means the lowest value in the window */
+  floor?: number
+  /** where the axis must reach regardless of the readings (an index's top) */
+  ceiling?: number
   /** dry side of the dew-point row: past-easy is below the waterline */
   invert?: boolean
   name: string
+  /** the `?` beside the Good label, from the table's one Good sheet */
+  goodHelp?: ReactElement
+  /**
+   * With no line to label, whether the gutter says so. Off where the verdict
+   * line under the name already says "no easy level of yours yet"; on for
+   * the rows that carry a chip instead ("not graded"), which say nothing.
+   */
+  sayNoLevel?: boolean
 }) {
   const clip = useId()
   const readings = series.filter((v): v is number => v !== null)
   if (readings.length < 2) return null
-  // Plot in x 2..300; the right gutter holds the waterline's ring + value.
+  // Plot in x 2..286; the right gutter holds the reference line's label.
   const X0 = 2
-  const X1 = 300
-  const Y0 = 5
-  const Y1 = 35
-  const values = tol === undefined ? readings : [...readings, tol]
-  let lo = Math.min(...values)
-  let hi = Math.max(...values)
+  const X1 = 286
+  const Y0 = 6
+  const Y1 = 42
+  const H = 48
+  const ref = tol ?? guide?.value
+  const values = ref === undefined ? readings : [...readings, ref]
+  let lo = floor ?? Math.min(...values)
+  let hi = Math.max(...values, ceiling ?? -Infinity)
   if (hi - lo < 1e-9) {
     lo -= 1
     hi += 1
@@ -1570,41 +1660,74 @@ function AirSpark({
   const line = runs.filter((r) => !r.carried).map((r) => trace(r.points)).join(' ')
   const copied = runs.filter((r) => r.carried).map((r) => trace(r.points)).join(' ')
   const endsCarried = carried?.[series.length - 1] ?? false
+  // The marker sits on the last hour that has a number, which is not always
+  // the last hour: AirNow publishes the NowCast before the raw hourly, so the
+  // current hour is routinely blank. Drawing it from `series[last]` put the
+  // dot at y(null) — coerced to zero, under the plot, detached from the line.
+  // A series that ends blank gets the same hollow marker as a carried one:
+  // the point is a reading, just not a fresh one.
+  const lastIndex = series.length - 1 - [...series].reverse().findIndex((v) => v !== null)
+  const lastValue = series[lastIndex]!
+  const endsBlank = lastIndex < series.length - 1
   const past = tol !== undefined && readings.some((v) => (invert ? v < tol : v > tol))
   const yTol = tol !== undefined ? y(tol) : 0
+  const yRef = ref !== undefined ? y(ref) : undefined
+  // The gutter label is HTML, not SVG text, so it wears the app's type and
+  // the `?` beside "Good" is a real button with a real target. It is centred
+  // on the line, except near either edge, where it hangs inside the plot.
+  const gutterStyle =
+    yRef === undefined
+      ? { bottom: 0, display: sayNoLevel ? undefined : 'none' }
+      : yRef < 14
+        ? { top: `${(yRef / H) * 100}%` }
+        : yRef > Y1 - 8
+          ? { top: `${(yRef / H) * 100}%`, transform: 'translateY(-100%)' }
+          : { top: `${(yRef / H) * 100}%`, transform: 'translateY(-50%)' }
   return (
-    <svg
-      className="air-spark"
-      viewBox="0 0 340 40"
-      role="img"
-      aria-label={
-        (tol === undefined
-          ? `${name}, past 48 hours.`
-          : `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
-              past ? ' The air was past it during this window.' : ''
-            }`) + (copied ? ' The dotted end is the last count carried forward, not a new one.' : '')
-      }
-    >
-      {past && (
-        <>
-          <clipPath id={clip}>
-            {invert ? (
-              <rect x={0} y={yTol} width={340} height={40 - yTol} />
-            ) : (
-              <rect x={0} y={0} width={340} height={yTol} />
-            )}
-          </clipPath>
-          <path
-            d={runs
-              .map(({ points }) => `${trace(points)} V${invert ? 0 : 40} H${points[0]!.x.toFixed(1)} Z`)
-              .join(' ')}
-            fill="var(--l3)"
-            clipPath={`url(#${clip})`}
-          />
-        </>
-      )}
-      {tol !== undefined && (
-        <>
+    <div className="air-spark-wrap">
+      <svg
+        className="air-spark"
+        viewBox={`0 0 340 ${H}`}
+        role="img"
+        aria-label={
+          (tol !== undefined
+            ? `${name}, past 48 hours; dashes mark your easy level, ${Math.round(tol)}.${
+                past ? ' The air was past it during this window.' : ''
+              }`
+            : guide !== undefined
+              ? `${name}, past 48 hours; dots mark the EPA's Good ceiling, ${guide.value}.`
+              : `${name}, past 48 hours.`) +
+          (copied ? ' The dotted end is the last count carried forward, not a new one.' : '') +
+          (endsBlank ? ' The latest hour has no reading yet; the marker is the last one taken.' : '')
+        }
+      >
+        <line
+          x1={(X0 + X1) / 2}
+          y1={Y0}
+          x2={(X0 + X1) / 2}
+          y2={Y1}
+          stroke="var(--hairline-light)"
+          strokeWidth={1}
+        />
+        {past && (
+          <>
+            <clipPath id={clip}>
+              {invert ? (
+                <rect x={0} y={yTol} width={340} height={H - yTol} />
+              ) : (
+                <rect x={0} y={0} width={340} height={yTol} />
+              )}
+            </clipPath>
+            <path
+              d={runs
+                .map(({ points }) => `${trace(points)} V${invert ? 0 : H} H${points[0]!.x.toFixed(1)} Z`)
+                .join(' ')}
+              fill="var(--l3)"
+              clipPath={`url(#${clip})`}
+            />
+          </>
+        )}
+        {tol !== undefined ? (
           <line
             x1={X0}
             y1={yTol}
@@ -1614,59 +1737,76 @@ function AirSpark({
             strokeWidth={1}
             strokeDasharray="3 3"
           />
+        ) : (
+          yRef !== undefined && (
+            <line
+              x1={X0}
+              y1={yRef}
+              x2={X1}
+              y2={yRef}
+              stroke="var(--good)"
+              strokeWidth={1}
+              strokeDasharray="1 3"
+              strokeLinecap="round"
+              opacity={0.85}
+            />
+          )
+        )}
+        {line && (
+          <path
+            d={line}
+            fill="none"
+            stroke="var(--ink-2)"
+            strokeWidth={1.75}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        )}
+        {copied && (
+          <path
+            d={copied}
+            fill="none"
+            stroke="var(--ink-2)"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeDasharray="0.1 4"
+          />
+        )}
+        {endsCarried || endsBlank ? (
           <circle
-            cx={X1 + 8}
-            cy={yTol}
+            cx={x(lastIndex)}
+            cy={y(lastValue)}
             r={3.5}
             fill="var(--paper)"
-            stroke="var(--secondary)"
+            stroke="var(--ink)"
             strokeWidth={1.5}
           />
-          <text
-            x={X1 + 16}
-            y={yTol + 3.5}
-            fontFamily="Spline Sans Mono, monospace"
-            fontSize={10}
-            fontWeight={600}
-            fill="var(--ink-2)"
-          >
-            {Math.round(tol)}
-          </text>
-        </>
-      )}
-      {line && (
-        <path
-          d={line}
-          fill="none"
-          stroke="var(--secondary)"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-      )}
-      {copied && (
-        <path
-          d={copied}
-          fill="none"
-          stroke="var(--secondary)"
-          strokeWidth={1.5}
-          strokeLinecap="round"
-          strokeDasharray="0.1 4"
-        />
-      )}
-      {endsCarried ? (
-        <circle
-          cx={x(series.length - 1)}
-          cy={y(series[series.length - 1]!)}
-          r={3.5}
-          fill="var(--paper)"
-          stroke="var(--ink)"
-          strokeWidth={1.5}
-        />
-      ) : (
-        <circle cx={x(series.length - 1)} cy={y(series[series.length - 1]!)} r={4} fill="var(--ink)" />
-      )}
-    </svg>
+        ) : (
+          <circle cx={x(lastIndex)} cy={y(lastValue)} r={4} fill="var(--ink)" />
+        )}
+      </svg>
+      <div
+        className={`spark-gutter${tol === undefined && guide !== undefined ? ' good' : ''}`}
+        style={gutterStyle}
+        aria-hidden={goodHelp ? undefined : true}
+      >
+        {tol !== undefined ? (
+          <>
+            <span className="spark-gutter-word">your easy</span>
+            <span className="spark-gutter-num">{Math.round(tol)}</span>
+          </>
+        ) : guide !== undefined ? (
+          <>
+            <span className="spark-gutter-word">
+              Good {goodHelp}
+            </span>
+            <span className="spark-gutter-num">{guide.value}</span>
+          </>
+        ) : (
+          <span className="spark-gutter-word">no level yet</span>
+        )}
+      </div>
+    </div>
   )
 }
 

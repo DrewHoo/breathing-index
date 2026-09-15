@@ -40,6 +40,10 @@
   --segment-on-bg: #ffffff;
   /* "does not add up ↑" — the one warm ink, deepened to clear 4.5:1 */
   --warn-link: #a15633;
+  /* the EPA's AQI "Good" green (#00e400), chroma pulled down until it clears
+     text contrast on paper — the one hue besides alarm, and only ever a
+     reference line and its label, never a verdict */
+  --good: #3f8a4a;
   --shadow: rgb(34 48 58 / 0.08);
   --sans: 'Instrument Sans', system-ui, -apple-system, sans-serif;
   --mono: 'Spline Sans Mono', ui-monospace, monospace;
@@ -89,6 +93,7 @@
     --knob: #dfe9ee;
     --segment-on-bg: #43525c;
     --warn-link: #e0956d;
+    --good: #62a86c;
     --shadow: rgb(0 0 0 / 0.4);
   }
 }
@@ -175,7 +180,10 @@ main {
   padding: max(14px, env(safe-area-inset-top)) 18px calc(84px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* Sections stand 22 px apart while a section's own lines sit 5–6 px apart.
+     At 10 px everywhere, the Why block read as a section of its own and the
+     whole screen was one even stack; the rhythm is what does the grouping. */
+  gap: 22px;
 }
 
 /* --- screen header --- */
@@ -251,8 +259,13 @@ h1 {
   gap: 10px;
 }
 
+/* Small caps, so a label and the 14 px sentence under it are never the same
+   size in different weights — that near-match was what made Today hard to
+   scan. Same register the glossary sheet's part labels already use. */
 .rule-label {
-  font: 600 12px var(--sans);
+  font: 600 11px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--secondary);
   flex: none;
 }
@@ -352,18 +365,16 @@ h1 {
   padding: 4px 14px;
 }
 
-/* --- quick-log card --- */
+/* --- quick log --- */
 
+/* No card. Paper, then a raised card, then bordered buttons inside it was
+   three layers for one question; the buttons now carry a flat fill on paper
+   and that is the whole surface. */
 .quicklog {
-  padding: 11px 14px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   animation: card-fade 150ms ease-out;
-}
-
-.quicklog.cold {
-  border-color: var(--rule);
 }
 
 @keyframes card-fade {
@@ -383,11 +394,12 @@ h1 {
 }
 
 .quicklog-question {
-  font: 600 14px var(--sans);
+  font: 600 15px var(--sans);
 }
 
+/* Offline only: the one hint the question still needs, that the air is coming. */
 .quicklog-hint {
-  font: 400 11.5px var(--sans);
+  font: 400 12px var(--sans);
   color: var(--secondary);
 }
 
@@ -403,19 +415,18 @@ h1 {
 
 .quicklog-button {
   flex: 1;
-  min-height: 44px;
-  border: 1px solid var(--hairline);
+  min-height: 48px;
+  background: var(--track);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1px;
-  background: none;
 }
 
 .quicklog-digit {
-  font: 600 15px var(--mono);
+  font: 600 16px var(--mono);
 }
 
 .quicklog-digit.d1 {
@@ -437,7 +448,7 @@ h1 {
 /* The word under the numeral is what teaches the scale — it was 9.5 px. */
 .quicklog-word {
   font: 500 12px var(--sans);
-  color: var(--secondary);
+  color: var(--ink-2);
 }
 
 .quicklog-saved-row {
@@ -535,18 +546,69 @@ h1 {
 /* --- forecast --- */
 
 .forecast-headline {
-  font: 600 23px/1.15 var(--sans);
+  font: 600 22px/1.15 var(--sans);
   letter-spacing: -0.015em;
 }
 
-.forecast-svg {
-  width: 100%;
-  height: 48px;
-  display: block;
+/*
+ * The forecast on the log's own scale: four numerals on the same four columns
+ * as the buttons above (same grid, same 8 px gap), a bracket under the likely
+ * span. Nothing is filled — a filled bar reads as an amount, and this is a
+ * range on a scale.
+ */
+.forecast-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
+.scale-numerals,
+.scale-bracket-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.scale-numeral {
+  text-align: center;
+  font: 400 15px var(--mono);
+  color: var(--l1);
+  opacity: 0.55;
+}
+
+/* The colour comes inline from the level ramp; this is the weight. */
+.scale-numeral.on {
+  font-weight: 600;
+  opacity: 1;
+}
+
+/* The bracket spans the whole columns of the likely range, the same width as
+   the buttons above it. Its ends are full quarter-circles rather than
+   corners: with square corners and 9 px legs it read as the bottom of a box,
+   not as a span. */
+.scale-bracket {
+  height: 7px;
+  border: 2px solid var(--ink);
+  border-top: none;
+  border-radius: 0 0 7px 7px;
+}
+
+/* Unpersonalized: the span is what the averages allow, not what the diary
+   says — the quiet ink, since a dashed border cannot follow the curve. */
+.scale-bracket.cold {
+  border-width: 1.5px;
+  border-color: var(--l2);
+}
+
+/* What it means and why, one paragraph — the sentence people actually read. */
 .forecast-meaning {
-  font: 400 12.5px/1.45 var(--sans);
+  margin: 0;
+  font: 400 14px/1.5 var(--sans);
+  color: var(--ink-2);
+}
+
+.forecast-aside {
+  font: italic 400 12.5px/1.5 var(--sans);
   color: var(--secondary);
 }
 
@@ -569,18 +631,6 @@ h1 {
   color: var(--accent);
 }
 
-/* --- why --- */
-
-.why-text {
-  font: 400 12.5px/1.5 var(--sans);
-  color: var(--ink-2);
-}
-
-.why-aside {
-  font: italic 400 12px var(--sans);
-  color: var(--secondary);
-}
-
 /* --- in the air --- */
 
 .air-table {
@@ -590,8 +640,8 @@ h1 {
 .air-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 0 7px;
+  gap: 3px;
+  padding: 10px 0 9px;
   border-bottom: 1px solid var(--hairline-light);
 }
 
@@ -602,15 +652,15 @@ h1 {
 .air-name-row {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: 7px;
 }
 
 .air-name {
-  font: 600 12.5px var(--sans);
+  font: 600 13.5px var(--sans);
 }
 
 .air-sub {
-  font: 400 11px var(--sans);
+  font: 400 11.5px var(--sans);
   color: var(--secondary);
 }
 
@@ -651,26 +701,24 @@ a.air-note {
   flex: 1;
 }
 
-/* The reading itself steps up to headline weight — with the range endpoints
-   gone, this is the only number left on the row's top line. */
+/* The reading: the only number on the row's top line, so name and number
+   are the whole line and the eye has one thing to find on the right. */
 .air-value {
-  font: 600 15px var(--mono);
+  font: 600 16px var(--mono);
   white-space: nowrap;
 }
 
 .air-unit {
   color: var(--secondary);
   font-size: 11px;
+  font-weight: 400;
 }
 
-/* The evidence verdict per row — the whole point of the table, previously
-   set at 10 px. Wide enough for "handled higher fine" at 12 px. */
+/* The evidence verdict per row — the whole point of the table. A line of its
+   own under the name rather than a second right-aligned item on the top line,
+   where it competed with the number for which of the two was the point. */
 .air-status {
-  width: 116px;
-  flex: none;
-  white-space: nowrap;
-  text-align: right;
-  font: 500 12px var(--sans);
+  font: 500 12.5px var(--sans);
   color: var(--secondary);
 }
 
@@ -688,29 +736,88 @@ a.air-note {
   color: var(--secondary);
 }
 
-/* 48 h of the row's air against the dashed easy-level waterline; the SVG
-   keeps its 340×40 aspect so strokes stay put across widths. */
+/* 48 h of the row's air against its reference line; the SVG keeps its
+   340×48 aspect so strokes stay put across widths. The wrapper is the frame
+   the gutter label is placed in. */
+.air-spark-wrap {
+  position: relative;
+  margin-top: 2px;
+}
+
 .air-spark {
   width: 100%;
   height: auto;
   display: block;
 }
 
-/* The plot stops at x=300 of 340 — the gutter holds the waterline value —
-   so "now" gets the same 40/340 inset to land under the end of the line. */
+/* The reference line's label, in the gutter to the right of the plot (the
+   plot stops at x=286 of 340, so the gutter is 54/340 of the width). Placed
+   by the sparkline at the line's own height. */
+.spark-gutter {
+  position: absolute;
+  right: 0;
+  width: 15.9%;
+  padding-left: 6px;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.spark-gutter-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font: 500 11px var(--sans);
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.spark-gutter-num {
+  font: 600 14px var(--mono);
+  color: var(--ink);
+}
+
+/* The EPA's word, in the EPA's colour: the label and the line are one thing. */
+.spark-gutter.good .spark-gutter-word,
+.spark-gutter.good .spark-gutter-num {
+  color: var(--good);
+}
+
+/* The `?` beside "Good": the same 44 px target as every other `?`, with the
+   padding handed back so the mark sits a hair off the word. */
+.spark-gutter .help {
+  margin: -15px -12px;
+}
+
+/* "now" gets the same 54/340 inset as the plot so it lands under the end of
+   the line. Ticks a step up from 9.5 px: the axis is read, not decoration. */
 .air-ticks {
   display: flex;
   justify-content: space-between;
-  padding-right: 11.8%;
-  font: 400 9.5px var(--mono);
-  color: var(--faint);
+  padding-right: 15.9%;
+  font: 400 10.5px var(--mono);
+  color: var(--secondary);
 }
 
-/* The legend's swatch for the waterline: a dash of the line itself. */
+/* The legend under the table, naming only the lines the rows actually drew. */
+.air-legend {
+  font: 400 11.5px/1.5 var(--sans);
+  color: var(--faint);
+  padding-top: 2px;
+}
+
+/* The legend's swatches: a dash of the waterline, a dot of the Good line. */
 .rule-dash {
   display: inline-block;
   width: 14px;
   border-top: 1px dashed var(--l2);
+  vertical-align: 3px;
+}
+
+.rule-dot {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px dotted var(--good);
   vertical-align: 3px;
 }
 

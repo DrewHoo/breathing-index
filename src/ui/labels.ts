@@ -42,6 +42,31 @@ export const FORECAST_MEANING: Record<Rating, string> = {
 
 export const levelWord = (r: Rating): string => BI_LABELS[r].label.toLowerCase()
 
+/**
+ * The top of the EPA's AQI "Good" band, per pollutant, in the row's display
+ * unit (µg/m³). A row whose diary has no easy level yet draws this as its
+ * reference line, labelled with the EPA's own word and a `?` that says whose
+ * word it is (see `useGoodHelp`).
+ *
+ * These are deliberately the EPA numbers and not the level-2 priors in
+ * `engine/config.ts`: the two agree for particles, but ozone's prior is the
+ * WHO 8-hour guideline (100), which is stricter than the EPA's Moderate
+ * threshold and is not what anyone means by "Good". A line labelled Good has
+ * to be the Good line.
+ *
+ * Sources: EPA AQI technical assistance document (2024 PM revision). Gas
+ * ceilings are the last ppb of the Good band converted at 25 °C / 1013 hPa
+ * with the same factors as scripts/derive-breakpoints.mjs (o3 ×1.96, so2 ×2.62).
+ *   pm25 24-h: 0.0–9.0 µg/m³ · pm10 24-h: 0–54 · o3 8-h: 0–54 ppb ≈ 106 ·
+ *   so2 1-h: 0–35 ppb ≈ 92
+ */
+export const EPA_GOOD_CEILING: Record<string, number> = {
+  pm25: 9,
+  pm10: 54,
+  o3: 106,
+  so2: 92,
+}
+
 export interface VariableLabel {
   /** display name ("Fine particles") */
   name: string

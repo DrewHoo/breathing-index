@@ -171,6 +171,93 @@ function HelpSheet({
 }
 
 /**
+ * What a reference line is allowed to call itself. A row whose diary has no
+ * easy level yet draws the top of the EPA's "Good" band instead, and the word
+ * is the EPA's, not the app's: the `?` beside it opens this sheet so nobody
+ * reads Good as good-for-you. One sheet per screen, like the glossary's.
+ */
+export interface GoodReference {
+  /** the row's name, lowercased into the sentence ("fine particles") */
+  name: string
+  /** the ceiling in display units */
+  value: number
+  unit: string
+  /** the span the number covers, spelled out ("24 hours") */
+  span: string
+}
+
+export function useGoodHelp(): {
+  goodHelp: (reference: GoodReference) => ReactElement
+  goodSheet: ReactElement
+} {
+  const [open, setOpen] = useState<GoodReference | null>(null)
+  const goodHelp = useCallback(
+    (reference: GoodReference) => (
+      <button
+        type="button"
+        className="help"
+        aria-label="About the EPA’s Good level"
+        onClick={() => setOpen(reference)}
+      >
+        ?
+      </button>
+    ),
+    [],
+  )
+  return {
+    goodHelp,
+    goodSheet: <GoodSheet reference={open} onClose={() => setOpen(null)} />,
+  }
+}
+
+function GoodSheet({
+  reference,
+  onClose,
+}: {
+  reference: GoodReference | null
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (reference && el && !el.open) el.showModal()
+  }, [reference])
+
+  if (!reference) return null
+  return (
+    <dialog
+      className="help-sheet"
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === ref.current) ref.current?.close()
+      }}
+    >
+      <div className="help-body">
+        <div className="help-head">
+          <div className="help-heading">
+            <h2 className="help-title">“Good” is the EPA’s word</h2>
+          </div>
+          <button type="button" className="help-close" onClick={() => ref.current?.close()}>
+            Close
+          </button>
+        </div>
+        <p className="help-part">
+          The top of the EPA’s Good band for {reference.name}, {reference.value} {reference.unit}{' '}
+          over {reference.span}. It is set for the general population, not for lungs that react,
+          so a day under it can still be a bad one for you.
+        </p>
+        <p className="help-part">
+          Once your diary has an easy day on this row, your own level replaces it.
+        </p>
+        <p className="help-disclaimer">{DISCLAIMER}</p>
+      </div>
+    </dialog>
+  )
+}
+
+/**
  * A part's body, in the same shape the generated page draws it: breathing as
  * the Evidence / How likely / What helps bullets, the source as a Monitor
  * bullet and a Model bullet where both apply, everything else a paragraph.

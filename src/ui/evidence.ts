@@ -8,8 +8,13 @@ export interface Evidence {
   aside?: string
 }
 
-/** What the Why line owes anyone whose pollen number came off a calendar. */
-const ESTIMATE_ASIDE =
+/**
+ * What the Why line owes anyone whose pollen number came off a calendar.
+ * Exported so the Today screen can recognise it: the pollen row under the
+ * forecast carries the same caveat as its own note, and the forecast block
+ * shows every other aside but not this one twice.
+ */
+export const ESTIMATE_ASIDE =
   'That pollen figure is a calendar estimate for your region, not a measurement.'
 
 const entryDate = (diary: DiaryEntry[], index: number | undefined): string =>
