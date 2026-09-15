@@ -766,36 +766,37 @@ a.air-note {
 }
 
 /* The reference line's label, in the gutter to the right of the plot (the
-   plot stops at x=286 of 340, so the gutter is 54/340 of the width). Placed
+   plot stops at x=262 of 340, so the gutter is 78/340 of the width). Placed
    by the sparkline at the line's own height. */
 .spark-gutter {
   position: absolute;
   right: 0;
-  width: 15.9%;
-  padding-left: 6px;
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
+  width: 22.9%;
+  padding-left: 8px;
+  line-height: 1.25;
 }
 
-.spark-gutter-word {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+/* One sentence in one font — a big numeral read as a callout on the marker
+   beside it. The paper background keeps the dashes running beneath the label
+   off the glyphs, cloned so every wrapped line gets its own. */
+.spark-gutter-label {
   font: 500 11px var(--sans);
   color: var(--secondary);
-  white-space: nowrap;
-}
-
-.spark-gutter-num {
-  font: 600 14px var(--mono);
-  color: var(--ink);
+  background: var(--paper);
+  padding: 1px 3px 1px 0;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* The EPA's word, in the EPA's colour: the label and the line are one thing. */
-.spark-gutter.good .spark-gutter-word,
-.spark-gutter.good .spark-gutter-num {
+.spark-gutter.good .spark-gutter-label {
   color: var(--good);
+}
+
+/* The diary's word, in the rating scale's own Easy colour — the same ink the
+   quicklog's "1" wears — so the label reads as the diary speaking. */
+.spark-gutter-label.easy {
+  color: var(--l1);
 }
 
 /* The `?` beside "Good": the same 44 px target as every other `?`, with the
@@ -804,24 +805,44 @@ a.air-note {
   margin: -15px -12px;
 }
 
-/* "now" gets the same 54/340 inset as the plot so it lands under the end of
+/* "now" gets the same 78/340 inset as the plot so it lands under the end of
    the line. Ticks a step up from 9.5 px: the axis is read, not decoration. */
 .air-ticks {
   display: flex;
   justify-content: space-between;
-  padding-right: 15.9%;
+  padding-right: 22.9%;
   font: 400 10.5px var(--mono);
   color: var(--secondary);
 }
 
-/* The legend under the table, naming only the lines the rows actually drew. */
+/* The legend under the table, naming only the lines the rows actually drew.
+   One entry per line: four swatch-plus-phrase pairs run together inline read
+   as one sentence to untangle. */
 .air-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   font: 400 11.5px/1.5 var(--sans);
   color: var(--faint);
   padding-top: 2px;
 }
 
-/* The legend's swatches: a dash of the waterline, a dot of the Good line. */
+/* The legend's swatches: the two lines, a dash of the waterline, a dot of
+   the Good line. */
+.rule-avg {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px solid var(--ink-2);
+  vertical-align: 3px;
+}
+
+.rule-live {
+  display: inline-block;
+  width: 14px;
+  border-top: 2px solid var(--l1-soft);
+  vertical-align: 3px;
+}
+
 .rule-dash {
   display: inline-block;
   width: 14px;
