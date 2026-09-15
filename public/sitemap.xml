@@ -6,6 +6,12 @@
   same HTML through the SPA 404 shim, and GitHub Pages returns them with a 404
   status. They canonicalise to the root instead. The /pollen and /glossary
   pages are content and carry their own canonical tags.
+
+  The glossary is thirteen of those: an index and a page per thing in the air,
+  one per question a person types (specs/36-glossary-pages.md). They are listed
+  in the air table's order rather than alphabetically, which is the order the
+  pages link each other in. A slug lives in src/content/glossary.ts, so a
+  rename shows up here as a URL that no longer matches a page.
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -28,7 +34,79 @@
   </url>
   <url>
     <loc>https://breathingindex.com/glossary/</loc>
-    <lastmod>2026-09-14</lastmod>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/fine-particles/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/ozone/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/sulfur-dioxide/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/coarse-particles/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/wildfire-smoke/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/mold-spores/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/dry-spore-conditions/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/tree-pollen/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/grass-pollen/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/weed-pollen/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/dew-point/</loc>
+    <lastmod>2026-09-15</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://breathingindex.com/glossary/colds-and-asthma/</loc>
+    <lastmod>2026-09-15</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

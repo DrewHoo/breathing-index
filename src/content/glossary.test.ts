@@ -4,10 +4,28 @@ import {
   GLOSSARY,
   GLOSSARY_ORDER,
   breathingBullets,
+  glossaryHref,
   glossaryKeyFor,
   sourceBullets,
   type GlossaryKey,
 } from './glossary'
+
+/**
+ * The rule from specs/30-glossary.md §5: the glossary explains a mechanism
+ * at the population level and never speaks about the reader's own day. The
+ * home screen refuses to name a cause for today; a glossary that said "this
+ * is why you feel bad right now" would undo that from the side door.
+ *
+ * A regex cannot check a rule like this, so this is a tripwire and not a
+ * proof: it catches the phrasing that actually tempts a writer — a second
+ * person and a *now* in the same sentence. Prose that reads as advice about
+ * today without tripping it is still a bug; this just makes the obvious
+ * version loud.
+ *
+ * Module scope because the page titles and descriptions obey it too, and they
+ * are checked in their own block.
+ */
+const SPEAKS_ABOUT_TODAY = /\b(you|your)\b[^.!?]*\b(today|your day|right now|tonight|this afternoon)\b/i
 
 describe('the entries', () => {
   it('has a name and a breathing paragraph on every entry, and no blank part', () => {
@@ -115,25 +133,64 @@ describe('the entries', () => {
 })
 
 describe('what the text may not say', () => {
-  /**
-   * The rule from specs/30-glossary.md §5: the glossary explains a mechanism
-   * at the population level and never speaks about the reader's own day. The
-   * home screen refuses to name a cause for today; a glossary that said "this
-   * is why you feel bad right now" would undo that from the side door.
-   *
-   * A regex cannot check a rule like this, so this is a tripwire and not a
-   * proof: it catches the phrasing that actually tempts a writer — a second
-   * person and a *now* in the same sentence. Prose that reads as advice about
-   * today without tripping it is still a bug; this just makes the obvious
-   * version loud.
-   */
-  const SPEAKS_ABOUT_TODAY = /\b(you|your)\b[^.!?]*\b(today|your day|right now|tonight|this afternoon)\b/i
-
   it('never puts a second person and a "now" in one sentence', () => {
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
       const text = [entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
       expect(text, `${key} speaks about the reader's day`).not.toMatch(SPEAKS_ABOUT_TODAY)
+    }
+  })
+})
+
+describe('the page each entry gets', () => {
+  /**
+   * specs/36-glossary-pages.md: one page per thing in the air, at a URL that
+   * reads as the question somebody types. `slug`, `title` and `description`
+   * are page metadata rather than entry copy — the part rules do not reach
+   * them — but a broken one is a page that ranks for nothing, and only the
+   * generator would ever notice.
+   */
+
+  // Vite inlines the file at build time, so the sitemap can be read without
+  // Node's fs (the test config has no Node types), the same trick the photo
+  // check uses on the image directory.
+  const SITEMAP = Object.values(
+    import.meta.glob('../../public/sitemap.xml', { query: '?raw', import: 'default', eager: true }),
+  )[0] as string
+
+  it('has a slug that can be both a directory and a URL', () => {
+    for (const key of GLOSSARY_ORDER) {
+      expect(GLOSSARY[key].slug, `${key} slug`).toMatch(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/)
+      expect(glossaryHref(key), `${key} href`).toBe(`/glossary/${GLOSSARY[key].slug}/`)
+    }
+  })
+
+  it('gives every entry a slug of its own', () => {
+    const slugs = GLOSSARY_ORDER.map((key) => GLOSSARY[key].slug)
+    expect(new Set(slugs).size, slugs.join(' ')).toBe(slugs.length)
+  })
+
+  it('keeps the title and the description inside what a search result shows', () => {
+    for (const key of GLOSSARY_ORDER) {
+      const entry = GLOSSARY[key]
+      // The site name the generator appends is part of what gets cut off.
+      expect(`${entry.title} — Breathing Index`.length, `${key} title`).toBeLessThanOrEqual(60)
+      expect(entry.description.trim(), `${key} description`).not.toBe('')
+      expect(entry.description.length, `${key} description`).toBeLessThan(155)
+      expect(`${entry.title} ${entry.description}`, `${key} speaks about the reader's day`).not.toMatch(
+        SPEAKS_ABOUT_TODAY,
+      )
+    }
+  })
+
+  it('lists every page in the sitemap', () => {
+    // The sitemap is written by hand and the slugs are not, so this is the
+    // only thing standing between a rename and a URL that 404s in Search
+    // Console.
+    for (const key of GLOSSARY_ORDER) {
+      expect(SITEMAP, `${key} is missing from public/sitemap.xml`).toContain(
+        `<loc>https://breathingindex.com${glossaryHref(key)}</loc>`,
+      )
     }
   })
 })

@@ -3,6 +3,7 @@ import {
   GLOSSARY,
   GLOSSARY_PARTS,
   breathingBullets,
+  glossaryHref,
   sourceBullets,
   type GlossaryEntry,
   type GlossaryKey,
@@ -95,9 +96,11 @@ function HelpButton({
  * parent's state is cleared by the `close` event rather than by three
  * handlers that have to agree with each other.
  *
- * "Full glossary →" is a plain anchor, not a router link: `/glossary` is a
- * document served off disk like /privacy, and a `<Link>` would ask the router
- * for a route that does not exist.
+ * "Full glossary →" is a plain anchor, not a router link: the glossary is a
+ * set of documents served off disk like /privacy, and a `<Link>` would ask the
+ * router for a route that does not exist. It lands on the entry's own page
+ * rather than an anchor on one long one (specs/36-glossary-pages.md), and the
+ * word stays true because that page carries the rail to the other eleven.
  */
 function HelpSheet({
   entryKey,
@@ -162,7 +165,7 @@ function HelpSheet({
           )
         })}
         <p className="help-disclaimer">{DISCLAIMER}</p>
-        <a className="help-full" href={`/glossary#${entryKey}`}>
+        <a className="help-full" href={glossaryHref(entryKey)}>
           Full glossary →
         </a>
       </div>
