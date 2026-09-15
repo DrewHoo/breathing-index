@@ -4,7 +4,7 @@ Single version per surface. All lengths verified by character count.
 
 **Standing rule for every outward surface below:** none of them says the app
 *predicts* the user's day. The forecast range is real and can be described, but
-it is described as what the user's own logged days expect from air like today's,
+it is described as how today compares to the user's own logged days,
 never as what will happen to the user. A tool that predicts a health state for a
 patient is making a device claim (FDA General Wellness guidance, January 2026),
 and "predicts" is separately a trigger in Google Play's health-content policy and
@@ -31,7 +31,7 @@ learned from your own symptom diary.                 (36)
 
 ### 3. Meta description (≤160 chars)
 
-> Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and says what that diary expects from air like today's.
+> Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and tells you how today compares.
 
 (151)
 
@@ -47,7 +47,7 @@ learned from your own symptom diary.                 (36)
 
 ### 5. PWA manifest description (one sentence)
 
-> A personal air index that learns your triggers from your own symptom diary and shows what that diary expects from air like today's, on a four-level scale from 1 (Easy) to 4 (Dangerous).
+> A personal air index that learns your triggers from your own symptom diary and tells you how today compares, on a four-level scale from 1 (Easy) to 4 (Dangerous).
 
 ### 6. og:image:alt (one sentence)
 
@@ -55,7 +55,7 @@ learned from your own symptom diary.                 (36)
 
 ### 7. Project-card blurb for drewhoover.com (≤280 chars)
 
-> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and says what that diary expects from air like today's, on a four-level scale from 1 (easy) to 4 (dangerous).
+> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and tells you how today compares, on a four-level scale from 1 (easy) to 4 (dangerous).
 
 (226)
 
