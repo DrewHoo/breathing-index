@@ -104,6 +104,13 @@ export interface AmbiguousConstraint {
    * combination suggests the level without guaranteeing it: ceiling, no floor.
    */
   estimated?: boolean
+  /**
+   * The day had pollutants stripped by a source switch, so this set is only
+   * the part of the day the engine can still see. It may raise a ceiling
+   * ("this was up, company unknown") and never set a floor: repeating what
+   * is left is not repeating the day.
+   */
+  amputated?: boolean
 }
 
 export type ConflictKind = 'superseded' | 'unmodeled-trigger' | 'sensitivity-shift'
