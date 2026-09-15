@@ -8,7 +8,7 @@ import { POLLEN_PLANTS } from '../sources/pollenPlants'
  * change those three too.
  */
 export const DISCLAIMER =
-  'Breathing Index is a logbook lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.'
+  'Breathing Index is a breathing lens on public air data — not medical advice. Trust your symptoms and your asthma action plan over anything on this screen.'
 
 /**
  * The extra clause a *predicted* 4 carries. A logged 4 is the user reporting

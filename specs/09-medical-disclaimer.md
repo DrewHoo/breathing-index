@@ -13,7 +13,7 @@ a solo project.
 
 ## Design
 
-1. **One canonical sentence,** written once, reused verbatim: "Breathing Index is a diary lens
+1. **One canonical sentence,** written once, reused verbatim: "Breathing Index is a breathing lens
    on public air data — not medical advice. Trust your symptoms and your asthma action plan
    over anything on this screen."
 2. **Placement:** intro (small, above the CTA), Settings footer, and the `index.html` noscript/
