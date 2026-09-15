@@ -159,7 +159,7 @@ function SettingsScreen() {
           <div className="settings-row tall">
             <div className="settings-row-sub">
               <span className="settings-row-label">Open-Meteo model</span>
-              <span className="settings-row-hint">drives predictions · worldwide, no key</span>
+              <span className="settings-row-hint">drives the forecast · worldwide, no key</span>
             </div>
             <span className="settings-row-hint">default</span>
           </div>
@@ -167,7 +167,7 @@ function SettingsScreen() {
             <div className="settings-row-sub">
               <span className="settings-row-label">AirNow stations</span>
               <span className="settings-row-hint">
-                US only · drives predictions where a monitor is near
+                US only · drives the forecast where a monitor is near
               </span>
             </div>
             <button

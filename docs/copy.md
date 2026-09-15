@@ -2,6 +2,16 @@
 
 Single version per surface. All lengths verified by character count.
 
+**Standing rule for every outward surface below:** none of them says the app
+*predicts* the user's day. The forecast range is real and can be described, but
+it is described as what the user's own logged days expect from air like today's,
+never as what will happen to the user. A tool that predicts a health state for a
+patient is making a device claim (FDA General Wellness guidance, January 2026),
+and "predicts" is separately a trigger in Google Play's health-content policy and
+Apple's medical-device declaration. Engine vocabulary is deliberately untouched:
+`predict()`, `Prediction`, `SPEC.md` and `docs/trigger-model.md` still say
+prediction, because that is the operation the code performs and no user reads it.
+
 ---
 
 ## A. Headline surfaces
@@ -21,9 +31,9 @@ learned from your own symptom diary.                 (36)
 
 ### 3. Meta description (≤160 chars)
 
-> Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and predicts your day on a personal four-level scale.
+> Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and says what that diary expects from air like today's.
 
-(149)
+(151)
 
 ---
 
@@ -31,13 +41,13 @@ learned from your own symptom diary.                 (36)
 
 ### 4. OG/Twitter description (~200 chars max)
 
-> The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and predicts your day on a 1–4 scale.
+> The composite AQI reduces all pollutants to one number. Breathing Index shows each exposure variable separately, learns your triggers from your symptom diary, and reads a 1–4 off your own days in air like today's.
 
-(196)
+(213)
 
 ### 5. PWA manifest description (one sentence)
 
-> A personal air index that learns your triggers from your own symptom diary and predicts your day on a four-level scale, from 1 (Easy) to 4 (Dangerous).
+> A personal air index that learns your triggers from your own symptom diary and shows what that diary expects from air like today's, on a four-level scale from 1 (Easy) to 4 (Dangerous).
 
 ### 6. og:image:alt (one sentence)
 
@@ -45,15 +55,15 @@ learned from your own symptom diary.                 (36)
 
 ### 7. Project-card blurb for drewhoover.com (≤280 chars)
 
-> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and predicts your day on a four-level scale, from 1 (easy) to 4 (dangerous).
+> A personal air quality index. Shows each pollutant separately, learns which ones affect you from your symptom diary, and says what that diary expects from air like today's, on a four-level scale from 1 (easy) to 4 (dangerous).
 
-(192)
+(226)
 
 ### 8. Project-card body (2 short paragraphs, markdown)
 
 The composite AQI collapses every pollutant into one number with population-calibrated labels. The project started with a concrete failure of that design: air labeled "insufficient" in Amsterdam (Dutch LKI 7–8) was manageable for the same asthmatic lungs that struggled in Hamden, CT under a US AQI of 70, labeled "Moderate."
 
-Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It predicts the day on a four-level behavioral scale, 1 (Easy) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
+Breathing Index shows every exposure variable (pollutants, heat, humidity) and marks each by what the user's symptom diary establishes about it: confirmed trigger, suspected, or tolerated. It says what the diary expects from air like today's, on a four-level behavioral scale, 1 (Easy) to 4 (Dangerous). When several candidates are elevated at once, it reports the ambiguity instead of attributing the day to one of them; later diary entries resolve it. A scoreboard view compares the official composite indices against the logged ratings.
 
 ---
 

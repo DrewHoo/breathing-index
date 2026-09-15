@@ -71,8 +71,8 @@ function Intro() {
       </p>
       <p className="intro-body">
         This app cares about what your lungs think. Rate your breathing from 1 to 4,
-        and the app learns your triggers. Once it has a decent baseline, it'll start telling you what tomorrow will
-        feel like:
+        and the app learns your triggers. Once it has a decent baseline, it'll start showing
+        you what your own logs expect from air like tomorrow's:
       </p>
       <div className="intro-levels">
         {LEVELS.map((level) => (
