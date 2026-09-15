@@ -19,10 +19,7 @@ import { loadDiary, saveDiary } from '../ui/diaryStorage'
 import { conflictKey, dismissConflict, dismissedConflicts } from '../ui/dismissed'
 import { BackupChip } from '../ui/durabilityUi'
 import {
-  bandEdges,
-  bandRates,
   sourceTag,
-  sourceWord,
   stackDots,
   stripRange,
   type StripPoint,
@@ -502,7 +499,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
     .map((e) => ({
       value: row.axis.to(e.exposure[row.variable]!),
       rating: e.rating,
-      source: e.source,
     }))
   if (points.length === 0) {
     return <div className="evidence-detail evidence-note">No day in your logs carries a reading for this.</div>
@@ -513,24 +509,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
   const X1 = 334
   const x = (v: number): number => X0 + ((v - range.lo) / (range.hi - range.lo)) * (X1 - X0)
   const dots = stackDots(points, x, 7)
-  const prior = PRIORS[row.variable]
-  const edges = bandEdges(
-    [prior?.[2], prior?.[3]].map((e) => (e === undefined ? undefined : row.axis.to(e))),
-    row.marks.easy,
-    range,
-  )
-  const rates = bandRates(points, edges, row.axis.short)
-  // A strip that mixes eras says so: the order of days carries across
-  // instruments, the numbers do not (specs/27-one-ozone.md).
-  const eras = SOURCE_SCOPED_VARIABLES.has(row.variable)
-    ? [...new Set(points.map((p) => sourceWord(p.source)))]
-    : []
-  const eraNote =
-    eras.length > 1
-      ? eras
-          .map((era) => `${points.filter((p) => sourceWord(p.source) === era).length} on ${era}`)
-          .join(', ')
-      : null
   const INK: Record<Rating, string> = { 1: 'var(--l1)', 2: 'var(--l2)', 3: 'var(--l3)', 4: 'var(--l4)' }
   return (
     <div className="evidence-detail">
@@ -538,9 +516,7 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
         className="evidence-strip"
         viewBox="0 0 340 40"
         role="img"
-        aria-label={`${points.length} days along the ${row.name.toLowerCase()} scale.${
-          rates.length ? ' ' + rates.map((r) => `${r.label}: ${r.easy} of ${r.total} easy.`).join(' ') : ''
-        }`}
+        aria-label={`${points.length} days along the ${row.name.toLowerCase()} scale.`}
       >
         <line x1={X0} y1={32} x2={X1} y2={32} stroke="var(--hairline)" strokeWidth={1} />
         {row.marks.easy !== undefined && (
@@ -585,17 +561,6 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
         <span>{row.axis.short(range.lo)}</span>
         <span>{row.axis.short(range.hi)}</span>
       </div>
-      {rates.length > 0 && (
-        <span className="evidence-rates">
-          {rates.map((r, i) => (
-            <Fragment key={r.label}>
-              {i > 0 && <span className="evidence-sep"> · </span>}
-              <b>{r.label}:</b> {r.easy} of {r.total} easy
-            </Fragment>
-          ))}
-        </span>
-      )}
-      {eraNote && <span className="evidence-note">{eraNote}.</span>}
     </div>
   )
 }
