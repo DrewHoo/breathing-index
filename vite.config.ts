@@ -20,6 +20,7 @@ const PUBLIC_DOCUMENTS: Record<string, string> = {
   '/glossary': '/glossary/index.html',
   '/pollen': '/pollen/index.html',
   '/pollen/calendar': '/pollen/calendar.html',
+  '/asthma-logbook': '/asthma-logbook/index.html',
 }
 
 /**
@@ -85,7 +86,13 @@ export default defineConfig({
         // documents served off disk, not app routes. Without this the
         // navigation fallback answers them from the precached index.html and
         // an installed PWA never sees them.
-        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/pollen/, /^\/glossary/],
+        navigateFallbackDenylist: [
+          /^\/privacy/,
+          /^\/terms/,
+          /^\/pollen/,
+          /^\/glossary/,
+          /^\/asthma-logbook/,
+        ],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/(air-quality-api|api)\.open-meteo\.com\/.*/,
