@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { VARIABLE_LABELS } from '../ui/labels'
-import { GLOSSARY, GLOSSARY_ORDER, glossaryKeyFor, type GlossaryKey } from './glossary'
+import {
+  GLOSSARY,
+  GLOSSARY_ORDER,
+  breathingBullets,
+  glossaryKeyFor,
+  sourceBullets,
+  type GlossaryKey,
+} from './glossary'
 
 describe('the entries', () => {
   it('has a name and a breathing paragraph on every entry, and no blank part', () => {
@@ -49,6 +56,53 @@ describe('the entries', () => {
         expect(entry.window, `${key} window starts with the index`).toMatch(/^Your Breathing Index /)
         expect(entry.window, `${key} window gives a reason`).toMatch(/\b(since|because|there isn’t a cumulative)\b/)
       }
+    }
+  })
+
+  it('draws the breathing part as Evidence / How likely / What helps bullets', () => {
+    for (const key of GLOSSARY_ORDER) {
+      const bullets = breathingBullets(GLOSSARY[key])
+      const leads = bullets.map((b) => b.lead)
+      expect(leads[0], `${key} leads with evidence`).toBe('Evidence')
+      expect(leads, `${key} says what helps`).toContain('What helps')
+      if (key !== 'viral') expect(leads, `${key} says how likely`).toContain('How likely')
+      // No bullet is blank, and the split lost no words (case aside: a bullet
+      // capitalizes the word after its lead).
+      const joined = bullets.map((b) => b.text.toLowerCase()).join(' ')
+      for (const word of GLOSSARY[key].breathing.replace(/How likely:|What helps:/g, '').split(/\s+/)) {
+        expect(joined, `${key} keeps "${word}"`).toContain(word.toLowerCase())
+      }
+    }
+  })
+
+  it('splits a monitor-or-model source into two bullets and leaves the rest whole', () => {
+    expect(sourceBullets(GLOSSARY.pm25)).toHaveLength(2)
+    expect(sourceBullets(GLOSSARY.pm25)[0]).toMatch(/^A monitor/)
+    expect(sourceBullets(GLOSSARY.pm25)[1]).toMatch(/^Otherwise a model:/)
+    // The trailing caveat rides with the model, not as a third bullet.
+    expect(sourceBullets(GLOSSARY.o3)[1]).toContain('runs high')
+    expect(sourceBullets(GLOSSARY.mold)).toHaveLength(1)
+    expect(sourceBullets(GLOSSARY.viral)).toEqual([])
+  })
+
+  // Vite resolves the glob at build time, so this is the directory as it is,
+  // without Node's fs (the test config has no Node types).
+  const PHOTOS_ON_DISK = Object.keys(import.meta.glob('../../public/glossary/img/*.jpg')).map(
+    (path) => path.slice(path.lastIndexOf('/') + 1),
+  )
+
+  it('has a photograph on disk and a credited caption for every thing in the air', () => {
+    for (const key of GLOSSARY_ORDER) {
+      const entry = GLOSSARY[key]
+      if (key === 'viral') {
+        expect(entry.image, 'Sick is not a thing in the air').toBeUndefined()
+        continue
+      }
+      expect(entry.image, `${key} has a photo`).toBeDefined()
+      expect(entry.meta, `${key} has a meta line`).toBeDefined()
+      expect(PHOTOS_ON_DISK, `${key} photo file`).toContain(entry.image!.src)
+      // A credit is a name or an agency plus the license or "public domain".
+      expect(entry.image!.caption, `${key} caption carries a license`).toMatch(/public domain|CC BY/)
     }
   })
 

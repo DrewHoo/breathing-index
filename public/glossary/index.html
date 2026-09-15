@@ -48,24 +48,62 @@
       }
 
       .gl-entry {
-        margin: 0 0 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin: 26px 0 0;
+        padding-top: 18px;
+        border-top: 1px solid var(--rule);
         /* the sheet's "Full glossary →" lands on #key; don't tuck it under the
            top of the viewport */
         scroll-margin-top: 14px;
       }
 
+      /* The name is a real heading, a size up from the body it introduces;
+         the mono line under it carries the symbol, the unit and the span. */
       .gl-entry h2 {
-        font: 600 16px/1.3 var(--sans);
-        letter-spacing: -0.01em;
+        font: 600 24px/1.15 var(--sans);
+        letter-spacing: -0.02em;
         text-transform: none;
         color: var(--ink);
-        margin: 0 0 8px;
-        padding-bottom: 5px;
-        border-bottom: 1px solid var(--hairline);
+        margin: 0;
+        padding: 0;
+        border: none;
+      }
+
+      .gl-meta {
+        font: 500 11px/1.4 'Spline Sans Mono', ui-monospace, monospace;
+        letter-spacing: 0.01em;
+        color: var(--secondary);
+        margin: -8px 0 0;
+      }
+
+      .gl-figure {
+        margin: 4px 0 0;
+      }
+
+      .gl-figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 3 / 2;
+        object-fit: cover;
+        border-radius: 8px;
+        background: var(--hairline);
+      }
+
+      .gl-figure figcaption {
+        font: 400 11px/1.5 var(--sans);
+        color: var(--faint);
+        margin-top: 6px;
       }
 
       .gl-part {
-        margin: 0 0 8px;
+        margin: 0;
+      }
+
+      .gl-part p {
+        margin: 3px 0 0;
       }
 
       .gl-label {
@@ -74,6 +112,29 @@
         letter-spacing: 0.07em;
         text-transform: uppercase;
         color: var(--faint);
+      }
+
+      .gl-list {
+        margin: 6px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .gl-list li {
+        position: relative;
+        padding-left: 15px;
+        margin: 0 0 8px;
+      }
+
+      .gl-list li::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 8px;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--secondary);
       }
 
       .gl-intro {
@@ -106,84 +167,333 @@
       <!-- begin generated: glossary-entries — by scripts/generate-glossary.mjs; edit src/content/glossary.ts, not here -->
       <section class="gl-entry" id="pm25">
         <h2>Fine particles</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Particles smaller than 2.5 µm (micrometers, millionths of a meter): smoke, exhaust, and particles that form in the air from gases. Small enough to reach the deepest parts of the lung.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-room studies: asthma visits rise about 4 % for every 10 µg/m³ (micrograms per cubic meter of air), and wildfire smoke hits harder per microgram than city particles do. How likely: in most of the US, most days sit under 10 µg/m³, where the effect is small. The days that matter are smoke days and still winter days when the air does not move. What helps: particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index uses the average of the last 24 hours of measurements, since the health studies and the official limits are daily, and one bad hour says less than a bad day.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow. Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch.</p>
+        <p class="gl-meta">PM2.5 · µg/m³ · 24-h average</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/pm25.jpg" alt="A human hair beside fine and coarse particles, drawn to scale" width="720" height="480" loading="lazy" />
+          <figcaption>Fine and coarse particles beside a human hair, drawn to scale. EPA, public domain.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Particles smaller than 2.5 µm (micrometers, millionths of a meter): smoke, exhaust, and particles that form in the air from gases. Small enough to reach the deepest parts of the lung.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Seen in emergency-room studies: asthma visits rise about 4 % for every 10 µg/m³ (micrograms per cubic meter of air), and wildfire smoke hits harder per microgram than city particles do.</li>
+            <li><strong>How likely.</strong> In most of the US, most days sit under 10 µg/m³, where the effect is small. The days that matter are smoke days and still winter days when the air does not move.</li>
+            <li><strong>What helps.</strong> Particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index uses the average of the last 24 hours of measurements, since the health studies and the official limits are daily, and one bad hour says less than a bad day.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <ul class="gl-list">
+            <li>A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow.</li>
+            <li>Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch.</li>
+          </ul>
+        </div>
       </section>
       <section class="gl-entry" id="o3">
         <h2>Ozone</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Ozone at ground level, made from traffic exhaust and heat in sunlight. Peaks mid-afternoon.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Shown in lab studies: lung function drops and airways inflame after hours at about 120 µg/m³ (micrograms per cubic meter of air), below the US standard of about 140, and exercise multiplies the dose because you breathe more of it. The effect lags by hours. How likely: a summer-afternoon problem, worst downwind of big cities, and winter has none. What helps: ozone is a gas, so an ordinary mask does nothing, but it is low indoors and low in the morning, so hard exercise before noon or inside avoids most of the dose. A daily controller inhaler blunts the inflammation; a rescue inhaler treats the tightness after the fact.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index uses the average of the last 8 hours of measurements, since the damage builds over hours of breathing it and shows up hours later; the US standard uses the same 8-hour span.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow. Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch. For ozone the model runs high in the eastern US in summer.</p>
+        <p class="gl-meta">O₃ · µg/m³ · 8-h average</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/o3.jpg" alt="A city skyline in afternoon haze" width="720" height="480" loading="lazy" />
+          <figcaption>Afternoon haze over a city skyline. Photo: Ernst Halberstadt, public domain, via the Digital Public Library of America.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Ozone at ground level, made from traffic exhaust and heat in sunlight. Peaks mid-afternoon.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Shown in lab studies: lung function drops and airways inflame after hours at about 120 µg/m³ (micrograms per cubic meter of air), below the US standard of about 140, and exercise multiplies the dose because you breathe more of it. The effect lags by hours.</li>
+            <li><strong>How likely.</strong> A summer-afternoon problem, worst downwind of big cities, and winter has none.</li>
+            <li><strong>What helps.</strong> Ozone is a gas, so an ordinary mask does nothing, but it is low indoors and low in the morning, so hard exercise before noon or inside avoids most of the dose. A daily controller inhaler blunts the inflammation; a rescue inhaler treats the tightness after the fact.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index uses the average of the last 8 hours of measurements, since the damage builds over hours of breathing it and shows up hours later; the US standard uses the same 8-hour span.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <ul class="gl-list">
+            <li>A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow.</li>
+            <li>Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch. For ozone the model runs high in the eastern US in summer.</li>
+          </ul>
+        </div>
       </section>
       <section class="gl-entry" id="so2">
         <h2>SO₂</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Sulfur dioxide (SO₂), a gas from coal, refineries, ships and volcanoes. Usually near zero away from those sources.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and in most of the US the rarest. How likely: rarely since the coal plants closed, except downwind of a refinery, a busy port, or a volcano. What helps: the tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index takes the hour itself, since the reaction comes within minutes and is over soon after the air clears; there is no cumulative effect to take into account. It appears only when the gas is present.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow. Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch. Not every monitor measures SO₂; the line under the table says when none nearby does.</p>
+        <p class="gl-meta">SO₂ · µg/m³ · the hour</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/so2.jpg" alt="A volcanic vent erupting, seen from orbit" width="720" height="480" loading="lazy" />
+          <figcaption>A Kīlauea vent erupting, seen from orbit; the plume is mostly sulfur dioxide. NASA Earth Observatory, public domain.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Sulfur dioxide (SO₂), a gas from coal, refineries, ships and volcanoes. Usually near zero away from those sources.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Shown in lab studies: people with asthma who are exercising tighten up within minutes at levels healthy lungs ignore. The best-proven sudden trigger there is, and in most of the US the rarest.</li>
+            <li><strong>How likely.</strong> Rarely since the coal plants closed, except downwind of a refinery, a busy port, or a volcano.</li>
+            <li><strong>What helps.</strong> The tightening reverses within minutes on a rescue inhaler, and on its own once the air clears. Breathing through the nose absorbs most of the gas before it reaches the lungs, which is why it hits people who are exercising. A daily controller inhaler blunts the response.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index takes the hour itself, since the reaction comes within minutes and is over soon after the air clears; there is no cumulative effect to take into account. It appears only when the gas is present.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <ul class="gl-list">
+            <li>A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow.</li>
+            <li>Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch. Not every monitor measures SO₂; the line under the table says when none nearby does.</li>
+          </ul>
+        </div>
       </section>
       <section class="gl-entry" id="pm_coarse">
         <h2>Coarse particles</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Particles between 2.5 and 10 µm (micrometers, millionths of a meter): dust, road grit, soil, bits of pollen. Counted by taking everything under 10 µm and subtracting the fine particles, so this number is the coarse part alone.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Weak for asthma. Coarse particles land in the nose, throat and the big airways rather than the deep lung, so they irritate more than they trigger, and the EPA rates the evidence for sudden breathing effects as suggestive, not established. The diary does not grade this number. How likely: a read on how gritty the air is to be out in, a cough and a scratchy throat more than tightness. It climbs on dust-storm days, beside construction and on dry windy days, and settles out within hours of the wind dropping. What helps: particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index shows the average of the last 24 hours of the coarse part, the same span as fine particles, since the two are measured by the same instruments over the same day; it does not grade this number.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow. Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch.</p>
+        <p class="gl-meta">PM10 − PM2.5 · µg/m³ · 24-h average</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/pm_coarse.jpg" alt="A tractor working a dry field, dust billowing behind it" width="720" height="480" loading="lazy" />
+          <figcaption>A tractor working a dry field, dust billowing behind it. Photo: Keith Evans, CC BY-SA 2.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Particles between 2.5 and 10 µm (micrometers, millionths of a meter): dust, road grit, soil, bits of pollen. Counted by taking everything under 10 µm and subtracting the fine particles, so this number is the coarse part alone.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Weak for asthma. Coarse particles land in the nose, throat and the big airways rather than the deep lung, so they irritate more than they trigger, and the EPA rates the evidence for sudden breathing effects as suggestive, not established. The diary does not grade this number.</li>
+            <li><strong>How likely.</strong> A read on how gritty the air is to be out in, a cough and a scratchy throat more than tightness. It climbs on dust-storm days, beside construction and on dry windy days, and settles out within hours of the wind dropping.</li>
+            <li><strong>What helps.</strong> Particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index shows the average of the last 24 hours of the coarse part, the same span as fine particles, since the two are measured by the same instruments over the same day; it does not grade this number.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <ul class="gl-list">
+            <li>A monitor when one is within about 50 miles: an instrument run by your state environmental agency, published through the EPA’s AirNow.</li>
+            <li>Otherwise a model: a computer estimate of the air from satellites, weather and emissions data on a 45-kilometer (28-mile) grid. A model is a prediction, not a measurement, and it can miss a plume a monitor would catch.</li>
+          </ul>
+        </div>
       </section>
       <section class="gl-entry" id="smoke">
         <h2>Smoke</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> A smoke plume drawn over this location by an analyst at NOAA (the US weather agency) from satellite pictures, rated light, medium or heavy. Counted only when the particles at ground level are mostly fine ones, which is what smoke is made of.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-room studies: asthma visits rose 82 % in New York in one day of June 2023 smoke, and per microgram, smoke is two to three times as bad as ordinary fine particles. How likely: a few days in a bad year and none in most. Since 2023, Canadian fire smoke has been reaching farther into the United States than it used to, and nobody knows how often it will come back. The effect can linger a day or two after the sky clears. What helps: particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them. Windows shut is the third thing, since a smoke day is the one day the air inside can be made cleaner than the air outside.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index takes the current hour, since a plume is either over a place or it is not; there is nothing to average. Satellites need daylight to see smoke, so at night the plume shown is the afternoon’s.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> NOAA’s Hazard Mapping System, plus the fine-particle reading above it.</p>
+        <p class="gl-meta">NOAA HMS · light, medium, heavy · the hour</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/smoke.jpg" alt="Wildfire smoke over the East Coast, seen from orbit" width="720" height="480" loading="lazy" />
+          <figcaption>Canadian wildfire smoke over the East Coast, seen from orbit. NASA MODIS, public domain.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>A smoke plume drawn over this location by an analyst at NOAA (the US weather agency) from satellite pictures, rated light, medium or heavy. Counted only when the particles at ground level are mostly fine ones, which is what smoke is made of.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Seen in emergency-room studies: asthma visits rose 82 % in New York in one day of June 2023 smoke, and per microgram, smoke is two to three times as bad as ordinary fine particles.</li>
+            <li><strong>How likely.</strong> A few days in a bad year and none in most. Since 2023, Canadian fire smoke has been reaching farther into the United States than it used to, and nobody knows how often it will come back. The effect can linger a day or two after the sky clears.</li>
+            <li><strong>What helps.</strong> Particles are what a filter catches, so an N95 mask outdoors and a HEPA air cleaner indoors both cut the dose a lot, and moving hard exercise indoors cuts it more. A rescue inhaler opens airways the particles have tightened; it does not remove them. Windows shut is the third thing, since a smoke day is the one day the air inside can be made cleaner than the air outside.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index takes the current hour, since a plume is either over a place or it is not; there is nothing to average. Satellites need daylight to see smoke, so at night the plume shown is the afternoon’s.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>NOAA’s Hazard Mapping System, plus the fine-particle reading above it.</p>
+        </div>
       </section>
       <section class="gl-entry" id="mold">
         <h2>Mold</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Outdoor fungal spores in the air, in spores/m³ (spores per cubic meter of air), counted under a microscope by the counting station you chose in Settings. Alternaria and Cladosporium are the two kinds that matter for asthma.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-room studies: every kind of fungal spore is linked to more asthma visits than any kind of pollen, and Alternaria is linked to near-fatal attacks. Spores are small enough to reach the lower airways. How likely: only for the minority of people with asthma who are sensitized to mold, and an allergist’s skin or blood test settles who is. For them it is a late-summer and fall problem, worst on dry windy days and around leaf piles, compost and mowing. What helps: the same daily controller inhaler and antihistamine that work for pollen, staying away from raking and mowing, and an N95 mask for yard work, since spores are particles a mask catches.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index uses the highest of the station’s last three counts, since the effect builds over a few days. It counts station days rather than calendar days because a station counts on weekdays only, and a calendar window would come up empty every Monday.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> A counting station: a hospital, health department or clinic that collects spores on a glass slide and counts them on weekday mornings. A count older than three days is shown as an estimate.</p>
+        <p class="gl-meta">spores/m³ · highest of the last 3 counts</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/mold.jpg" alt="A chain of Alternaria spores under a microscope" width="720" height="480" loading="lazy" />
+          <figcaption>A chain of Alternaria spores under a microscope. CDC, public domain.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Outdoor fungal spores in the air, in spores/m³ (spores per cubic meter of air), counted under a microscope by the counting station you chose in Settings. Alternaria and Cladosporium are the two kinds that matter for asthma.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Seen in emergency-room studies: every kind of fungal spore is linked to more asthma visits than any kind of pollen, and Alternaria is linked to near-fatal attacks. Spores are small enough to reach the lower airways.</li>
+            <li><strong>How likely.</strong> Only for the minority of people with asthma who are sensitized to mold, and an allergist’s skin or blood test settles who is. For them it is a late-summer and fall problem, worst on dry windy days and around leaf piles, compost and mowing.</li>
+            <li><strong>What helps.</strong> The same daily controller inhaler and antihistamine that work for pollen, staying away from raking and mowing, and an N95 mask for yard work, since spores are particles a mask catches.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index uses the highest of the station’s last three counts, since the effect builds over a few days. It counts station days rather than calendar days because a station counts on weekdays only, and a calendar window would come up empty every Monday.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>A counting station: a hospital, health department or clinic that collects spores on a glass slide and counts them on weekday mornings. A count older than three days is shown as an estimate.</p>
+        </div>
       </section>
       <section class="gl-entry" id="dry_spore_index">
         <h2>Dry-spore conditions</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> A guess at dry-air spores from the weather alone: warm, dry, windy, no rain in two days, after a wet spell. Each condition met adds a point, out of five.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> The same spores as mold, by a stand-in: a mechanism, thin data. It can raise a suspicion and never confirm one. How likely: the same as Mold, for people sensitized to mold. What helps: the same as Mold.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index counts the five conditions against each hour’s forecast, in season only, and always marks the result as an estimate, since no instrument looked at the air.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> No instrument looked at the air. Five weather conditions off the forecast, counted.</p>
+        <p class="gl-meta">weather proxy · 0–5 · each hour, in season</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/dry_spore_index.jpg" alt="Cladosporium spores under a microscope" width="720" height="480" loading="lazy" />
+          <figcaption>Cladosporium, the dry-weather spore the forecast stands in for. Photo: Medmyco, CC BY-SA 4.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>A guess at dry-air spores from the weather alone: warm, dry, windy, no rain in two days, after a wet spell. Each condition met adds a point, out of five.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> The same spores as mold, by a stand-in: a mechanism, thin data. It can raise a suspicion and never confirm one.</li>
+            <li><strong>How likely.</strong> The same as Mold, for people sensitized to mold.</li>
+            <li><strong>What helps.</strong> The same as Mold.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index counts the five conditions against each hour’s forecast, in season only, and always marks the result as an estimate, since no instrument looked at the air.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>No instrument looked at the air. Five weather conditions off the forecast, counted.</p>
+        </div>
       </section>
       <section class="gl-entry" id="pollen_tree">
         <h2>Tree pollen</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Tree pollen on a 0–5 scale, by kind of tree.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: spring, and which trees depends on the region; oak and birch are the big ones in the eastern US. For people sensitized to tree pollen, which most people with allergic asthma are, nose and eye symptoms are near-certain in season; asthma symptoms follow in a smaller share, mostly with a cold on top. What helps: a daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index takes the day’s value, since Google’s model resolves pollen by the day and the tree-pollen evidence does not support a longer window.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        <p class="gl-meta">Google pollen · 0–5 · the day</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/pollen_tree.jpg" alt="Oak catkins shedding pollen" width="720" height="480" loading="lazy" />
+          <figcaption>White oak catkins shedding pollen in April. Photo: Famartin, CC BY-SA 4.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Tree pollen on a 0–5 scale, by kind of tree.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does.</li>
+            <li><strong>How likely.</strong> Spring, and which trees depends on the region; oak and birch are the big ones in the eastern US. For people sensitized to tree pollen, which most people with allergic asthma are, nose and eye symptoms are near-certain in season; asthma symptoms follow in a smaller share, mostly with a cold on top.</li>
+            <li><strong>What helps.</strong> A daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index takes the day’s value, since Google’s model resolves pollen by the day and the tree-pollen evidence does not support a longer window.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        </div>
       </section>
       <section class="gl-entry" id="pollen_grass">
         <h2>Grass pollen</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Grass pollen on a 0–5 scale.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Seen in emergency-room studies: the only pollen with a firm asthma signal, and it builds over three days. How likely: late spring into summer, and only for people sensitized to grass pollen, which most people with allergic asthma are. A thunderstorm in grass season is the rare case where it hits people with no asthma diagnosis at all, because the storm breaks pollen into pieces small enough to reach the lungs. What helps: a daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms. Mowing, and standing near mowing, is the one exposure worth skipping outright.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index uses the highest of the last three days, since the emergency-room studies find the effect builds over about three days of exposure, and a same-day number under-counts it.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        <p class="gl-meta">Google pollen · 0–5 · highest of 3 days</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/pollen_grass.jpg" alt="A grass flower head with its anthers out" width="720" height="480" loading="lazy" />
+          <figcaption>Orchard grass in flower, anthers out. Photo: Harry Rose, CC BY 2.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Grass pollen on a 0–5 scale.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Seen in emergency-room studies: the only pollen with a firm asthma signal, and it builds over three days.</li>
+            <li><strong>How likely.</strong> Late spring into summer, and only for people sensitized to grass pollen, which most people with allergic asthma are. A thunderstorm in grass season is the rare case where it hits people with no asthma diagnosis at all, because the storm breaks pollen into pieces small enough to reach the lungs.</li>
+            <li><strong>What helps.</strong> A daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms. Mowing, and standing near mowing, is the one exposure worth skipping outright.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index uses the highest of the last three days, since the emergency-room studies find the effect builds over about three days of exposure, and a same-day number under-counts it.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        </div>
       </section>
       <section class="gl-entry" id="pollen_weed">
         <h2>Weed pollen</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> Weed pollen on a 0–5 scale, by kind of weed. Ragweed is the big one.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does. How likely: ragweed runs from mid-August to the first frost and is the most common pollen allergy in the eastern US, so nose and eye symptoms are near-certain for anyone sensitized. Asthma flares are less common and tend to come when a September cold lands on top of it. What helps: a daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index takes the day’s value, since Google’s model resolves pollen by the day and the weed-pollen evidence does not support a longer window.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        <p class="gl-meta">Google pollen · 0–5 · the day</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/pollen_weed.jpg" alt="Common ragweed in flower" width="720" height="480" loading="lazy" />
+          <figcaption>Common ragweed in flower. Photo: Robert Flogaus-Faust, CC BY 4.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>Weed pollen on a 0–5 scale, by kind of weed. Ragweed is the big one.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Mostly a hay-fever story; the asthma evidence is thin, so these warn later than grass does.</li>
+            <li><strong>How likely.</strong> Ragweed runs from mid-August to the first frost and is the most common pollen allergy in the eastern US, so nose and eye symptoms are near-certain for anyone sensitized. Asthma flares are less common and tend to come when a September cold lands on top of it.</li>
+            <li><strong>What helps.</strong> A daily antihistamine or steroid nose spray started before the season, a daily controller inhaler kept up through it, windows shut and a shower after time outdoors on high days. Allergy shots are the one treatment that changes the allergy itself rather than the symptoms.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index takes the day’s value, since Google’s model resolves pollen by the day and the weed-pollen evidence does not support a longer window.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>Estimated by Google’s pollen model from land cover and weather, not counted with an instrument. A season calendar fills in where the model is silent, and says so.</p>
+        </div>
       </section>
       <section class="gl-entry" id="dewpoint">
         <h2>Dew point</h2>
-        <p class="gl-part"><span class="gl-label">What it is</span> The temperature at which the water vapor in the air would condense into a dew drop. If it’s too high, the hot, wet air can set off a reflex that tightens airways. If it’s too low the dry air causes the lining of the airways to dry out. In between is comfortable.</p>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> Two mechanisms, both shown in lab studies. On the dry side, below a dew point of about 11 °C (52 °F), what people call cold-air asthma is drying, not cold, and it needs hard breathing to start: hard exercise in dry air tightens the airways of most people with asthma within minutes. On the humid side, above about 18 °C (64 °F), a separate reflex that a drug in some inhalers blocked in the lab; it also needs hard breathing. How likely: the dry side is a winter problem and the humid side a July-and-August one. Both are among the most common asthma triggers there are, and both are the easiest to get out of. What helps: on the dry side, breathing through the nose nearly cancels it, a scarf or mask over the mouth warms and wets the air, and a rescue inhaler taken 15 minutes before exercise prevents it in most people. On the humid side, air conditioning removes the trigger.</p>
-        <p class="gl-part"><span class="gl-label">How Breathing Index measures it</span> Your Breathing Index just takes into account the hour at which the dew point is measured; there isn’t a cumulative effect to take into account.</p>
-        <p class="gl-part"><span class="gl-label">Where the number comes from</span> The weather forecast’s hourly dew point. Always a model number, because no air-quality monitor reports it.</p>
+        <p class="gl-meta">°F or °C · the hour</p>
+        <figure class="gl-figure">
+          <img src="/glossary/img/dewpoint.jpg" alt="Morning dew on grass" width="720" height="480" loading="lazy" />
+          <figcaption>Morning dew on grass. Photo: Dietmar Rabich, CC BY-SA 4.0.</figcaption>
+        </figure>
+        <div class="gl-part">
+          <span class="gl-label">What it is</span>
+          <p>The temperature at which the water vapor in the air would condense into a dew drop. If it’s too high, the hot, wet air can set off a reflex that tightens airways. If it’s too low the dry air causes the lining of the airways to dry out. In between is comfortable.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> Two mechanisms, both shown in lab studies. On the dry side, below a dew point of about 11 °C (52 °F), what people call cold-air asthma is drying, not cold, and it needs hard breathing to start: hard exercise in dry air tightens the airways of most people with asthma within minutes. On the humid side, above about 18 °C (64 °F), a separate reflex that a drug in some inhalers blocked in the lab; it also needs hard breathing.</li>
+            <li><strong>How likely.</strong> The dry side is a winter problem and the humid side a July-and-August one. Both are among the most common asthma triggers there are, and both are the easiest to get out of.</li>
+            <li><strong>What helps.</strong> On the dry side, breathing through the nose nearly cancels it, a scarf or mask over the mouth warms and wets the air, and a rescue inhaler taken 15 minutes before exercise prevents it in most people. On the humid side, air conditioning removes the trigger.</li>
+          </ul>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">How Breathing Index measures it</span>
+          <p>Your Breathing Index just takes into account the hour at which the dew point is measured; there isn’t a cumulative effect to take into account.</p>
+        </div>
+        <div class="gl-part">
+          <span class="gl-label">Where the number comes from</span>
+          <p>The weather forecast’s hourly dew point. Always a model number, because no air-quality monitor reports it.</p>
+        </div>
       </section>
       <section class="gl-entry" id="viral">
         <h2>Sick</h2>
-        <p class="gl-part"><span class="gl-label">How it affects breathing</span> A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. Colds are the most common cause of an asthma flare bad enough for the emergency room, and the two weeks after school starts are the peak of the year. What helps: a cold is the one time to be strict about the daily controller inhaler, and to have the rescue inhaler close.</p>
+        <div class="gl-part">
+          <span class="gl-label">How it affects breathing</span>
+          <ul class="gl-list">
+            <li><strong>Evidence.</strong> A cold alone does little; a cold plus the pollen you react to does a lot. Logging it is what lets the diary see that. Colds are the most common cause of an asthma flare bad enough for the emergency room, and the two weeks after school starts are the peak of the year.</li>
+            <li><strong>What helps.</strong> A cold is the one time to be strict about the daily controller inhaler, and to have the rescue inhaler close.</li>
+          </ul>
+        </div>
       </section>
 <!-- end generated: glossary-entries -->
 

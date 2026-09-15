@@ -19,25 +19,53 @@ import { register } from 'node:module'
 // process to retry with `.ts` before importing it. Must precede the import,
 // hence the dynamic form.
 register('./ts-ext-resolver.mjs', import.meta.url)
-const { GLOSSARY, GLOSSARY_ORDER, GLOSSARY_PARTS } = await import('../src/content/glossary.ts')
+const { GLOSSARY, GLOSSARY_ORDER, GLOSSARY_PARTS, breathingBullets, sourceBullets } = await import(
+  '../src/content/glossary.ts',
+)
 
 /** Text going into markup. The copy has quotes and dashes in it, not tags. */
 const esc = (s) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+/** The same shapes the sheet draws (src/ui/help.tsx): a paragraph, or a list. */
+function part(label, body) {
+  return [`        <div class="gl-part">`, `          <span class="gl-label">${label}</span>`, ...body, `        </div>`]
+}
+const paragraph = (text) => [`          <p>${esc(text)}</p>`]
+const list = (items) => [
+  `          <ul class="gl-list">`,
+  ...items.map(({ lead, text }) =>
+    lead
+      ? `            <li><strong>${esc(lead)}.</strong> ${esc(text)}</li>`
+      : `            <li>${esc(text)}</li>`,
+  ),
+  `          </ul>`,
+]
+
 function section(key) {
   const entry = GLOSSARY[key]
-  // A part the entry leaves out is skipped, not labelled over nothing.
-  const parts = GLOSSARY_PARTS.filter(([field]) => entry[field] !== undefined).map(
-    ([field, label]) =>
-      `        <p class="gl-part"><span class="gl-label">${label}</span> ${esc(entry[field])}</p>`,
-  )
-  return [
-    `      <section class="gl-entry" id="${key}">`,
+  const head = [
     `        <h2>${esc(entry.name)}</h2>`,
-    ...parts,
-    `      </section>`,
-  ].join('\n')
+    ...(entry.meta ? [`        <p class="gl-meta">${esc(entry.meta)}</p>`] : []),
+    ...(entry.image
+      ? [
+          `        <figure class="gl-figure">`,
+          `          <img src="/glossary/img/${entry.image.src}" alt="${esc(entry.image.alt)}" width="720" height="480" loading="lazy" />`,
+          `          <figcaption>${esc(entry.image.caption)}</figcaption>`,
+          `        </figure>`,
+        ]
+      : []),
+  ]
+  // A part the entry leaves out is skipped, not labelled over nothing.
+  const parts = GLOSSARY_PARTS.filter(([field]) => entry[field] !== undefined).flatMap(([field, label]) => {
+    if (field === 'breathing') return part(label, list(breathingBullets(entry)))
+    if (field === 'source') {
+      const bullets = sourceBullets(entry)
+      return part(label, bullets.length > 1 ? list(bullets.map((text) => ({ text }))) : paragraph(bullets[0]))
+    }
+    return part(label, paragraph(entry[field]))
+  })
+  return [`      <section class="gl-entry" id="${key}">`, ...head, ...parts, `      </section>`].join('\n')
 }
 
 /** Every generated block, by page. New pages register here as they land. */
