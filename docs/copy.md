@@ -31,9 +31,9 @@ learned from your own symptom diary.                 (36)
 
 ### 3. Meta description (≤160 chars)
 
-> Shows each pollutant, heat, and humidity separately, marks each by your symptom diary evidence, and tells you how today compares.
+> The AQI reduces air quality to one number, which can't work for everyone. Breathing Index listens to you and helps you learn what matters to your lungs.
 
-(151)
+(152)
 
 ---
 
