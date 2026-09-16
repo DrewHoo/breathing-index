@@ -80,8 +80,11 @@ export default defineConfig({
         // Chrome only shows the richer install dialog — the one with a
         // preview instead of a bare bar — when the manifest carries
         // screenshots, and store.app reads its listing previews from here
-        // too. Narrow only: the desktop layout has an overlap at this width
-        // that we would rather not put in an install prompt.
+        // too. It picks by form factor: the wide entry on desktop, the narrow
+        // ones on Android, and a prompt that finds nothing for its own factor
+        // drops back to the bare bar. Chrome also discards any screenshot
+        // whose long side runs past 2.3x its short side, which 780x1688 (2.16)
+        // and 1280x800 (1.6) both clear.
         screenshots: [
           {
             src: 'screenshots/today.png',
@@ -103,6 +106,13 @@ export default defineConfig({
             type: 'image/png',
             form_factor: 'narrow',
             label: 'What your logs show, variable by variable, above the entries those verdicts came from',
+          },
+          {
+            src: 'screenshots/today-wide.png',
+            sizes: '1280x800',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'Today on a wide screen: the forecast on the same 1-to-4 scale you log on, above the air it was read from',
           },
         ],
       },
