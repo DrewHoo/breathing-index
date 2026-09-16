@@ -77,6 +77,34 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+        // Chrome only shows the richer install dialog — the one with a
+        // preview instead of a bare bar — when the manifest carries
+        // screenshots, and store.app reads its listing previews from here
+        // too. Narrow only: the desktop layout has an overlap at this width
+        // that we would rather not put in an install prompt.
+        screenshots: [
+          {
+            src: 'screenshots/today.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Today: every measurement in the air on its own row, each with its own 48-hour trace',
+          },
+          {
+            src: 'screenshots/air.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'Pollen separated by plant, plotted against the easy level learned from your own diary',
+          },
+          {
+            src: 'screenshots/log.png',
+            sizes: '780x1688',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'What your logs show, variable by variable, above the entries those verdicts came from',
+          },
+        ],
       },
       workbox: {
         // Workbox precaches js/wasm/css/html by default; the self-hosted fonts
