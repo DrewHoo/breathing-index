@@ -15,7 +15,6 @@ import {
   type Rating,
   type Reason,
   type TriggerModel,
-  type VariableStatus,
 } from './types'
 import {
   INDOOR_PROXY_VARIABLES,
@@ -620,28 +619,4 @@ export function predict(model: TriggerModel, exposure: Exposure, priors: Priors 
   }
 
   return { floor, ceiling, reasons }
-}
-
-/** Evidence status of one variable at its current exposure, for the constituent strip. */
-export function variableStatus(
-  model: TriggerModel,
-  priors: Priors,
-  variable: string,
-  current: number,
-): VariableStatus {
-  const confirmedAt = model.confirmed[variable]
-  if (confirmedAt && LEVELS.some((l) => confirmedAt[l] !== undefined && current >= confirmedAt[l]!)) {
-    return 'confirmed'
-  }
-  const suspected =
-    model.constraints.some(
-      (c) => c.candidates.includes(variable) && current >= c.exposure[variable]!,
-    ) ||
-    model.confirmations.some((c) => c.variable === variable && current >= c.bound)
-  if (suspected) return 'suspected'
-  const tol = model.tolerance[variable]?.[2]
-  if (tol !== undefined && current <= tol) return 'tolerated'
-  const prior2 = priors[variable]?.[2]
-  if (prior2 !== undefined && current >= prior2) return 'prior-elevated'
-  return 'unknown'
 }

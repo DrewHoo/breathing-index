@@ -10,7 +10,7 @@ import {
 } from 'react'
 import type { GlossaryKey } from '../content/glossary'
 import { PRIORS, negligibleFor } from '../engine/config'
-import { buildModel, predict, variableStatus } from '../engine/infer'
+import { buildModel, predict } from '../engine/infer'
 import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/types'
 import { airNowReport, fetchAirNow, inAirNowCoverage, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
@@ -36,13 +36,11 @@ import {
 import {
   BI_LABELS,
   CALENDAR_ESTIMATE,
-  COMFORTABLE,
   DRY_SPORE_ESTIMATE,
   EPA_GOOD_CEILING,
   FORECAST_MEANING,
   MODEL_OZONE_BIAS,
   MOLD_ESTIMATE,
-  NOT_GRADED,
   RESCUE_CLAUSE,
   VARIABLE_LABELS,
   type VariableLabel,
@@ -789,18 +787,6 @@ interface AirRow {
   value: number
   unit: string
   /**
-   * What the row says on its right-hand side. Either the variable and
-   * exposure-space value the diary's verdict is computed from, or a chip the
-   * row supplies itself in place of the one the evidence would have spoken.
-   * Two rows speak for themselves: the dew point between its thresholds,
-   * where there is no exposure for the diary to have a view on, and PM10,
-   * which is shown and never graded (specs/24-vector-diet.md). A self-spoken
-   * chip wears the unknown chip's styling, because that is what it is — and
-   * the union is what keeps a row that has no variable from having to invent
-   * one to be ignored.
-   */
-  status: { variable: string; value: number } | { chip: string }
-  /**
    * The row's last 48 h in display units, oldest first, ending at now. An
    * hour the source never reported is null, not zero: a monitor that was down
    * from Tuesday lunchtime drew a flat floor across a third of the window and
@@ -1010,9 +996,9 @@ function buildAirRows(
   const rows: AirRow[] = []
   for (const key of ['pm25', 'o3'] as const) {
     // The number on the row is the window feature, the same quantity the
-    // verdict beside it is spoken about (specs/22-exposure-windows.md). It
-    // used to be the hour's own reading while the chip graded the window, so
-    // a row could say 30 and "past your easy" about a threshold of 40.
+    // waterline under it is drawn against (specs/22-exposure-windows.md). It
+    // used to be the hour's own reading while the window was what carried the
+    // threshold, so a row could say 30 against a line drawn at 40.
     //
     // A pollutant this series has no feature for gets no row at all — a row
     // reading "0 µg/m³" would be a measurement nobody made. The hour's own
@@ -1035,11 +1021,10 @@ function buildAirRows(
       value: Math.round(reading),
       unit: meta.unit ?? '',
       window: windowOf(key),
-      status: { variable: key, value: reading },
       // The sparkline draws the window feature too. Spec 22 kept raw
       // hourlies here so a spike stayed visible, but the easy level is a
       // threshold on the window mean: drawn over raw hourlies it shaded
-      // ink for hours the verdict never called past, and the marker could
+      // ink for hours the window mean never crossed, and the marker could
       // sit at the line on a row whose number was a quarter of it. The
       // hourlies keep their spike as the quiet `live` line underneath.
       series: window.map((h) => h.exposure[key] ?? null),
@@ -1055,7 +1040,7 @@ function buildAirRows(
   // one that is never graded (specs/29-sulfur-dioxide.md). The row appears
   // only above the floor, on the smoke rule and for the smoke reason: the
   // variable sits at 0.2–2.7 µg/m³ in Connecticut against a floor of 20, so a
-  // standing "1 µg/m³ · barely present" row on every screen for years would
+  // standing "1 µg/m³" row on every screen for years would
   // teach people to skip past the one row that matters on the day it means
   // something. What the table owes the reader instead is a line saying the app
   // did look — which is what `AbsentNames` below is for.
@@ -1074,7 +1059,6 @@ function buildAirRows(
       value: Math.round(so2),
       unit: meta.unit,
       window: windowOf('so2'),
-      status: { variable: 'so2', value: so2 },
       series: window.map((h) => h.raw.so2 ?? null),
       tol: tolerance('so2'),
       source: sourceOf('so2'),
@@ -1083,17 +1067,17 @@ function buildAirRows(
     })
   }
 
-  // Coarse particles keep a row and carry no verdict (specs/24-vector-diet.md).
+  // Coarse particles keep a row and stay out of the diary's reasoning
+  // (specs/24-vector-diet.md).
   // The number is the coarse fraction, PM10 − PM2.5, so the row is what its
   // name says rather than the fine particles above it counted a second time;
   // raw PM10 still rides along as the denominator of the smoke fingerprint.
   // Coarse mass is worth seeing — it is what a dust day and a gritty day are
   // made of — and it is not graded: the acute-asthma evidence for it is thin
   // and dust gets a variable of its own (specs/32-dust.md). So: the same
-  // 24-hour mean, read from `display` instead of `exposure`, no waterline, no
-  // tolerance lookup, and a chip that says out loud that nothing here is being
-  // graded. The sub-label is keyed `pm10` because the monitor that measured
-  // the total is the one to name. A series cached before this has no
+  // 24-hour mean, read from `display` instead of `exposure`, no waterline and
+  // no tolerance lookup. The sub-label is keyed `pm10` because the monitor
+  // that measured the total is the one to name. A series cached before this has no
   // `pm_coarse` in `display` and simply draws no row, the same rule every
   // other row follows about a missing number.
   const pmCoarse = current.display?.pm_coarse
@@ -1108,7 +1092,6 @@ function buildAirRows(
       value: Math.round(pmCoarse),
       unit: meta.unit,
       window: windowOf('pm10'),
-      status: { chip: NOT_GRADED },
       // The same average-plus-live pair as the graded pollutants: the number
       // is the 24-hour figure, so the solid line is too, and the hourlies
       // ride underneath.
@@ -1148,7 +1131,6 @@ function buildAirRows(
         .join(' · '),
       value: smokeDensity,
       unit: meta.unit,
-      status: { variable: 'smoke', value: smokeDensity },
       // The ungated density, so the curve draws the plume overhead rather than
       // the hours the PM columns happened to have posted by.
       series: window.map((h) => h.raw.hms_density ?? null),
@@ -1205,7 +1187,6 @@ function buildAirRows(
           .filter((part): part is string => Boolean(part))
           .join(' · '),
       },
-      status: { variable: 'mold', value: moldReading },
       // The station's own daily totals, which draw as a staircase. Flat within
       // a day is what a once-a-morning instrument looks like on an hourly axis,
       // and smoothing it would be drawing hours nobody counted.
@@ -1234,7 +1215,6 @@ function buildAirRows(
       // mechanism in eight words, because "3 of 5" on its own is a score in a
       // game nobody explained.
       note: { text: DRY_SPORE_ESTIMATE },
-      status: { variable: 'dry_spore_index', value: drySpore },
       series: window.map((h) => h.raw.dry_spore_index ?? null),
       floor: 0,
       tol: tolerance('dry_spore_index'),
@@ -1245,7 +1225,7 @@ function buildAirRows(
   // (specs/18-measured-pollen.md): the headline is the source's type index,
   // the sub-label carries every plant reading the engine reasons about
   // ("birch 4 · oak 2") so any number an evidence line cites is on the
-  // screen, and the row's verdict tracks its highest plant. A type with no
+  // screen, and the waterline tracks its highest plant. A type with no
   // reporting plant has no row — out of season is not a reading, and three
   // zeros all winter is noise. The 0–5 index is the table's one deliberate
   // exception to the real-units rule; pollen has no unit a user could check.
@@ -1264,7 +1244,7 @@ function buildAirRows(
       // Grass alone names a window, because grass alone has one: its number is
       // the highest of the trailing three days (specs/22-exposure-windows.md),
       // computed in feature extraction, so the headline, the sub-label and the
-      // verdict are already the same quantity by the time the row is built.
+      // waterline are already the same quantity by the time the row is built.
       sub: [
         display.plants.map((p) => `${p.name.toLowerCase()} ${p.value}`).join(' · '),
         type === 'grass' ? '3-day' : null,
@@ -1276,7 +1256,6 @@ function buildAirRows(
         : {}),
       value: display.value,
       unit: 'of 5',
-      status: { variable: top.variable, value: current.exposure[top.variable] ?? top.value },
       series: window.map((h) => h.pollenDisplay?.[type]?.value ?? 0),
       floor: 0,
       ceiling: 5,
@@ -1289,9 +1268,9 @@ function buildAirRows(
   // number is the dew point itself rather than either feature: a hinge
   // sparkline would drop to zero every time the air passed through
   // comfortable, and "6°" says nothing a person can stand outside and check.
-  // The name follows whichever side is active, and on the dry side "past your
-  // easy" is downward — drier is worse — so the waterline flips and the fill
-  // hangs below it, exactly as the cold side used to.
+  // The name follows whichever side is active, and on the dry side past the
+  // easy level is downward — drier is worse — so the waterline flips and the
+  // fill hangs below it, exactly as the cold side used to.
   //
   // An hour with no dew point gets no row, the same rule the pollutants
   // follow: a series cached by an earlier version has no `dewpoint` in its
@@ -1321,9 +1300,6 @@ function buildAirRows(
       ...(side ? { sub: 'dew point' } : {}),
       value: disp(dewpoint),
       unit: `°${tempUnit}`,
-      status: side
-        ? { variable: side, value: current.exposure[side] ?? 0 }
-        : { chip: COMFORTABLE },
       series: window.map((h) => (h.raw.dewpoint === undefined ? null : disp(h.raw.dewpoint))),
       // The waterline is a dew point too, so an easy level learned in feature
       // space comes back through the same fold it went out by.
@@ -1332,34 +1308,6 @@ function buildAirRows(
     })
   }
   return rows
-}
-
-/**
- * The row's verdict, spoken against the waterline. Suspicion outranks the
- * easy level — a bad day logged below it is the sharper fact — and a
- * confirmed trigger reads as past-your-easy even before an easy day has
- * drawn the line.
- */
-function statusChip(
-  model: TriggerModel,
-  variable: string,
-  value: number,
-): { text: string; cls: string } {
-  if (value <= negligibleFor(variable)) return { text: 'barely present', cls: '' }
-  const tol = model.tolerance[variable]?.[2]
-  const pastEasy = tol !== undefined && tol > negligibleFor(variable) && value > tol
-  switch (variableStatus(model, PRIORS, variable, value)) {
-    case 'confirmed':
-      return { text: 'past your easy', cls: 'past' }
-    case 'suspected':
-      return pastEasy
-        ? { text: 'past your easy', cls: 'past' }
-        : { text: 'maybe a trigger', cls: 'suspect' }
-    case 'tolerated':
-      return { text: 'handled higher fine', cls: 'fine' }
-    default:
-      return pastEasy ? { text: 'past your easy', cls: 'past' } : { text: 'no logs yet', cls: '' }
-  }
 }
 
 /** One name under the air table, with whatever the app can say about it. */
@@ -1506,17 +1454,9 @@ function AirTable({
       <SectionRule label="In the air" note={shared ? `${shared} · last 48 h` : 'last 48 h'} faint />
       <div className="air-table">
         {rows.map((row) => {
-          const status =
-            'chip' in row.status
-              ? { text: row.status.chip, cls: '' }
-              : statusChip(model, row.status.variable, row.status.value)
           const sub = [row.sub, shared ? undefined : row.source]
             .filter((x): x is string => x !== undefined)
             .join(' · ')
-          // The verdict is the verdict alone. The level it was spoken
-          // against is named once, on the line's own label ("Easy: 58",
-          // "Good: 9"); repeating it here said one fact twice per pollutant.
-          const verdict = status.text
           const good: GoodReference | undefined =
             row.tol === undefined && row.guide !== undefined
               ? { name: row.name.toLowerCase(), value: row.guide.value, unit: row.unit, span: row.guide.span }
@@ -1552,7 +1492,6 @@ function AirTable({
                   </span>
                 </span>
               </div>
-              <span className={`air-status ${status.cls}`}>{verdict}</span>
               {row.note &&
                 (row.note.href ? (
                   <a className={`air-note${row.note.claim ? ' claim' : ''}`} href={row.note.href}>

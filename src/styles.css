@@ -729,28 +729,6 @@ a.air-note {
   font-weight: 400;
 }
 
-/* The evidence verdict per row — the whole point of the table. A line of its
-   own under the name rather than a second right-aligned item on the top line,
-   where it competed with the number for which of the two was the point. */
-.air-status {
-  font: 500 12.5px var(--sans);
-  color: var(--secondary);
-}
-
-.air-status.past {
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.air-status.suspect {
-  font-weight: 600;
-  color: var(--ink-2);
-}
-
-.air-status.fine {
-  color: var(--secondary);
-}
-
 /* 48 h of the row's air against its reference line; the SVG keeps its
    340×48 aspect so strokes stay put across widths. The wrapper is the frame
    the gutter label is placed in. */
