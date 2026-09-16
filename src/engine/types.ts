@@ -170,10 +170,3 @@ export interface Prediction {
   ceiling: Rating
   reasons: Reason[]
 }
-
-export type VariableStatus =
-  | 'confirmed'
-  | 'suspected'
-  | 'tolerated'
-  | 'prior-elevated'
-  | 'unknown'

@@ -175,28 +175,6 @@ export const DRY_SPORE_ESTIMATE = 'calendar-style estimate: warm, dry, windy aft
 export const MOLD_ESTIMATE = 'estimate'
 
 /**
- * The dew-point row's verdict on a day between the two thresholds. The
- * evidence chips all answer "what does your diary say about this exposure",
- * and on such a day there is no exposure to have said anything about — the
- * air is neither drying nor muggy. "Barely present" is the right words for a
- * trace of ozone and the wrong ones for a 14 °C dew point, which is not a
- * trace of anything.
- */
-export const COMFORTABLE = 'comfortable'
-
-/**
- * The PM10 row's verdict — the second row to speak for itself, after the dew
- * point's `comfortable` (spec 24). The number is on the screen because a
- * person is entitled to see how much coarse particulate is outside; it is
- * deliberately outside the exposure vector because PM10 *is* PM2.5 plus the
- * coarse fraction, so it co-moves with PM2.5 in every candidate set and no
- * clean day can ever tell the two apart. The chip says so rather than leaving
- * the row wearing "no logs yet", which would promise a verdict that is never
- * coming.
- */
-export const NOT_GRADED = 'not graded'
-
-/**
  * The ozone row's caveat when the number under it came from CAMS inside the
  * US. The global model carries a warm-season positive ozone bias over the
  * eastern US, and it is not small: on 2026-08-07 in Hamden CAMS read
