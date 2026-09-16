@@ -615,6 +615,26 @@ h1 {
   border-color: var(--l2);
 }
 
+/* The brace's clearance below it is the section's flat 5 px, but its length is
+   fluid, and past a certain run the two stop being compatible. On a phone the
+   likely span is an 82 px curl under one numeral and 5 px reads as a gap.
+   Once the column reaches its 560 px cap a cold start's 1-to-4 brace is 524 px
+   of flat line 5 px above a full-width paragraph — two long parallel
+   horizontals that close bind into one, and the brace stops reading as a span
+   under the numerals and starts reading as a rule over the sentence. So at the
+   capped column the space below it opens to 11 px, half the 22 px that
+   separates sections: a break inside the forecast rather than a new one, but
+   wide enough that proximity still groups the brace upward. Narrowing the grid
+   would have capped the run length instead, but the numerals sit on the log
+   buttons' own four columns and have to stay there. Phones keep the 5 px they
+   have — nothing there is long enough to need this, and the manifest's narrow
+   screenshots are shot from that layout. */
+@media (min-width: 560px) {
+  .forecast-scale {
+    margin-bottom: 6px;
+  }
+}
+
 /* What it means and why, one paragraph — the sentence people actually read. */
 .forecast-meaning {
   margin: 0;
