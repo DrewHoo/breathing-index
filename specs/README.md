@@ -42,6 +42,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | 17 | [Content pages](17-content-pages.md) | M | Three prerendered essays so the domain can rank for "AQI moderate but hard to breathe" |
 | 19 | [Pollen content pages](19-pollen-content-pages.md) | M | The first content wave, reshaped: per-plant pages + the region×month calendar, generated from the app's own data |
 | 36 | [Glossary pages](36-glossary-pages.md) | M | The one `/glossary` page becomes thirteen: an index and a page per thing in the air, so twelve questions can rank apart |
+| 37 | [Coverage map](37-coverage-map.md) | L | An interactive `/coverage` map of where the air is measured vs where the number is a model, with a backtest that scores the pollen model against a calendar |
 
 ## Measurement and sources (September 2026 research)
 
@@ -64,6 +65,7 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 | 33 | [NWS alerts](33-nws-alerts.md) | S | Official warnings as a banner and diary metadata, never a variable |
 | 34 | [Viral season](34-viral-season.md) | S/M | A ceiling-only calendar term around Labor Day + 17.7 days; NREVSS regional rhinovirus as phase 2 |
 | 35 | [Traffic mixture](35-traffic-mixture.md) | S/L | Measured NO₂ from near-road monitors as the tracer; TEMPO satellite NO₂ as phase 2 |
+| 38 | [Harvest dust](38-harvest-dust.md) | L | Crop harvest as a source-and-wind signal: NASS Crop Progress + Cropland Data Layer, gated on the coarse fraction, tested first as a diary script |
 
 ## Dependency sketch
 
