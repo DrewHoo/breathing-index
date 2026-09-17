@@ -1,0 +1,220 @@
+{
+ "harvested": "2026-09-17",
+ "layers": {
+  "pm25": {
+   "name": "PM2.5",
+   "count": 4293,
+   "regions": {
+    "us-ca": 1592,
+    "europe": 2525,
+    "world": 176
+   },
+   "sources": [
+    {
+     "name": "EPA AirNow mirror (US + Canada)",
+     "n": 1704,
+     "basis": "reporting this hour"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 2589,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "pm10": {
+   "name": "PM10",
+   "count": 4604,
+   "regions": {
+    "us-ca": 581,
+    "europe": 3907,
+    "world": 116
+   },
+   "sources": [
+    {
+     "name": "EPA AirNow mirror (US + Canada)",
+     "n": 610,
+     "basis": "reporting this hour"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 3994,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "o3": {
+   "name": "Ozone",
+   "count": 4330,
+   "regions": {
+    "us-ca": 1508,
+    "europe": 2710,
+    "world": 112
+   },
+   "sources": [
+    {
+     "name": "EPA AirNow mirror (US + Canada)",
+     "n": 1544,
+     "basis": "reporting this hour"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 2786,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "no2": {
+   "name": "NO₂",
+   "count": 4881,
+   "regions": {
+    "us-ca": 444,
+    "europe": 4348,
+    "world": 89
+   },
+   "sources": [
+    {
+     "name": "EPA AQS (US)",
+     "n": 443,
+     "basis": "sampled within a year of the AQS extract"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 4438,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "so2": {
+   "name": "SO₂",
+   "count": 2485,
+   "regions": {
+    "us-ca": 369,
+    "europe": 2041,
+    "world": 75
+   },
+   "sources": [
+    {
+     "name": "EPA AQS (US)",
+     "n": 369,
+     "basis": "sampled within a year of the AQS extract"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 2116,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "co": {
+   "name": "CO",
+   "count": 1659,
+   "regions": {
+    "us-ca": 220,
+    "europe": 1397,
+    "world": 42
+   },
+   "sources": [
+    {
+     "name": "EPA AQS (US)",
+     "n": 220,
+     "basis": "sampled within a year of the AQS extract"
+    },
+    {
+     "name": "EEA (Europe)",
+     "n": 1439,
+     "basis": "operational regulatory sampling point"
+    }
+   ],
+   "notes": []
+  },
+  "pollen": {
+   "name": "Pollen",
+   "count": 66,
+   "regions": {
+    "us-ca": 53,
+    "europe": 12,
+    "world": 1
+   },
+   "sources": [
+    {
+     "name": "AAAAI NAB (locations and dates only)",
+     "n": 49,
+     "basis": "reported pollen within 4 months; bright when within 30 days"
+    },
+    {
+     "name": "Open publishers",
+     "n": 17,
+     "basis": "a page or feed anyone may read"
+    }
+   ],
+   "notes": [
+    {
+     "region": "us-ca",
+     "text": "The NAB registry lists 219 station records; 52 have reported in the last four months. The silent ones are not drawn."
+    },
+    {
+     "region": "europe",
+     "text": "The European Aeroallergen Network counts 600+ sites, ~400 active, across 38 countries — login-gated, no public API. Not drawn."
+    },
+    {
+     "region": "europe",
+     "text": "Italy's POLLnet publishes ~58 stations as open data (CC-BY); its geoserver was unreachable at harvest time, so its dots are pending."
+    },
+    {
+     "region": "europe",
+     "text": "Switzerland runs ~14 automatic stations with open data (MeteoSwiss); France dissolved its counting network (RNSA) in 2026 and the successors publish index layers, not counts."
+    },
+    {
+     "region": "us-ca",
+     "text": "Canada's 31-station network (Aerobiology Research Laboratories) counts pollen and spores daily and sells the numbers. Nothing public to draw."
+    },
+    {
+     "region": "world",
+     "text": "South Africa (SAPNET, 9 cities, weekly words not numbers), Tokyo (weekly, seasonal), Mexico (REMA, 13 stations, categories): published, thinly. Most of the world publishes nothing."
+    }
+   ]
+  },
+  "mold": {
+   "name": "Mold",
+   "count": 46,
+   "regions": {
+    "us-ca": 24,
+    "europe": 21,
+    "world": 1
+   },
+   "sources": [
+    {
+     "name": "AAAAI NAB (locations and dates only)",
+     "n": 20,
+     "basis": "reported mold within 4 months; bright when within 30 days"
+    },
+    {
+     "name": "Open publishers",
+     "n": 26,
+     "basis": "a page or feed anyone may read"
+    }
+   ],
+   "notes": [
+    {
+     "region": "europe",
+     "text": "Spain’s SEAIC charts Alternaria at ~70 stations behind a websocket; Germany’s ~45 stations and the Czech and Hungarian networks publish prose, not numbers. Not drawn."
+    },
+    {
+     "region": "us-ca",
+     "text": "Canada's ARL counts spores at 31 stations and sells the numbers. Nothing public to draw."
+    }
+   ]
+  }
+ },
+ "nab": {
+  "registered": 219,
+  "reporting": 52,
+  "asOf": "2026-09-17"
+ }
+}
