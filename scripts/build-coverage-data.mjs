@@ -344,6 +344,24 @@ const EU_PUBLISHERS = [
   [11.25, 43.77, 'ARPAT — Firenze, IT', false, true],
   [11.11, 42.76, 'ARPAT — Grosseto, IT', false, true],
   [11.33, 43.32, 'ARPAT — Siena, IT', false, true],
+  // Arpae Emilia-Romagna's aerobiology network: daily counts by family,
+  // pollen and Alternaria, as open CSVs (dati.arpae.it) — the same feed the
+  // backtest scores against. Ten provincial capitals plus Cesena and three
+  // partner sites; the feed's own station registry was deleted upstream, so
+  // these are the network's documented cities.
+  [9.7, 45.05, 'Arpae Emilia-Romagna — Piacenza, IT (open CSV)', true, true],
+  [10.33, 44.8, 'Arpae Emilia-Romagna — Parma, IT (open CSV)', true, true],
+  [10.63, 44.7, 'Arpae Emilia-Romagna — Reggio Emilia, IT (open CSV)', true, true],
+  [10.93, 44.65, 'Arpae Emilia-Romagna — Modena, IT (open CSV)', true, true],
+  [11.34, 44.49, 'Arpae Emilia-Romagna — Bologna, IT (open CSV)', true, true],
+  [11.62, 44.84, 'Arpae Emilia-Romagna — Ferrara, IT (open CSV)', true, true],
+  [12.2, 44.42, 'Arpae Emilia-Romagna — Ravenna, IT (open CSV)', true, true],
+  [12.04, 44.22, 'Arpae Emilia-Romagna — Forlì, IT (open CSV)', true, true],
+  [12.24, 44.14, 'Arpae Emilia-Romagna — Cesena, IT (open CSV)', true, true],
+  [12.57, 44.06, 'Arpae Emilia-Romagna — Rimini, IT (open CSV)', true, true],
+  [11.18, 44.64, 'Arpae Emilia-Romagna — S. Giovanni in Persiceto, IT (open CSV)', true, true],
+  [11.62, 44.65, 'Arpae Emilia-Romagna — S. Pietro Capofiume, IT (open CSV)', true, true],
+  [11.88, 44.29, 'Arpae Emilia-Romagna — Faenza, IT (open CSV)', true, true],
 ]
 
 // EUMETNET AutoPollen's five spore-publishing automatic stations (NILU
@@ -371,7 +389,7 @@ function curatedNotes(nab) {
     {
       layer: 'pollen',
       region: 'europe',
-      text: "Italy's POLLnet publishes ~58 stations as open data (CC-BY); its geoserver was unreachable at harvest time, so its dots are pending.",
+      text: "Italy's POLLnet publishes ~58 stations as open data (CC-BY); its geoserver was unreachable at harvest time, so only Emilia-Romagna's 13 (open CSVs of their own) are drawn.",
     },
     {
       layer: 'pollen',

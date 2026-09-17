@@ -3,16 +3,16 @@
  "layers": {
   "pm25": {
    "name": "PM2.5",
-   "count": 4293,
+   "count": 4292,
    "regions": {
-    "us-ca": 1592,
+    "us-ca": 1591,
     "europe": 2525,
     "world": 176
    },
    "sources": [
     {
      "name": "EPA AirNow mirror (US + Canada)",
-     "n": 1704,
+     "n": 1703,
      "basis": "reporting this hour"
     },
     {
@@ -135,10 +135,10 @@
   },
   "pollen": {
    "name": "Pollen",
-   "count": 66,
+   "count": 79,
    "regions": {
     "us-ca": 53,
-    "europe": 12,
+    "europe": 25,
     "world": 1
    },
    "sources": [
@@ -149,7 +149,7 @@
     },
     {
      "name": "Open publishers",
-     "n": 17,
+     "n": 30,
      "basis": "a page or feed anyone may read"
     }
    ],
@@ -164,7 +164,7 @@
     },
     {
      "region": "europe",
-     "text": "Italy's POLLnet publishes ~58 stations as open data (CC-BY); its geoserver was unreachable at harvest time, so its dots are pending."
+     "text": "Italy's POLLnet publishes ~58 stations as open data (CC-BY); its geoserver was unreachable at harvest time, so only Emilia-Romagna's 13 (open CSVs of their own) are drawn."
     },
     {
      "region": "europe",
@@ -182,10 +182,10 @@
   },
   "mold": {
    "name": "Mold",
-   "count": 46,
+   "count": 59,
    "regions": {
     "us-ca": 24,
-    "europe": 21,
+    "europe": 34,
     "world": 1
    },
    "sources": [
@@ -196,7 +196,7 @@
     },
     {
      "name": "Open publishers",
-     "n": 26,
+     "n": 39,
      "basis": "a page or feed anyone may read"
     }
    ],

@@ -121,3 +121,28 @@ describe('island projections against d3-geo', () => {
     }
   })
 })
+
+describe('the backtest receipts', () => {
+  const backtest = JSON.parse(readFileSync(at('data/backtest.json'), 'utf8'))
+
+  it('carries both baselines for every line scored', () => {
+    expect(backtest.results.length).toBeGreaterThan(0)
+    for (const r of backtest.results) {
+      expect(r.label.length).toBeGreaterThan(0)
+      expect(r.days).toBeGreaterThanOrEqual(30)
+      // Yesterday-again exists for everything measured.
+      expect(typeof r.persistence).toBe('number')
+      // The calendar exists for everything except the PM2.5 control, which
+      // has no season calendar on purpose (the method note says why).
+      if (!r.label.includes('control')) expect(typeof r.calendar).toBe('number')
+      // A missing model is a claim ("no model exists") and the label says so.
+      if (r.model === null) expect(r.label.includes('no model') || r.label.includes('control')).toBe(true)
+    }
+  })
+
+  it('has its prose and method baked from real values', () => {
+    expect(backtest.prose.length).toBeGreaterThanOrEqual(3)
+    expect(backtest.method).toContain('Spearman')
+    expect(backtest.window?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+})

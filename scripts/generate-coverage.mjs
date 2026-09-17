@@ -232,12 +232,13 @@ function backtestSection() {
       '      </p>',
     ]
   }
+  const cell = (x) => (x === null || x === undefined ? '—' : x.toFixed(2))
   const rows = BACKTEST.results.map((r) => [
     '        <tr>',
     `          <th scope="row">${esc(r.label)}</th>`,
-    `          <td>${r.model === null ? '—' : r.model.toFixed(2)}</td>`,
-    `          <td>${r.calendar.toFixed(2)}</td>`,
-    `          <td>${r.persistence.toFixed(2)}</td>`,
+    `          <td>${cell(r.model)}</td>`,
+    `          <td>${cell(r.calendar)}</td>`,
+    `          <td>${cell(r.persistence)}</td>`,
     `          <td>${fmt(r.days)}</td>`,
     '        </tr>',
   ])
