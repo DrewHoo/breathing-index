@@ -1,0 +1,58 @@
+{
+ "computed": "2026-09-17",
+ "window": [
+  "2026-06-16",
+  "2026-09-13"
+ ],
+ "results": [
+  {
+   "label": "Grass (Graminaceae) — Emilia-Romagna, region average",
+   "model": 0.95,
+   "calendar": 0.91,
+   "persistence": 0.91,
+   "days": 89
+  },
+  {
+   "label": "Ragweed (Ambrosia) — Emilia-Romagna, region average",
+   "model": 0.91,
+   "calendar": 0.85,
+   "persistence": 0.87,
+   "days": 89
+  },
+  {
+   "label": "Mugwort (Artemisia) — Emilia-Romagna, region average",
+   "model": 0.79,
+   "calendar": 0.88,
+   "persistence": 0.85,
+   "days": 89
+  },
+  {
+   "label": "Olive (Olea) — Emilia-Romagna, region average",
+   "model": 0.7,
+   "calendar": 0.68,
+   "persistence": 0.63,
+   "days": 89
+  },
+  {
+   "label": "Alternaria spores — no model exists — Emilia-Romagna, region average",
+   "model": null,
+   "calendar": 0.1,
+   "persistence": 0.74,
+   "days": 90
+  },
+  {
+   "label": "PM2.5 — 5 US monitors (the control)",
+   "model": 0.61,
+   "calendar": null,
+   "persistence": 0.63,
+   "days": 452
+  }
+ ],
+ "prose": [
+  "Every number below is a rank agreement with real counts: 1.00 means the forecast put the days in exactly the measured order, 0 means no relation. The measured side is Arpae Emilia-Romagna's thirteen-station aerobiology network (daily counts, open data); the model is CAMS, the same land-cover-and-weather kind of model behind every consumer pollen forecast; the window is 2026-06-16 to 2026-09-13. The comparison that matters runs across each line: what did the model add over a paper calendar and over yesterday's count?",
+  "Across the four pollens, almost nothing. Grass: model 0.95, calendar 0.91. Ragweed, mid-season right now: 0.91 against 0.85. Olive: 0.70 against 0.68. On mugwort the calendar beat the model, 0.88 to 0.79. Yesterday's count alone lands in the same band every time. The high absolute numbers are the season itself — a summer curve every calendar already knows — and the model's daily precision adds a few hundredths at best on top of it.",
+  "The Alternaria line has no model number because no consumer source models mold spores at all. Its calendar scores 0.10 — mold barely follows a season — while yesterday's count scores 0.74. The only informative mold forecast is a recent measurement, and the map above is how many places on Earth publish one.",
+  "The PM2.5 control is the same test where a dense monitor network exists to check against: the model lands at 0.61, yesterday's reading at 0.63. Without a seasonal curve to ride, even the best-instrumented pollutant's model only matches persistence — which is the right calibration for reading the pollen numbers above."
+ ],
+ "method": "Method: Spearman rank correlation against the measured daily series, region average across reporting stations; model side averaged over the network's thirteen documented cities (the upstream station registry was deleted, so ids were never paired to cities — a mean needs no pairing). Calendar: day-of-year climatology from the network's 40-year archive, smoothed ±7 days. Yesterday: the measured value one day back. PM2.5 control: AirNow daily averages at named US monitors vs the same model family; particulate has no season calendar, so that cell is empty. Sources: Arpae Emilia-Romagna (CC-BY), Open-Meteo/CAMS (CC-BY), AirNow daily files. Over the US, Open-Meteo serves the coarse global CAMS grid — a backdrop rather than a now-reading — and the control inherits that. Recomputed with each harvest; the window is the model archive's 92 past days."
+}

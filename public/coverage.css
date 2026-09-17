@@ -1,0 +1,232 @@
+/*
+ * Chrome the /coverage page adds on top of legal.css: the map, its chips and
+ * toggles, the layer table and the readout. Loaded after legal.css; palette,
+ * type and prose layout are inherited from there, and every colour here is
+ * one of its variables or derived from one.
+ *
+ * The one deliberate colour trick: the reach circles and the "what your app
+ * paints" wash share a fill. Turning the wash on paints the reach colour over
+ * the whole continent — which is exactly the claim being illustrated.
+ */
+
+.crumbs {
+  font: 400 11px var(--sans);
+  color: var(--faint);
+  margin: 2px 0 0;
+}
+
+.crumbs a {
+  color: var(--secondary);
+  text-decoration: none;
+}
+
+/* Prose stays at legal.css's 560px; the map and the table break out. */
+.cov-wide {
+  width: min(100vw - 36px, 960px);
+  margin-left: calc(50% - min(50vw - 18px, 480px));
+}
+
+/* ---- chips and tabs ---- */
+
+.cov-chips,
+.cov-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 14px 0 0;
+}
+
+.cov-chip,
+.cov-tab {
+  font: 400 12.5px/20px var(--sans);
+  padding: 7px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: none;
+  white-space: nowrap;
+  color: var(--secondary);
+  cursor: pointer;
+}
+
+.cov-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cov-chip.cov-on,
+.cov-tab.cov-on {
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.cov-chip-n {
+  color: var(--faint);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+.cov-toggle {
+  font: 400 12px var(--sans);
+  color: var(--secondary);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.cov-toggle input {
+  accent-color: var(--accent);
+  vertical-align: -2px;
+}
+
+/* ---- the map ---- */
+
+/* The hidden attribute is inert on SVG elements — no UA rule covers the SVG
+   namespace — so the attribute the generator and island toggle is given its
+   meaning here. */
+.cov-svg[hidden] {
+  display: none;
+}
+
+.cov-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 12px 0 0;
+  background: #fbfdfd;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  cursor: crosshair;
+}
+
+.cov-land {
+  fill: #e7edef;
+  stroke: none;
+  transition: fill 0.25s;
+}
+
+.cov-borders {
+  fill: none;
+  stroke: var(--rule);
+  stroke-width: 0.5;
+}
+
+.cov-reach {
+  fill: var(--accent);
+  fill-opacity: 0.14;
+  fill-rule: nonzero;
+  stroke: none;
+  pointer-events: none;
+}
+
+body.cov-no-reach .cov-reach {
+  display: none;
+}
+
+/* The wash: every pixel painted the reach colour, dots still on top. */
+body.cov-washed .cov-land {
+  fill: color-mix(in srgb, var(--accent) 14%, #e7edef);
+}
+
+.cov-dot {
+  fill: var(--accent);
+  stroke: #fbfdfd;
+  stroke-width: 0.6;
+}
+
+.cov-dot-lagged {
+  fill: #fbfdfd;
+  stroke: var(--accent);
+  stroke-width: 1.1;
+}
+
+.cov-legend {
+  font: 400 12px/1.55 var(--sans);
+  color: var(--secondary);
+  margin: 8px 0 0;
+}
+
+.cov-notes {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cov-notes li {
+  font: 400 12px/1.55 var(--sans);
+  color: var(--secondary);
+  margin: 0 0 6px;
+}
+
+.cov-note-region {
+  font: 600 10px var(--sans);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-right: 4px;
+}
+
+/* ---- the layer table ---- */
+
+.cov-table td,
+.cov-table th {
+  font-size: 12px;
+}
+
+.cov-table td:nth-child(n + 2):nth-child(-n + 5),
+.cov-table th:nth-child(n + 2):nth-child(-n + 5) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cov-basis {
+  color: var(--secondary);
+  max-width: 260px;
+}
+
+.cov-fine {
+  font: 400 11.5px/1.55 var(--sans);
+  color: var(--faint);
+}
+
+/* ---- the readout ---- */
+
+.cov-readout-controls {
+  margin: 6px 0 0;
+}
+
+.cov-readout {
+  border-left: 2px solid var(--rule);
+  padding: 2px 0 2px 12px;
+  margin: 10px 0 14px;
+}
+
+.cov-readout-at {
+  font: 600 12.5px var(--sans);
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.cov-readout ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cov-readout li {
+  font: 400 12.5px/1.6 var(--sans);
+  color: var(--ink-2);
+  margin: 0 0 3px;
+}
+
+.cov-readout strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.gl-product {
+  font: 400 12px/1.6 var(--sans);
+  color: var(--secondary);
+  border-top: 1px solid var(--hairline);
+  margin-top: 30px;
+  padding-top: 12px;
+}

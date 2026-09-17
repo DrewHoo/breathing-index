@@ -21,6 +21,7 @@ const PUBLIC_DOCUMENTS: Record<string, string> = {
   '/pollen': '/pollen/index.html',
   '/pollen/calendar': '/pollen/calendar.html',
   '/asthma-logbook': '/asthma-logbook/index.html',
+  '/coverage': '/coverage/index.html',
 }
 
 /**
@@ -110,6 +111,11 @@ export default defineConfig({
         // Workbox precaches js/wasm/css/html by default; the self-hosted fonts
         // have to be named or the installed app falls back to system type.
         globPatterns: ['**/*.{js,wasm,css,html,woff2}'],
+        // The coverage map is a destination, not app shell: its page alone is
+        // ~220 KB of baked coastline, and precaching it would tax every
+        // install for a page most sessions never open. The denylist below
+        // already keeps the SW from answering its navigations.
+        globIgnores: ['coverage/**'],
         // /privacy, /terms and the /pollen and /glossary pages are real
         // documents served off disk, not app routes. Without this the
         // navigation fallback answers them from the precached index.html and
@@ -120,6 +126,7 @@ export default defineConfig({
           /^\/pollen/,
           /^\/glossary/,
           /^\/asthma-logbook/,
+          /^\/coverage/,
         ],
         runtimeCaching: [
           {
