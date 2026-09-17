@@ -8,3 +8,6 @@ src/routeTree.gen.ts
 .env.*
 !.env.example
 .dev.vars
+
+# proxy validation cache (scripts/spore_eval.py) — station counts are not ours to redistribute
+scripts/spore_cache/

@@ -64,6 +64,7 @@ Research in [`research/`](../research/). Order matters for the first three; the 
 | 33 | [NWS alerts](33-nws-alerts.md) | S | Official warnings as a banner and diary metadata, never a variable |
 | 34 | [Viral season](34-viral-season.md) | S/M | A ceiling-only calendar term around Labor Day + 17.7 days; NREVSS regional rhinovirus as phase 2 |
 | 35 | [Traffic mixture](35-traffic-mixture.md) | S/L | Measured NO₂ from near-road monitors as the tracer; TEMPO satellite NO₂ as phase 2 |
+| 37 | [Local models](37-local-models.md) | L | `dry_spore_index` validated at six stations and beaten at all six by one variable; per-locale models shipped only where a station validates them |
 
 ## Dependency sketch
 
