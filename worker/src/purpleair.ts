@@ -10,34 +10,32 @@
  * raw rows to a derived value; none returns a row.
  */
 
+import * as v from 'valibot'
+
 /**
  * PurpleAir's /v1/sensors answers columnar: a `fields` list naming the
  * columns and `data` rows in that order. Columns are looked up by name rather
  * than by request order — `sensor_index` arrives whether asked for or not,
- * and the order is the server's to choose.
+ * and the order is the server's to choose. Cell contents stay `unknown` in
+ * the schema; `num()` below is the only reader and it narrows per cell.
  */
-export interface SensorsPayload {
-  fields: string[]
-  data: (number | string | null)[][]
+const SensorsSchema = v.object({
+  fields: v.array(v.string()),
+  data: v.array(v.array(v.unknown())),
   /** epoch seconds — the payload's own clock, the freshness signal */
-  data_time_stamp?: number
-}
+  data_time_stamp: v.fallback(v.optional(v.number()), undefined),
+})
+
+export type SensorsPayload = v.InferOutput<typeof SensorsSchema>
 
 export function parseSensorsPayload(body: unknown): SensorsPayload | null {
-  if (typeof body !== 'object' || body === null) return null
-  const r = body as Record<string, unknown>
-  if (!Array.isArray(r.fields) || !r.fields.every((f) => typeof f === 'string')) return null
-  if (!Array.isArray(r.data) || !r.data.every((row) => Array.isArray(row))) return null
-  return {
-    fields: r.fields,
-    data: r.data as (number | string | null)[][],
-    data_time_stamp: typeof r.data_time_stamp === 'number' ? r.data_time_stamp : undefined,
-  }
+  const parsed = v.safeParse(SensorsSchema, body)
+  return parsed.success ? parsed.output : null
 }
 
 const column = (payload: SensorsPayload, name: string): number => payload.fields.indexOf(name)
 
-const num = (row: (number | string | null)[], i: number): number | null => {
+const num = (row: unknown[], i: number): number | null => {
   if (i < 0) return null
   const v = row[i]
   return typeof v === 'number' && Number.isFinite(v) ? v : null

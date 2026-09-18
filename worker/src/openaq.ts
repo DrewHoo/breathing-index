@@ -7,10 +7,16 @@
  * root tsconfig can include it and vitest can cover it, like geo.ts and
  * purpleair.ts.
  *
+ * Wire shapes are valibot schemas: every row is wrapped in a null fallback
+ * so one odd element never rejects the payload, and the schema validates
+ * only the fields this module reads. Business filtering — dead stations,
+ * restricted licenses, the distance sort — stays in code below.
+ *
  * Values pass through in the provider's own units. The same gas arrives as
  * µg/m³ from the EEA and ppm from AirNow-via-OpenAQ (research/openaq-v3.md,
  * Units), and conversion lives in the client, where it has tests.
  */
+import * as v from 'valibot'
 
 /** The four monitor variables the app tracks, by OpenAQ's parameter name. */
 const VARIABLES: Record<string, string> = {
@@ -42,6 +48,62 @@ const DEAD_STATION_MS = 7 * 24 * 3_600_000
  * value in the series, which is not a claim about recency. */
 const STALE_VALUE_MS = 24 * 3_600_000
 
+const finiteNumber = v.pipe(v.number(), v.finite())
+const nullishString = v.fallback(v.nullish(v.string(), null), null)
+/** A row that fails its schema becomes null and is skipped, never fatal. */
+const rowOf = <const S extends v.GenericSchema>(schema: S) => v.fallback(v.nullable(schema), null)
+
+const LocationSchema = v.object({
+  // id and distance are load-bearing: without either the row is useless,
+  // so their failure nulls the row instead of falling back.
+  id: finiteNumber,
+  distance: finiteNumber,
+  name: nullishString,
+  isMonitor: v.fallback(v.boolean(), false),
+  isMobile: v.fallback(v.boolean(), false),
+  datetimeLast: v.fallback(v.nullish(v.object({ utc: v.string() }), null), null),
+  provider: v.fallback(v.nullish(v.object({ name: nullishString }), null), null),
+  licenses: v.fallback(
+    v.nullish(
+      v.array(
+        rowOf(
+          v.object({
+            id: v.fallback(v.nullish(finiteNumber, null), null),
+            name: nullishString,
+            attribution: v.fallback(
+              v.nullish(v.object({ name: nullishString, url: nullishString }), null),
+              null,
+            ),
+          }),
+        ),
+      ),
+      [],
+    ),
+    [],
+  ),
+  sensors: v.fallback(
+    v.nullish(
+      v.array(rowOf(v.object({ id: finiteNumber, parameter: v.object({ name: v.string(), units: v.string() }) }))),
+      [],
+    ),
+    [],
+  ),
+})
+
+const LocationsPayload = v.object({ results: v.array(rowOf(LocationSchema)) })
+
+const LatestPayload = v.object({
+  results: v.array(
+    rowOf(
+      v.object({
+        sensorsId: finiteNumber,
+        value: finiteNumber,
+        datetime: v.object({ utc: v.string() }),
+      }),
+    ),
+  ),
+})
+
 export interface OaqSensor {
   id: number
   variable: string
@@ -62,58 +124,43 @@ export interface OaqStation {
   sensors: OaqSensor[]
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
-
-const str = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null)
-
-const finite = (v: unknown): number | null =>
-  typeof v === 'number' && Number.isFinite(v) ? v : null
-
 /**
  * The nearest usable reference monitors from a /v3/locations payload:
  * `monitor=true` was on the request, so what's filtered here is what the API
- * can't filter — mobile units, null coordinates, restricted licenses,
- * stations dead for a week — plus the distance sort the API refuses to do
- * (its only sort field is `id`).
+ * can't filter — mobile units, restricted licenses, stations dead for a
+ * week — plus the distance sort the API refuses to do (its only sort field
+ * is `id`).
  */
 export function pickStations(body: unknown, nowMs: number): OaqStation[] {
-  if (!isRecord(body) || !Array.isArray(body.results)) return []
+  const parsed = v.safeParse(LocationsPayload, body)
+  if (!parsed.success) return []
   const picked: OaqStation[] = []
-  for (const raw of body.results) {
-    if (!isRecord(raw)) continue
-    if (raw.isMonitor !== true || raw.isMobile === true) continue
-    const id = finite(raw.id)
-    const distance = finite(raw.distance)
-    if (id === null || distance === null) continue
-    const last = isRecord(raw.datetimeLast) ? str(raw.datetimeLast.utc) : null
+  for (const raw of parsed.output.results) {
+    if (raw === null || !raw.isMonitor || raw.isMobile) continue
+    const last = raw.datetimeLast?.utc ?? null
     if (last === null || nowMs - Date.parse(last) > DEAD_STATION_MS) continue
 
-    const licenses = Array.isArray(raw.licenses) ? raw.licenses.filter(isRecord) : []
-    if (licenses.some((l) => typeof l.id === 'number' && RESTRICTED_LICENSE_IDS.has(l.id))) continue
-    const license = licenses[0]
-    const attribution = license && isRecord(license.attribution) ? license.attribution : null
+    const licenses = raw.licenses.filter((l) => l !== null)
+    if (licenses.some((l) => l.id !== null && RESTRICTED_LICENSE_IDS.has(l.id))) continue
+    const license = licenses[0] ?? null
 
     const sensors: OaqSensor[] = []
-    for (const s of Array.isArray(raw.sensors) ? raw.sensors : []) {
-      if (!isRecord(s) || !isRecord(s.parameter)) continue
-      const sensorId = finite(s.id)
-      const name = str(s.parameter.name)
-      const units = str(s.parameter.units)
-      if (sensorId === null || name === null || units === null) continue
-      const variable = VARIABLES[name]
+    for (const s of raw.sensors) {
+      if (s === null) continue
+      const variable = VARIABLES[s.parameter.name]
       if (!variable) continue
-      sensors.push({ id: sensorId, variable, units })
+      sensors.push({ id: s.id, variable, units: s.parameter.units })
     }
     if (sensors.length === 0) continue
 
     picked.push({
-      id,
-      name: str(raw.name) ?? 'monitoring station',
-      provider: isRecord(raw.provider) ? str(raw.provider.name) : null,
-      attribution: attribution ? str(attribution.name) : null,
-      attributionUrl: attribution ? str(attribution.url) : null,
-      license: license ? str(license.name) : null,
-      km: Math.round((distance / 1000) * 10) / 10,
+      id: raw.id,
+      name: raw.name ?? 'monitoring station',
+      provider: raw.provider?.name ?? null,
+      attribution: license?.attribution?.name ?? null,
+      attributionUrl: license?.attribution?.url ?? null,
+      license: license?.name ?? null,
+      km: Math.round((raw.distance / 1000) * 10) / 10,
       sensors,
     })
   }
@@ -134,19 +181,19 @@ export interface OaqValue {
  * directory doesn't carry (co, no2, humidity…) fall out here.
  */
 export function latestValues(body: unknown, station: OaqStation, nowMs: number): OaqValue[] {
-  if (!isRecord(body) || !Array.isArray(body.results)) return []
+  const parsed = v.safeParse(LatestPayload, body)
+  if (!parsed.success) return []
   const byId = new Map(station.sensors.map((s) => [s.id, s]))
   const newest = new Map<string, OaqValue>()
-  for (const raw of body.results) {
-    if (!isRecord(raw)) continue
-    const sensor = byId.get(finite(raw.sensorsId) ?? -1)
-    const value = finite(raw.value)
-    const utc = isRecord(raw.datetime) ? str(raw.datetime.utc) : null
-    if (!sensor || value === null || value < 0 || utc === null) continue
+  for (const raw of parsed.output.results) {
+    if (raw === null || raw.value < 0) continue
+    const sensor = byId.get(raw.sensorsId)
+    if (!sensor) continue
+    const utc = raw.datetime.utc
     if (nowMs - Date.parse(utc) > STALE_VALUE_MS) continue
     const cur = newest.get(sensor.variable)
     if (!cur || utc > cur.utc) {
-      newest.set(sensor.variable, { variable: sensor.variable, value, units: sensor.units, utc })
+      newest.set(sensor.variable, { variable: sensor.variable, value: raw.value, units: sensor.units, utc })
     }
   }
   return [...newest.values()]

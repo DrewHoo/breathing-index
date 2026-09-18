@@ -5,6 +5,7 @@
  * correction; this module sees a reading or nothing. A comparison in v1 —
  * it never enters the exposure vector and the engine never reads it.
  */
+import * as v from 'valibot'
 import { RELAY_BASE, coarse } from './relay'
 
 export interface PurpleAirReading {
@@ -16,20 +17,24 @@ export interface PurpleAirReading {
   time: string | null
 }
 
-/** The relay's derived shape, or null for anything else — including the
- * `pm25: null, sensors: 0` body a sensorless cell answers with, which is
- * honest absence and renders as nothing. */
+/**
+ * The reading's two load-bearing fields must hold or the whole reading is
+ * refused — which is also what rejects the `pm25: null, sensors: 0` body a
+ * sensorless cell answers with: honest absence, rendered as nothing. The
+ * metadata fields fall back to null instead, because a broken distance
+ * must not cost the number beside it.
+ */
+const ReadingSchema = v.object({
+  pm25: v.pipe(v.number(), v.finite()),
+  sensors: v.pipe(v.number(), v.minValue(1)),
+  nearestKm: v.fallback(v.nullish(v.pipe(v.number(), v.finite()), null), null),
+  time: v.fallback(v.nullish(v.string(), null), null),
+})
+
+/** The relay's derived shape, or null for anything else. */
 export function parsePurpleAir(body: unknown): PurpleAirReading | null {
-  if (typeof body !== 'object' || body === null) return null
-  const r = body as Record<string, unknown>
-  if (typeof r.pm25 !== 'number' || !Number.isFinite(r.pm25)) return null
-  if (typeof r.sensors !== 'number' || r.sensors < 1) return null
-  return {
-    pm25: r.pm25,
-    sensors: r.sensors,
-    nearestKm: typeof r.nearestKm === 'number' && Number.isFinite(r.nearestKm) ? r.nearestKm : null,
-    time: typeof r.time === 'string' ? r.time : null,
-  }
+  const parsed = v.safeParse(ReadingSchema, body)
+  return parsed.success ? parsed.output : null
 }
 
 /**

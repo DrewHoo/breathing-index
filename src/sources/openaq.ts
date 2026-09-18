@@ -8,6 +8,7 @@
  * Only fetched outside AirNow coverage. Inside it, OpenAQ's US provider is
  * AirNow's own data re-served, and the app already has the original.
  */
+import * as v from 'valibot'
 import { RELAY_BASE, coarse } from './relay'
 
 /**
@@ -42,9 +43,39 @@ export interface OpenAqReading {
   values: Partial<Record<'pm25' | 'pm10' | 'o3' | 'so2', number>>
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
-
 const KNOWN = new Set(['pm25', 'pm10', 'o3', 'so2'])
+
+const nullishString = v.fallback(v.nullish(v.string(), null), null)
+
+/**
+ * One relay station. A malformed element anywhere falls back to null and is
+ * skipped, so one odd row never costs the cell — the same rule the hand
+ * guards enforced, in schema form.
+ */
+const StationSchema = v.object({
+  name: v.string(),
+  provider: nullishString,
+  attribution: nullishString,
+  license: nullishString,
+  km: v.fallback(v.nullish(v.pipe(v.number(), v.finite()), null), null),
+  values: v.array(
+    v.fallback(
+      v.nullable(
+        v.object({
+          variable: v.string(),
+          value: v.pipe(v.number(), v.finite()),
+          units: v.string(),
+          utc: nullishString,
+        }),
+      ),
+      null,
+    ),
+  ),
+})
+
+const BodySchema = v.object({
+  stations: v.array(v.fallback(v.nullable(StationSchema), null)),
+})
 
 /** OpenAQ's own placeholder for EEA rows. As a byline it names nobody, so
  * the provider ("EEA") is the more honest credit. */
@@ -59,31 +90,29 @@ const PLACEHOLDER_ATTRIBUTION = 'Unknown Governmental Organization'
  * measures the most.
  */
 export function parseOpenAq(body: unknown): OpenAqReading | null {
-  if (!isRecord(body) || !Array.isArray(body.stations)) return null
+  const parsed = v.safeParse(BodySchema, body)
+  if (!parsed.success) return null
   let best: OpenAqReading | null = null
-  for (const raw of body.stations) {
-    if (!isRecord(raw) || typeof raw.name !== 'string' || !Array.isArray(raw.values)) continue
+  for (const station of parsed.output.stations) {
+    if (station === null) continue
     const values: OpenAqReading['values'] = {}
     let time: string | null = null
-    for (const v of raw.values) {
-      if (!isRecord(v)) continue
-      if (typeof v.variable !== 'string' || !KNOWN.has(v.variable)) continue
-      if (typeof v.value !== 'number' || typeof v.units !== 'string') continue
-      const ugm3 = toUgM3(v.variable, v.value, v.units)
+    for (const reading of station.values) {
+      if (reading === null || !KNOWN.has(reading.variable)) continue
+      const ugm3 = toUgM3(reading.variable, reading.value, reading.units)
       if (ugm3 === null) continue
-      values[v.variable as keyof OpenAqReading['values']] = ugm3
-      if (typeof v.utc === 'string' && (time === null || v.utc > time)) time = v.utc
+      values[reading.variable as keyof OpenAqReading['values']] = ugm3
+      if (reading.utc !== null && (time === null || reading.utc > time)) time = reading.utc
     }
     const count = Object.keys(values).length
     if (count === 0 || (best && count <= Object.keys(best.values).length)) continue
-    const attribution = typeof raw.attribution === 'string' ? raw.attribution : null
     best = {
-      station: raw.name,
+      station: station.name,
       attribution:
-        (attribution === PLACEHOLDER_ATTRIBUTION ? null : attribution) ??
-        (typeof raw.provider === 'string' ? raw.provider : null),
-      license: typeof raw.license === 'string' ? raw.license : null,
-      km: typeof raw.km === 'number' && Number.isFinite(raw.km) ? raw.km : null,
+        (station.attribution === PLACEHOLDER_ATTRIBUTION ? null : station.attribution) ??
+        station.provider,
+      license: station.license,
+      km: station.km,
       time,
       values,
     }

@@ -99,10 +99,18 @@ weights a request by variable count, so one fat air-quality call is more than
 
 ## Parsing at the boundary
 
-- A fetch payload lands as `unknown` and structural guards narrow it.
-  `mold.ts` and `parseGeocodeResults` in `geocodeSearch.ts` are the reference;
-  `(await res.json()) as Payload` in `airnow.ts` and `googlePollen.ts` is the
-  form to migrate away from when those files are next touched.
+- A fetch payload lands as `unknown` and a valibot schema narrows it
+  (adopted Sep 2026; ~1.5 KB gzip measured for the pieces used).
+  `src/sources/openaq.ts` and `worker/src/openaq.ts` are the reference. The
+  rules that make a schema honest here: validate only the fields the module
+  reads; wrap every repeated element in a null fallback so one odd row never
+  rejects the payload; a load-bearing field fails the parse, a metadata
+  field falls back to null; `safeParse` resolves to the source's normal
+  failure value (null), never a throw. Hand-rolled guard sets (`mold.ts`,
+  `geocodeSearch.ts`) and `(await res.json()) as Payload` casts
+  (`airnow.ts`, `googlePollen.ts`, `hmsSmoke.ts`, `reverseGeocode.ts`)
+  migrate to schemas when those files are next touched — the casts first,
+  since they validate nothing today.
 - Sources return parsed, typed domain shapes, never wire JSON. Parsers are
   exported separately from fetchers so they're testable without a network.
 - Parsing lives in the client, where it has tests. The relay normalizes shapes
