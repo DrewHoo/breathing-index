@@ -15,6 +15,7 @@ import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/typ
 import { airNowReport, fetchAirNow, inAirNowCoverage, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
 import { AIRNOW_SOURCE, POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
+import type { OpenAqReading } from '../sources/openaq'
 import type { PurpleAirReading } from '../sources/purpleair'
 
 const POLLEN_ROW_NAMES = { tree: 'Tree pollen', grass: 'Grass pollen', weed: 'Weed pollen' } as const
@@ -346,6 +347,7 @@ function Home() {
         source={data.source}
         utcOffsetSeconds={data.utcOffsetSeconds}
         purpleair={data.purpleair ?? null}
+        openaq={data.openaq ?? null}
       />
     </>
   )
@@ -1970,6 +1972,7 @@ function MeasuredStrip({
   source,
   utcOffsetSeconds,
   purpleair,
+  openaq,
 }: {
   lat: number
   lon: number
@@ -1978,6 +1981,8 @@ function MeasuredStrip({
   utcOffsetSeconds: number
   /** rides the series (specs/37-purpleair.md §5) — this strip never fetches it */
   purpleair: PurpleAirReading | null
+  /** the nearest reference monitor abroad, or null inside AirNow coverage (specs/38-openaq.md) */
+  openaq: OpenAqReading | null
 }) {
   const [report, setReport] = useState<AirNowReport | null>(null)
   const enabled = useMemo(() => loadSettings().airnowEnabled, [])
@@ -2012,7 +2017,35 @@ function MeasuredStrip({
     </span>
   ) : null
 
-  if (!report && !purpleair) return null
+  // The monitor abroad, chipped like AirNow's NowCast values. The station is
+  // named with its distance because a monitor is one instrument at one
+  // address, and kilometres because everywhere this renders speaks them.
+  const OPENAQ_CHIP_LABELS: Record<string, string> = {
+    pm25: 'PM2.5',
+    pm10: 'PM10',
+    o3: 'O3',
+    so2: 'SO2',
+  }
+  const openaqChips = openaq ? (
+    <div className="measured-row">
+      {Object.entries(openaq.values).map(([variable, value]) => (
+        <span key={variable} className="measured-item">
+          {OPENAQ_CHIP_LABELS[variable]} <strong>≈ {Math.round(value)}</strong> µg/m³
+        </span>
+      ))}
+    </div>
+  ) : null
+  const openaqNote = openaq ? (
+    // Both attributions are license terms (research/openaq-v3.md, Licensing):
+    // the provider's where its license asks, and OpenAQ as the access point.
+    <span className="settings-note">
+      Measured at {openaq.station}
+      {openaq.km !== null && `, ${openaq.km} km away`} — data from{' '}
+      {openaq.attribution ?? 'the local network'}, via OpenAQ.
+    </span>
+  ) : null
+
+  if (!report && !purpleair && !openaq) return null
 
   // When the rows above already run on these monitors, every chip here would
   // be the same measurement twice, in the population's unit system instead of
@@ -2049,7 +2082,14 @@ function MeasuredStrip({
     const value = concentrationFromAqi(o.parameter, o.aqi)
     return value === null ? [] : [{ ...o, value, variable: bridgeableParameter(o.parameter)! }]
   })
-  if (chips.length === 0 && !report?.actionDay && !purpleair) return null
+  if (chips.length === 0 && !report?.actionDay && !purpleair && !openaq) return null
+
+  // The note names the hour of the newest value it shows. AirNow's hours
+  // arrive as `YYYY-MM-DDTHH`; OpenAQ's as full ISO — both are UTC and the
+  // screen is local to the location.
+  const openaqHour = openaq?.time
+    ? fmtHour(new Date(Date.parse(openaq.time) + utcOffsetSeconds * 1000).getUTCHours(), false)
+    : ''
 
   const particles = chips.some((c) => c.variable === 'pm25' || c.variable === 'pm10')
   const ozone = chips.some((c) => c.variable === 'o3')
@@ -2058,7 +2098,13 @@ function MeasuredStrip({
     <section className="section">
       <SectionRule
         label="Measured nearby"
-        note={report ? `${report.reportingArea}${hour ? ` · ${hour}` : ''}` : undefined}
+        note={
+          report
+            ? `${report.reportingArea}${hour ? ` · ${hour}` : ''}`
+            : openaq
+              ? `${openaq.station}${openaqHour ? ` · ${openaqHour}` : ''}`
+              : undefined
+        }
         faint
       />
       {report?.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
@@ -2071,6 +2117,7 @@ function MeasuredStrip({
           ))}
         </div>
       )}
+      {openaqChips}
       {sensorLine}
       {chips.length > 0 && (
         // Since spec 22 the rows above are averages too, so "stations report
@@ -2101,6 +2148,7 @@ function MeasuredStrip({
           Ozone: when these disagree, trust the station.
         </span>
       )}
+      {openaqNote}
       {sensorNote}
     </section>
   )
