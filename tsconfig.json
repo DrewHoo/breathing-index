@@ -22,6 +22,8 @@
     "vitest.config.ts",
     "worker/src/geo.ts",
     "worker/src/geo.test.ts",
+    "worker/src/purpleair.ts",
+    "worker/src/purpleair.test.ts",
     "worker/src/mold"
   ]
 }

@@ -15,6 +15,7 @@ import type { DiaryEntry, Prediction, Rating, TriggerModel } from '../engine/typ
 import { airNowReport, fetchAirNow, inAirNowCoverage, type AirNowReport } from '../sources/airnow'
 import { bridgeableParameter, concentrationFromAqi } from '../sources/aqi'
 import { AIRNOW_SOURCE, POLLEN_TYPE_ORDER, type ExposureSeries } from '../sources/openMeteo'
+import type { PurpleAirReading } from '../sources/purpleair'
 
 const POLLEN_ROW_NAMES = { tree: 'Tree pollen', grass: 'Grass pollen', weed: 'Weed pollen' } as const
 import { track } from '../ui/analytics'
@@ -344,6 +345,7 @@ function Home() {
         lon={location.lon}
         source={data.source}
         utcOffsetSeconds={data.utcOffsetSeconds}
+        purpleair={data.purpleair ?? null}
       />
     </>
   )
@@ -1967,12 +1969,15 @@ function MeasuredStrip({
   lon,
   source,
   utcOffsetSeconds,
+  purpleair,
 }: {
   lat: number
   lon: number
   /** the source the rows above run on — what this strip is allowed to repeat */
   source: string
   utcOffsetSeconds: number
+  /** rides the series (specs/37-purpleair.md §5) — this strip never fetches it */
+  purpleair: PurpleAirReading | null
 }) {
   const [report, setReport] = useState<AirNowReport | null>(null)
   const enabled = useMemo(() => loadSettings().airnowEnabled, [])
@@ -1990,26 +1995,46 @@ function MeasuredStrip({
     }
   }, [enabled, lat, lon])
 
-  if (!enabled || !report) return null
+  // The sensor line and its attribution. "Data from PurpleAir" is a license
+  // term (research/purpleair-license.md §4.8), not a courtesy — it renders
+  // whenever the number does.
+  const sensorLine = purpleair ? (
+    <div className="measured-row">
+      <span className="measured-item">
+        PM2.5 <strong>≈ {Math.round(purpleair.pm25)}</strong> µg/m³ ·{' '}
+        {purpleair.sensors === 1 ? 'nearest sensor' : `nearest ${purpleair.sensors} sensors`}
+      </span>
+    </div>
+  ) : null
+  const sensorNote = purpleair ? (
+    <span className="settings-note">
+      Sensor PM2.5 is the corrected median of the nearest outdoor sensors — data from PurpleAir.
+    </span>
+  ) : null
+
+  if (!report && !purpleair) return null
 
   // When the rows above already run on these monitors, every chip here would
   // be the same measurement twice, in the population's unit system instead of
   // the screen's, and the site name is on each row (specs/21-airnow-migration
-  // .md §6). One thing is left that no row can carry: the Action Day, which is
-  // a declaration by an agency rather than a reading. Without one there is
-  // nothing to say, so the section does not appear at all.
+  // .md §6). Two things are left that no row can carry: the Action Day, which
+  // is a declaration by an agency rather than a reading, and the sensor
+  // comparison, which is a different instrument a lot closer to the user.
+  // With neither there is nothing to say, so the section does not appear.
   if (source === AIRNOW_SOURCE) {
-    if (!report.actionDay) return null
+    if (!report?.actionDay && !purpleair) return null
     return (
       <section className="section">
-        <SectionRule label="Measured nearby" note={report.reportingArea} faint />
-        <p className="action-day">⚠ Official air quality Action Day</p>
+        <SectionRule label="Measured nearby" note={report?.reportingArea} faint />
+        {report?.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
+        {sensorLine}
+        {sensorNote}
       </section>
     )
   }
 
   // AirNow's hours are UTC; the rest of the screen is local to the location.
-  const hour = report.time
+  const hour = report?.time
     ? fmtHour(new Date(Date.parse(`${report.time}:00Z`) + utcOffsetSeconds * 1000).getUTCHours(), false)
     : ''
 
@@ -2020,11 +2045,11 @@ function MeasuredStrip({
   // (rare gases, off-table values) stays off the screen rather than showing a
   // number the rows above cannot answer. The points themselves live on only in
   // the diary scoreboard, the one screen official indices are for.
-  const chips = report.observations.flatMap((o) => {
+  const chips = (report?.observations ?? []).flatMap((o) => {
     const value = concentrationFromAqi(o.parameter, o.aqi)
     return value === null ? [] : [{ ...o, value, variable: bridgeableParameter(o.parameter)! }]
   })
-  if (chips.length === 0 && !report.actionDay) return null
+  if (chips.length === 0 && !report?.actionDay && !purpleair) return null
 
   const particles = chips.some((c) => c.variable === 'pm25' || c.variable === 'pm10')
   const ozone = chips.some((c) => c.variable === 'o3')
@@ -2033,17 +2058,20 @@ function MeasuredStrip({
     <section className="section">
       <SectionRule
         label="Measured nearby"
-        note={`${report.reportingArea}${hour ? ` · ${hour}` : ''}`}
+        note={report ? `${report.reportingArea}${hour ? ` · ${hour}` : ''}` : undefined}
         faint
       />
-      {report.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
-      <div className="measured-row">
-        {chips.map((c) => (
-          <span key={c.parameter} className={`measured-item${c.isPrimary ? ' primary' : ''}`}>
-            {c.parameter} <strong>≈ {Math.round(c.value)}</strong> µg/m³
-          </span>
-        ))}
-      </div>
+      {report?.actionDay && <p className="action-day">⚠ Official air quality Action Day</p>}
+      {chips.length > 0 && (
+        <div className="measured-row">
+          {chips.map((c) => (
+            <span key={c.parameter} className={`measured-item${c.isPrimary ? ' primary' : ''}`}>
+              {c.parameter} <strong>≈ {Math.round(c.value)}</strong> µg/m³
+            </span>
+          ))}
+        </div>
+      )}
+      {sensorLine}
       {chips.length > 0 && (
         // Since spec 22 the rows above are averages too, so "stations report
         // averages" named nothing that sets the two apart and left the reader
@@ -2073,6 +2101,7 @@ function MeasuredStrip({
           Ozone: when these disagree, trust the station.
         </span>
       )}
+      {sensorNote}
     </section>
   )
 }

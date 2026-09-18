@@ -1,3 +1,5 @@
 # Copy to .dev.vars (gitignored) and fill from your local .env.local
 AIRNOW_API_KEY=
 GOOGLE_MAPS_API_KEY=
+# Optional — without it /v1/purpleair answers 403 (specs/37-purpleair.md)
+PURPLEAIR_API_KEY=

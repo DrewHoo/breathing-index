@@ -183,7 +183,26 @@ function SettingsScreen() {
               <span className="toggle-knob" />
             </button>
           </div>
+          <div className="settings-row tall">
+            <div className="settings-row-sub">
+              <span className="settings-row-label">PurpleAir sensors</span>
+              <span className="settings-row-hint">
+                nearest outdoor sensors, shown beside the measurements ·{' '}
+                <a href="https://www.purpleair.com" target="_blank" rel="noreferrer">
+                  Powered by PurpleAir
+                </a>
+              </span>
+            </div>
+            <span className="settings-row-hint">where sensors are</span>
+          </div>
         </div>
+        {/* PurpleAir's terms require this notice near their data (§7.3,
+            research/purpleair-license.md) — it is their warranty line, not
+            this app's disclaimer, which is DISCLAIMER and lives elsewhere. */}
+        <span className="settings-note">
+          PurpleAir does not warrant the accuracy or availability of its data in a health or
+          emergency context.
+        </span>
       </section>
 
       <section className="section">
