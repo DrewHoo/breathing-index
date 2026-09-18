@@ -119,6 +119,7 @@ function HelpSheet({
   if (!entryKey) return null
   const entry = GLOSSARY[entryKey]
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: a modal dialog closes on Escape natively; this click handler is only the backdrop-dismiss test
     <dialog
       className="help-sheet"
       ref={ref}
@@ -229,6 +230,7 @@ function GoodSheet({
 
   if (!reference) return null
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: a modal dialog closes on Escape natively; this click handler is only the backdrop-dismiss test
     <dialog
       className="help-sheet"
       ref={ref}
@@ -316,6 +318,7 @@ function EasySheet({
 
   if (!reference) return null
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: a modal dialog closes on Escape natively; this click handler is only the backdrop-dismiss test
     <dialog
       className="help-sheet"
       ref={ref}

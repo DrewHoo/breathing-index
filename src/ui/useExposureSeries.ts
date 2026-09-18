@@ -142,6 +142,7 @@ export function useExposureSeries(): {
 
   const retryLocation = useCallback(() => setAttempt((n) => n + 1), [])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt is the retry trigger — bumping it is how Retry re-runs this effect
   useEffect(() => {
     if (chosenLocation()) return
     let cancelled = false
@@ -194,6 +195,7 @@ export function useExposureSeries(): {
     }
   }, [attempt])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: attempt is the retry trigger here too
   useEffect(() => {
     if (!location) return
     let cancelled = false

@@ -1,0 +1,20 @@
+name: CI
+
+# Until this existed, npm test ran only inside the push-to-main deploy — a PR
+# could land red and the deploy would be the first thing to notice. Same
+# steps as deploy.yml's build job, minus the Pages half.
+on:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run build
+      - run: npm test

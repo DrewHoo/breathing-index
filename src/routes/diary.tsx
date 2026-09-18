@@ -544,6 +544,7 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
           const cy = 26 - stack * 7
           return point.rating === 1 ? (
             <circle
+              // biome-ignore lint/suspicious/noArrayIndexKey: dots are recomputed wholesale from the diary each render and hold no state — the index is the identity
               key={i}
               cx={px.toFixed(1)}
               cy={cy}
@@ -553,6 +554,7 @@ function EvidenceStrip({ row, diary }: { row: EvidenceRowData; diary: DiaryEntry
               strokeWidth={1.4}
             />
           ) : (
+            // biome-ignore lint/suspicious/noArrayIndexKey: same as the ring above
             <circle key={i} cx={px.toFixed(1)} cy={cy} r={3.6} fill={INK[point.rating]} />
           )
         })}
@@ -617,6 +619,7 @@ function ConflictCard({
           className="note-input"
           placeholder="note"
           value={note}
+          // biome-ignore lint/a11y/noAutofocus: the field appears because the user just tapped "+ note"; focusing it is the tap's whole point
           autoFocus
           onChange={(e) => setNote(e.target.value)}
           onBlur={() => onNote(entry.id, note.trim())}

@@ -99,6 +99,7 @@ function SettingsScreen() {
             loud: without role and aria-checked a screen reader hears three
             plain buttons and no answer to "which place am I on?". */}
         <div className="row-card" role="radiogroup" aria-label="Location">
+          {/* biome-ignore lint/a11y/useSemanticElements: these are buttons drawing their own dot (see the comment above the group); a native radio input would restyle a working control for no reader gain */}
           <button
             type="button"
             className="settings-row"
@@ -115,7 +116,8 @@ function SettingsScreen() {
             )}
           </button>
           {settings.locations.map((loc, i) => (
-            <div key={`${loc.label}-${i}`} className="settings-row">
+            <div key={`${loc.label}-${loc.lat},${loc.lon}`} className="settings-row">
+              {/* biome-ignore lint/a11y/useSemanticElements: same drawn-dot button as the auto row above */}
               <button
                 type="button"
                 role="radio"
@@ -417,6 +419,7 @@ function PlaceSearch({
       <input
         className="note-input"
         placeholder="search for a place"
+        // biome-ignore lint/a11y/noAutofocus: the search field is the whole screen the user just asked for
         autoFocus
         autoComplete="off"
         enterKeyHint="search"

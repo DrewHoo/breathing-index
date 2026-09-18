@@ -1,0 +1,26 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  // Lint only: the formatter and assist stay off so Biome never rewrites
+  // style (docs/code-standards.md, Tooling). noNonNullAssertion is off
+  // because `!` after a bounds-checked index is the house pattern under
+  // noUncheckedIndexedAccess. noAssignInExpressions is off because the
+  // `(x ??= {})` lazy-init idiom is established across engine and sources.
+  "files": {
+    "includes": ["**", "!**/routeTree.gen.ts", "!dist", "!public", "!.claude", "!.tanstack", "!worker/node_modules"]
+  },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "domains": { "react": "recommended", "test": "recommended" },
+    "rules": {
+      "recommended": true,
+      "style": {
+        "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noAssignInExpressions": "off"
+      }
+    }
+  }
+}

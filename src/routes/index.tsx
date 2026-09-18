@@ -154,6 +154,7 @@ function Home() {
     track('Diary entry saved', { coldStart, pending: true, totalEntries: diary.length + 1 })
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: one event per data arrival — prediction, stale and source all derive from data, and re-firing on them would double-count the view
   useEffect(() => {
     if (!prediction || !data) return
     track('Prediction viewed', {
@@ -169,11 +170,11 @@ function Home() {
       // the user's actual town.
       locationSource: source,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
   // Entries logged in a dead zone get their air the moment there is air to be
   // had — from the series already on screen where it reaches their hour.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: location and updateDiary are unstable per render; adding them re-fires the backfill fan-out every render. The trigger set is deliberately data+diary until the backfill moves behind the series refresh (docs/code-standards.md, Requests §8)
   useEffect(() => {
     let cancelled = false
     void backfillPending(diary, data, location).then((next) => {
@@ -186,7 +187,6 @@ function Home() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, diary])
 
   // No place, no air — the whole screen is the ask, since a forecast under it
@@ -281,7 +281,7 @@ function Home() {
   // The diary's "+ Log now" (`?log=true`) reopens the ask over an existing
   // answer; a fresh tap closes it. The home screen itself no longer offers a
   // second tap — one answer a visit is the whole idea of the card.
-  const echo = Boolean(forceLog) && justSaved === null ? null : savedEntry
+  const echo = forceLog && justSaved === null ? null : savedEntry
   const showCard = !dismissed
   // A rating binds to the air in `current` forever, so the ask only appears
   // over air from a place the user chose or the device reported. The hook no
@@ -494,6 +494,7 @@ function QuickLogCard({
             className="note-input"
             placeholder="note"
             value={note}
+            // biome-ignore lint/a11y/noAutofocus: the field appears because the user just tapped "+ note"; focusing it is the tap's whole point
             autoFocus
             onChange={(e) => setNote(e.target.value)}
             onBlur={() => onAmend({ note: note.trim() || undefined })}
@@ -1920,6 +1921,7 @@ function ByHour({
         ))}
         {runs.slice(1).map((run, i) => (
           <path
+            // biome-ignore lint/suspicious/noArrayIndexKey: runs are recomputed wholesale from the series each render and the paths hold no state — the index is the identity
             key={`v${i}`}
             d={`M${run.from * step},${y(runs[i]!.level)} V${y(run.level)}`}
             stroke="var(--rule)"
@@ -1929,6 +1931,7 @@ function ByHour({
         ))}
         {runs.map((run, i) => (
           <path
+            // biome-ignore lint/suspicious/noArrayIndexKey: same as the verticals above
             key={`h${i}`}
             d={`M${run.from * step},${y(run.level)} H${Math.min(320, (run.to + 1) * step)}`}
             stroke={SPARK_INK[run.level]}
@@ -1939,6 +1942,7 @@ function ByHour({
       </svg>
       <div className="byhour-ticks">
         {ticks.map((t, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed tick labels, stateless spans
           <span key={i}>{t}</span>
         ))}
       </div>

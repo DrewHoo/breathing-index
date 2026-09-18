@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
-    "test": "node scripts/derive-breakpoints.mjs --check && node scripts/generate-pollen-tables.mjs --check && node scripts/generate-glossary.mjs --check && vitest run",
+    "lint": "biome ci src worker/src scripts vite.config.ts vitest.config.ts index.html",
+    "test": "npm run lint && node scripts/derive-breakpoints.mjs --check && node scripts/generate-pollen-tables.mjs --check && node scripts/generate-glossary.mjs --check && vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.14",
     "@tanstack/router-plugin": "^1.168.26",
     "@types/mixpanel-browser": "^2.60.0",
     "@types/react": "^19.2.18",
