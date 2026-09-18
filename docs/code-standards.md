@@ -161,8 +161,11 @@ weights a request by variable count, so one fat air-quality call is more than
 ## Service worker and perf
 
 - Targets at the 75th percentile of real users: LCP ≤ 2.5 s, INP ≤ 200 ms,
-  CLS ≤ 0.1. The CLS risk here is async data: every value that arrives after a
-  round trip gets a reserved box sized to the real content.
+  CLS ≤ 0.1. CI can assert LCP and CLS in the lab (plus a TBT budget as the
+  responsiveness proxy); INP does not exist without a user, so it is measured
+  from the field only, never asserted in CI. The CLS risk here is async data:
+  every value that arrives after a round trip gets a reserved box sized to the
+  real content.
 - NetworkFirst's `networkTimeoutSeconds` only helps when a cached copy exists;
   a cold cache waits for the full network regardless. So the timeout is the
   time a *returning* visitor waits before seeing data they already have, and
@@ -185,15 +188,25 @@ weights a request by variable count, so one fat air-quality call is more than
   of non-null `!`s. Most of the casts are the cast-and-trust payload reads the
   parsing section already covers. New code narrows with guards instead of
   asserting.
-- Adopt ESLint (flat config) with the `typescript-eslint` recommended set and
-  `eslint-plugin-react-hooks`, wired into `npm test`. **(new — there is no
-  linter today.)** The concrete motivation: `routes/index.tsx` carries two
-  hand-written `eslint-disable-next-line react-hooks/exhaustive-deps` comments
-  for a linter that isn't installed, and one sits on the `[data, diary]`
-  effect behind the backfill request storm. The rule those comments disable is
-  the rule that would have flagged the bug.
+- Adopt Biome, lint only. **(new — there is no linter today.)** ESLint is not
+  actually an option: this repo is on TypeScript 7, whose npm package ships no
+  programmatic compiler API, and typescript-eslint supports only `<6.1.0`
+  until at least TS 7.1. Biome never touches tsc. Verified against this repo
+  (Sep 2026): 95 files in 55 ms, 28 findings, including 8
+  `useExhaustiveDependencies` errors, one of them on the `[data, diary]`
+  effect behind the backfill request storm — the same rule two hand-written
+  `eslint-disable` comments in `routes/index.tsx` reference for a linter that
+  was never installed. Config: `formatter.enabled: false` and
+  `assist.enabled: false` (assist runs under `biome ci` and would enforce
+  import order), `noNonNullAssertion` off (207 hits, 87% of the noise),
+  `routeTree.gen.ts` excluded (the only `any` in the tree is generated). Wire
+  `biome ci` into `npm test`. The known gap: Biome has no `no-unsafe-*`
+  family, the type-aware rules that police untyped JSON. The parsing
+  section's `unknown`-plus-guards rule is the behavioral substitute; revisit
+  the tooling when Biome's types domain leaves nursery.
 - No formatter. Style by imitation has held, and a repo-wide reformat buys
-  churn, not correctness. Revisit if agent diffs get noisy.
+  churn, not correctness. Biome's formatter stays off. Revisit if agent diffs
+  get noisy.
 - `worker/src/index.ts` is typechecked by nothing in CI: the root tsconfig
   hand-lists only the Workers-type-free worker files, and neither workflow
   runs the worker package's own typecheck. Add it to CI. **(new)** The
