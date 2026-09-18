@@ -3,3 +3,5 @@ AIRNOW_API_KEY=
 GOOGLE_MAPS_API_KEY=
 # Optional — without it /v1/purpleair answers 403 (specs/37-purpleair.md)
 PURPLEAIR_API_KEY=
+# Optional — without it /v1/openaq answers 403 (specs/38-openaq.md)
+OPENAQ_API_KEY=

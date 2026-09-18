@@ -22,6 +22,7 @@ import {
   type MoldReading,
 } from './mold'
 import { calendarPollen, monthOf } from './pollenCalendar'
+import { fetchOpenAq, type OpenAqReading } from './openaq'
 import { fetchPurpleAir, type PurpleAirReading } from './purpleair'
 import { recallPollenDays, rememberPollenDays } from './pollenHistory'
 import { POLLEN_PLANTS } from './pollenPlants'
@@ -116,6 +117,12 @@ export interface ExposureSeries {
    * reach or the network is out, which the strip renders as nothing.
    */
   purpleair?: PurpleAirReading
+  /**
+   * The nearest reference monitor's latest values where AirNow has none —
+   * outside the US only, a measured comparison like `purpleair`, never the
+   * vector (specs/38-openaq.md). Carries the attribution the license asks for.
+   */
+  openaq?: OpenAqReading
   /**
    * Which station the mold numbers came from, and what day it counted them.
    *
@@ -656,7 +663,8 @@ export async function fetchExposureSeries(
   // border wants one.
   const wantsSmoke = inAirNowCoverage(lat, lon)
   const moldStation = options.moldStation ?? null
-  const [airRes, weatherRes, pollenDays, monitors, smokeNow, moldNow, purpleNow] = await Promise.all([
+  const [airRes, weatherRes, pollenDays, monitors, smokeNow, moldNow, purpleNow, openaqNow] =
+    await Promise.all([
     fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${airRange}&hourly=${AIR_VARS}`),
     fetch(`https://api.open-meteo.com/v1/forecast?${weatherRange}&hourly=${WEATHER_VARS}`),
     fetchPollen(lat, lon),
@@ -674,6 +682,10 @@ export async function fetchExposureSeries(
     // costs one relay hit against a week-cached empty directory
     // (specs/37-purpleair.md §2). Null on every failure, like the three above.
     fetchPurpleAir(lat, lon),
+    // The inverse gate from the monitors above: outside AirNow's box, OpenAQ
+    // is the only measured source; inside it, OpenAQ's US provider is
+    // AirNow's own feed re-served (specs/38-openaq.md §4).
+    inAirNowCoverage(lat, lon) ? Promise.resolve(null) : fetchOpenAq(lat, lon),
   ])
   if (!airRes.ok || !weatherRes.ok) {
     throw new Error(`Open-Meteo fetch failed (${airRes.status}/${weatherRes.status})`)
@@ -1059,6 +1071,7 @@ export async function fetchExposureSeries(
     ...(measured ? { siteNames: siteNamesOf(measured) } : {}),
     ...(smokeNow?.end ? { smokeAsOf: smokeNow.end } : {}),
     ...(purpleNow ? { purpleair: purpleNow } : {}),
+    ...(openaqNow ? { openaq: openaqNow } : {}),
     // Who counted and when, for the row's note. Taken from the current hour's
     // own window rather than from the fetch, so a reading read back out of the
     // store when the relay is down still names itself — and so the date on the

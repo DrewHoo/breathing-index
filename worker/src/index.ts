@@ -11,6 +11,7 @@
  * the other. Keys live in Wrangler secrets; nothing here reads them from git.
  */
 import { smokeAt } from './geo'
+import { type OaqStation, latestValues, pickStations } from './openaq'
 import { type CellSensor, cellReading, parseSensorsPayload, pickSensors } from './purpleair'
 import { parseCanton } from './mold/canton'
 import { newestHoustonDay, parseHoustonDay } from './mold/houston'
@@ -35,6 +36,8 @@ export interface Env {
    * spends them until a key is deliberately set.
    */
   PURPLEAIR_API_KEY?: string
+  /** Optional, and its absence gates `/v1/openaq` at 403, same pattern. */
+  OPENAQ_API_KEY?: string
   /**
    * `"1"` switches on the AAAAI National Allergy Bureau stations, and nothing
    * else does. It is a licence term rather than a preference — see
@@ -407,6 +410,75 @@ async function purpleAirAnswer(env: Env, lat: string, lon: string): Promise<Resp
   )
 }
 
+/** Stations don't move and their ids are stable, so a week per cell — the
+ * purpleair rhythm. Value staleness is gated per read, not here. */
+const OPENAQ_STATIONS_TTL = 7 * 24 * 3600
+
+/**
+ * One cell's nearest reference monitors with their latest values
+ * (specs/38-openaq.md). Two phases like PurpleAir's: a week-cached station
+ * directory (one /v3/locations call), then one /latest call per station,
+ * joined locally because /latest rows carry a sensorsId and nothing else.
+ * Values pass through in the provider's units with the provider's
+ * attribution — OpenAQ's licenses permit redistribution, and attribution is
+ * the condition (research/openaq-v3.md, Licensing).
+ */
+async function openAqAnswer(env: Env, lat: string, lon: string): Promise<Response> {
+  const headers = { 'X-API-Key': env.OPENAQ_API_KEY ?? '' }
+  const directoryKey = `openaq:stations:v1:${lat},${lon}`
+  let stations: OaqStation[] | null = null
+  const cached = await env.CACHE?.get(directoryKey)
+  if (cached != null) {
+    try {
+      stations = JSON.parse(cached) as OaqStation[]
+    } catch {
+      stations = null
+    }
+  }
+  if (stations === null) {
+    const u = new URL('https://api.openaq.org/v3/locations')
+    // 25 km is the API's maximum radius; monitor=true is the reference-grade
+    // filter (there is no sensorType in v3). The rest of the filtering —
+    // mobile units, dead stations, restricted licenses — happens in
+    // pickStations, because the API can't do it.
+    u.search = new URLSearchParams({
+      coordinates: `${lat},${lon}`,
+      radius: '25000',
+      monitor: 'true',
+      limit: '1000',
+    }).toString()
+    const discovery = await fetch(u, { headers })
+    if (!discovery.ok) return discovery
+    stations = pickStations(await discovery.json(), Date.now())
+    await env.CACHE?.put(directoryKey, JSON.stringify(stations), {
+      expirationTtl: OPENAQ_STATIONS_TTL,
+    })
+  }
+
+  // One /latest per station, in parallel; a station whose call fails is
+  // omitted rather than failing the cell — the client treats a short list
+  // and an empty one the same way.
+  const answers = await Promise.all(
+    stations.map(async (station) => {
+      const res = await fetch(`https://api.openaq.org/v3/locations/${station.id}/latest?limit=1000`, {
+        headers,
+      })
+      if (!res.ok) return null
+      const values = latestValues(await res.json(), station, Date.now())
+      if (values.length === 0) return null
+      const { id: _id, sensors: _sensors, ...pub } = station
+      return { ...pub, values }
+    }),
+  )
+  return new Response(
+    JSON.stringify({
+      stations: answers.filter((a) => a !== null),
+      fetched: new Date().toISOString(),
+    }),
+    { headers: { 'content-type': 'application/json' } },
+  )
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -573,6 +645,14 @@ export default {
       case '/v1/purpleair': {
         if (!env.PURPLEAIR_API_KEY) return json({ error: 'purpleair disabled' }, 403, cors)
         return relay(env, `purpleair:v1:${lat},${lon}`, () => purpleAirAnswer(env, lat, lon), cors)
+      }
+
+      // Reference monitors where AirNow ends (specs/38-openaq.md). The
+      // client only asks from outside AirNow coverage — inside it, OpenAQ's
+      // US provider is AirNow's own data drops, re-served.
+      case '/v1/openaq': {
+        if (!env.OPENAQ_API_KEY) return json({ error: 'openaq disabled' }, 403, cors)
+        return relay(env, `openaq:v1:${lat},${lon}`, () => openAqAnswer(env, lat, lon), cors)
       }
 
       // Is there smoke over this cell, and how thick (specs/25-smoke-variable.md).

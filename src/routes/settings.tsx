@@ -185,6 +185,18 @@ function SettingsScreen() {
           </div>
           <div className="settings-row tall">
             <div className="settings-row-sub">
+              <span className="settings-row-label">Reference monitors abroad</span>
+              <span className="settings-row-hint">
+                government stations outside the US ·{' '}
+                <a href="https://openaq.org" target="_blank" rel="noreferrer">
+                  via OpenAQ
+                </a>
+              </span>
+            </div>
+            <span className="settings-row-hint">where AirNow ends</span>
+          </div>
+          <div className="settings-row tall">
+            <div className="settings-row-sub">
               <span className="settings-row-label">PurpleAir sensors</span>
               <span className="settings-row-hint">
                 nearest outdoor sensors, shown beside the measurements ·{' '}

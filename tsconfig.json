@@ -24,6 +24,8 @@
     "worker/src/geo.test.ts",
     "worker/src/purpleair.ts",
     "worker/src/purpleair.test.ts",
+    "worker/src/openaq.ts",
+    "worker/src/openaq.test.ts",
     "worker/src/mold"
   ]
 }
