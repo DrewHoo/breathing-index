@@ -42,6 +42,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | 17 | [Content pages](17-content-pages.md) | M | Three prerendered essays so the domain can rank for "AQI moderate but hard to breathe" |
 | 19 | [Pollen content pages](19-pollen-content-pages.md) | M | The first content wave, reshaped: per-plant pages + the region×month calendar, generated from the app's own data |
 | 36 | [Glossary pages](36-glossary-pages.md) | M | The one `/glossary` page becomes thirteen: an index and a page per thing in the air, so twelve questions can rank apart |
+| 37 | [PurpleAir](37-purpleair.md) | M | Hyperlocal PM2.5 as a measured comparison: the relay serves an EPA-corrected median per cell, never raw rows, on the license reading in research/purpleair-license.md |
 
 ## Measurement and sources (September 2026 research)
 

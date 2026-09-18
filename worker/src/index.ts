@@ -11,6 +11,7 @@
  * the other. Keys live in Wrangler secrets; nothing here reads them from git.
  */
 import { smokeAt } from './geo'
+import { type CellSensor, cellReading, parseSensorsPayload, pickSensors } from './purpleair'
 import { parseCanton } from './mold/canton'
 import { newestHoustonDay, parseHoustonDay } from './mold/houston'
 import { parseKansasCity } from './mold/kc'
@@ -28,6 +29,12 @@ import {
 export interface Env {
   AIRNOW_API_KEY: string
   GOOGLE_MAPS_API_KEY: string
+  /**
+   * Optional, and its absence gates the route (403), the NAB pattern: the
+   * points behind this key are granted once and never refresh, so nothing
+   * spends them until a key is deliberately set.
+   */
+  PURPLEAIR_API_KEY?: string
   /**
    * `"1"` switches on the AAAAI National Allergy Bureau stations, and nothing
    * else does. It is a licence term rather than a preference — see
@@ -309,6 +316,97 @@ async function moldAnswer(station: Station): Promise<Response> {
   })
 }
 
+/** The discovery box: ±0.15° (~17 km) around the coarse cell. Tighter than
+ * AirNow's ±0.25° because a sensor twenty kilometres away is not "your air"
+ * the way a regulatory monitor is a region's. */
+const PURPLEAIR_BOX = 0.15
+
+/** Sensors don't move: a week of KV per cell keeps discovery — the expensive
+ * bbox query, ~205 points over an urban cell — to one call a week, and an
+ * empty cell (cached just the same) to one a week too. */
+const PURPLEAIR_SENSORS_TTL = 7 * 24 * 3600
+
+const purpleAirUrl = (params: Record<string, string>): URL => {
+  const u = new URL('https://api.purpleair.com/v1/sensors')
+  u.search = new URLSearchParams(params).toString()
+  return u
+}
+
+/** The key rides a header, like Google's — never the URL. */
+const purpleAirFetch = (env: Env, u: URL): Promise<Response> =>
+  fetch(u, { headers: { 'X-API-Key': env.PURPLEAIR_API_KEY ?? '' } })
+
+/**
+ * One cell's derived reading (specs/37-purpleair.md): the EPA-corrected
+ * median of the nearest outdoor sensors. Raw PurpleAir rows exist only inside
+ * this function — the response carries one number, a count, a distance and
+ * the payload's own timestamp, which is the shape the license allows out
+ * (research/purpleair-license.md).
+ */
+async function purpleAirAnswer(env: Env, lat: string, lon: string): Promise<Response> {
+  const directoryKey = `purpleair:sensors:v1:${lat},${lon}`
+  let sensors: CellSensor[] | null = null
+  const cached = await env.CACHE?.get(directoryKey)
+  if (cached != null) {
+    try {
+      sensors = JSON.parse(cached) as CellSensor[]
+    } catch {
+      sensors = null
+    }
+  }
+  if (sensors === null) {
+    // `max_age=86400`: a sensor silent for a day is not in anyone's air.
+    // `location_type=0`: outdoor only — an indoor unit measures a living room.
+    const discovery = await purpleAirFetch(
+      env,
+      purpleAirUrl({
+        fields: 'latitude,longitude,confidence',
+        location_type: '0',
+        max_age: '86400',
+        nwlng: (Number(lon) - PURPLEAIR_BOX).toFixed(2),
+        nwlat: (Number(lat) + PURPLEAIR_BOX).toFixed(2),
+        selng: (Number(lon) + PURPLEAIR_BOX).toFixed(2),
+        selat: (Number(lat) - PURPLEAIR_BOX).toFixed(2),
+      }),
+    )
+    if (!discovery.ok) return discovery
+    const payload = parseSensorsPayload(await discovery.json())
+    if (payload === null) return json({ error: 'unexpected upstream shape' }, 502, {})
+    sensors = pickSensors(payload, Number(lat), Number(lon))
+    await env.CACHE?.put(directoryKey, JSON.stringify(sensors), {
+      expirationTtl: PURPLEAIR_SENSORS_TTL,
+    })
+  }
+
+  const fetched = new Date().toISOString()
+  if (sensors.length === 0) {
+    // Absent, never zero: no usable sensor within reach is a fact about
+    // coverage, and the client renders nothing rather than a 0 µg/m³.
+    return new Response(
+      JSON.stringify({ pm25: null, sensors: 0, nearestKm: null, time: null, fetched }),
+      { headers: { 'content-type': 'application/json' } },
+    )
+  }
+
+  // `max_age=3600` again on the reading: a unit that reported for discovery
+  // last week but not this hour contributes silence, not a stale number.
+  const reading = await purpleAirFetch(
+    env,
+    purpleAirUrl({
+      fields: 'pm2.5_cf_1,humidity',
+      show_only: sensors.map((s) => s.i).join(','),
+      max_age: '3600',
+    }),
+  )
+  if (!reading.ok) return reading
+  const payload = parseSensorsPayload(await reading.json())
+  if (payload === null) return json({ error: 'unexpected upstream shape' }, 502, {})
+  return new Response(
+    JSON.stringify({ ...cellReading(payload, sensors[0]?.km ?? null), fetched }),
+    { headers: { 'content-type': 'application/json' } },
+  )
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
@@ -465,6 +563,16 @@ export default {
           () => fetch(u, { headers: { 'X-Goog-Api-Key': env.GOOGLE_MAPS_API_KEY } }),
           cors,
         )
+      }
+
+      // The nearest outdoor PurpleAir sensors, reduced to one corrected
+      // median (specs/37-purpleair.md). Gated on the key: the points behind
+      // it are a one-time grant, so an unconfigured relay refuses rather
+      // than failing upstream. The hour of KV on the answer plus the week on
+      // the sensor directory (inside purpleAirAnswer) is the point budget.
+      case '/v1/purpleair': {
+        if (!env.PURPLEAIR_API_KEY) return json({ error: 'purpleair disabled' }, 403, cors)
+        return relay(env, `purpleair:v1:${lat},${lon}`, () => purpleAirAnswer(env, lat, lon), cors)
       }
 
       // Is there smoke over this cell, and how thick (specs/25-smoke-variable.md).
