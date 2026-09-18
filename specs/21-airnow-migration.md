@@ -26,7 +26,7 @@ Both endpoints only ever returned AQI points. That's why the strip needs `src/so
 
 7. **Cache.** Same KV pattern, key `airnow:v3:{lat},{lon}`, TTL 1h. `aq/data/` is capped at 500 requests per hour per key per service; the cache stays well under.
 
-8. **Delete `/v1/purpleair`.** It has no client caller. PurpleAir's license forbids combining its data with open-source code, and this repo is public. Remove the route and the secret. If hyperlocal PM is ever wanted, AirGradient's public world endpoint is keyless and license-clean, with about a thousand online CONUS sensors.
+8. **Delete `/v1/purpleair`.** It has no client caller, and it returned PurpleAir's raw payload shape, which §4.7 of their terms bars serving to third parties. Remove the route and the secret. (The license claim this section shipped with — "forbids combining its data with open-source code" — overstated §4.5: PurpleAir staff read that clause as barring redistribution of the data, not open-source code calling the API, and repo visibility is irrelevant to it. The full reading, with the shape of a legal integration, is [research/purpleair-license.md](../research/purpleair-license.md); spec 37 builds it. AirGradient remains the keyless alternative — CC-BY-SA 4.0, so attribution plus share-alike on derived datasets, not obligation-free.)
 
 9. **Backfill follows the same source policy.** `backfillPending` passes the AirNow setting to every history fetch, or a backfilled `cams` entry could be the newest recorded source and push the airnow bounds into `inert`. A pending hour older than the 48 h the monitors cover resolves to an `airnow` series with pm25 and o3 absent, which is correct: unknown air proves nothing.
 
