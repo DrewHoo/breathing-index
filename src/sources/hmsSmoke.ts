@@ -22,6 +22,7 @@
  * fingerprint in `ui/smoke.ts`, applied in feature extraction
  * (specs/25-smoke-variable.md).
  */
+import * as v from 'valibot'
 import { RELAY_BASE, coarse } from './relay'
 
 /** 0 is "no plume over this cell", never "nobody looked". */
@@ -68,17 +69,28 @@ const isDensity = (x: unknown): x is SmokeDensity => x === 0 || x === 1 || x ===
  * take the screen down with it. Absent, the `smoke` variable is simply not in
  * the vector, which is the honest state: nothing was measured.
  */
+/** Density is load-bearing — anything else refuses the answer whole. The
+ * window bounds and metadata fall back rather than costing the density. */
+const AnswerSchema = v.object({
+  density: v.union([v.literal(0), v.literal(1), v.literal(2), v.literal(3)]),
+  start: v.fallback(v.nullish(v.string(), null), null),
+  end: v.fallback(v.nullish(v.string(), null), null),
+  fetched: v.fallback(v.optional(v.string()), undefined),
+  stale: v.fallback(v.optional(v.literal(true)), undefined),
+})
+
 export async function fetchSmoke(lat: number, lon: number): Promise<SmokeAnswer | null> {
   try {
     const res = await fetch(`${RELAY_BASE}/v1/smoke?lat=${coarse(lat)}&lon=${coarse(lon)}`)
     if (!res.ok) return null
-    const body = (await res.json()) as Partial<SmokeAnswer>
-    if (!isDensity(body.density)) return null
+    const parsed = v.safeParse(AnswerSchema, await res.json())
+    if (!parsed.success) return null
+    const body = parsed.output
     return {
       density: body.density,
-      start: typeof body.start === 'string' ? body.start : null,
-      end: typeof body.end === 'string' ? body.end : null,
-      ...(typeof body.fetched === 'string' ? { fetched: body.fetched } : {}),
+      start: body.start,
+      end: body.end,
+      ...(body.fetched !== undefined ? { fetched: body.fetched } : {}),
       ...(body.stale === true ? { stale: true } : {}),
     }
   } catch {

@@ -5,6 +5,7 @@ import {
   coversExposureVector,
   inAirNowCoverage,
   parseAirNow,
+  parseAirNowPayload,
   type AirNowPayload,
   type AirNowRow,
 } from './airnow'
@@ -221,5 +222,53 @@ describe('coverage', () => {
     expect(inAirNowCoverage(21.3, -157.9)).toBe(true) // Honolulu
     expect(inAirNowCoverage(52.37, 4.9)).toBe(false) // Amsterdam
     expect(inAirNowCoverage(-33.87, 151.21)).toBe(false) // Sydney
+  })
+})
+
+describe('parseAirNowPayload', () => {
+  const row = {
+    Latitude: 41.3,
+    Longitude: -72.9,
+    UTC: '2026-09-13T22:00',
+    Parameter: 'PM2.5',
+    Unit: 'UG/M3',
+    Value: 9,
+    RawConcentration: 9,
+    AQI: 38,
+    Category: 1,
+    SiteName: 'New Haven',
+  }
+
+  it('passes well-formed halves through', () => {
+    const payload = parseAirNowPayload({ observations: [row], forecast: [{ actionDay: true }] })
+    expect(payload!.observations).toHaveLength(1)
+    expect(payload!.forecast).toEqual([{ actionDay: true }])
+  })
+
+  it('turns WebServiceError halves into empty arrays, the Anchorage case', () => {
+    const payload = parseAirNowPayload({
+      observations: [row],
+      forecast: { WebServiceError: [{ Message: 'no forecast' }] },
+    })
+    expect(payload!.observations).toHaveLength(1)
+    expect(payload!.forecast).toEqual([])
+  })
+
+  it('drops retired-endpoint rows and fills sentinels for missing fields', () => {
+    const payload = parseAirNowPayload({
+      observations: [
+        { ParameterName: 'PM2.5', HourObserved: 17 }, // retired shape: no Parameter/UTC
+        { Parameter: 'OZONE', UTC: '2026-09-13T22:00' }, // sparse but load-bearing fields present
+      ],
+    })
+    expect(payload!.observations).toHaveLength(1)
+    const sparse = payload!.observations![0]!
+    expect(sparse.RawConcentration).toBe(-999)
+    expect(sparse.AQI).toBe(-1)
+  })
+
+  it('answers null for a body that is not even an object', () => {
+    expect(parseAirNowPayload('gone')).toBeNull()
+    expect(parseAirNowPayload(null)).toBeNull()
   })
 })

@@ -10,15 +10,23 @@
  * ones already sent to Open-Meteo and AirNow (3dp, roughly 110m).
  */
 
+import * as v from 'valibot'
+
 const CACHE_KEY = 'breathing-index.place.v1'
 
-interface RawPlace {
-  city?: string
-  locality?: string
-  principalSubdivision?: string
-  principalSubdivisionCode?: string
-  countryCode?: string
-}
+/** Every field is optional and a non-string falls back to absent — a header
+ * label built from a number would be worse than no label. */
+const optionalString = v.fallback(v.optional(v.string()), undefined)
+
+const PlaceSchema = v.object({
+  city: optionalString,
+  locality: optionalString,
+  principalSubdivision: optionalString,
+  principalSubdivisionCode: optionalString,
+  countryCode: optionalString,
+})
+
+type RawPlace = v.InferOutput<typeof PlaceSchema>
 
 /**
  * "Hamden, CT" in the US and Canada, where the subdivision is how people name
@@ -60,7 +68,9 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string |
     )
     if (!res.ok) return null
 
-    const label = format((await res.json()) as RawPlace)
+    const parsed = v.safeParse(PlaceSchema, await res.json())
+    if (!parsed.success) return null
+    const label = format(parsed.output)
     if (!label) return null
 
     try {

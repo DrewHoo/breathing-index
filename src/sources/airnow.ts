@@ -18,6 +18,7 @@
  * average — so it is the wrong number to run our own windows over, however
  * much more often it is present.
  */
+import * as v from 'valibot'
 import { RELAY_BASE, coarse } from './relay'
 
 /** The AirNow parameters this app has rows for, under the app's own names. */
@@ -97,6 +98,49 @@ export interface AirNowForecastRow {
 export interface AirNowPayload {
   observations?: AirNowRow[]
   forecast?: AirNowForecastRow[]
+}
+
+/**
+ * The wire schema behind that type. Parameter and UTC are load-bearing — a
+ * row without them is a retired-endpoint shape and nulls out, the same skip
+ * `parseAirNow` still performs. Everything else falls back to the value the
+ * parser already treats as absence: −999 is AirNow's own missing-concentration
+ * sentinel, −1 is its "no AQI", and an unlabelled Unit reads as µg/m³ the
+ * way both particle rows do. Non-array halves ({WebServiceError: […]},
+ * the Anchorage case) fall back to empty.
+ */
+const RowSchema = v.object({
+  Parameter: v.string(),
+  UTC: v.string(),
+  Latitude: v.fallback(v.number(), Number.NaN),
+  Longitude: v.fallback(v.number(), Number.NaN),
+  Unit: v.fallback(v.string(), ''),
+  Value: v.fallback(v.number(), -999),
+  RawConcentration: v.fallback(v.number(), -999),
+  AQI: v.fallback(v.number(), -1),
+  Category: v.fallback(v.number(), 0),
+  SiteName: v.fallback(v.string(), ''),
+})
+
+const ForecastRowSchema = v.object({
+  reportingArea: v.fallback(v.optional(v.string()), undefined),
+  dateValid: v.fallback(v.optional(v.string()), undefined),
+  actionDay: v.fallback(v.optional(v.boolean()), undefined),
+})
+
+const PayloadSchema = v.object({
+  observations: v.fallback(v.optional(v.array(v.fallback(v.nullable(RowSchema), null)), []), []),
+  forecast: v.fallback(v.optional(v.array(v.fallback(v.nullable(ForecastRowSchema), null)), []), []),
+})
+
+/** The typed payload, or null for a body that isn't even an object. */
+export function parseAirNowPayload(body: unknown): AirNowPayload | null {
+  const parsed = v.safeParse(PayloadSchema, body)
+  if (!parsed.success) return null
+  return {
+    observations: parsed.output.observations.filter((row) => row !== null),
+    forecast: parsed.output.forecast.filter((row) => row !== null),
+  }
 }
 
 /** One parameter's hourly series from the nearest monitor that reports it. */
@@ -389,7 +433,8 @@ export async function fetchAirNow(lat: number, lon: number): Promise<AirNowObser
   const request = (async () => {
     const res = await fetch(`${RELAY_BASE}/v1/airnow?lat=${coarse(lat)}&lon=${coarse(lon)}`)
     if (!res.ok) return null
-    return parseAirNow((await res.json()) as AirNowPayload, lat, lon)
+    const payload = parseAirNowPayload(await res.json())
+    return payload === null ? null : parseAirNow(payload, lat, lon)
   })()
   inFlight.set(key, request)
   // Held only for the duration of the request: the relay owns the hour of

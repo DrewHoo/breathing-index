@@ -14,6 +14,7 @@
  * or plant Google omits an index for is absent here, not zero — "no data" and
  * "measured none" stay different claims.
  */
+import * as v from 'valibot'
 import { POLLEN_PLANTS, type PollenTypeKey } from './pollenPlants'
 import { RELAY_BASE, coarse } from './relay'
 
@@ -57,6 +58,39 @@ interface RawDay {
 export interface PollenPayload {
   dailyInfo?: RawDay[]
 }
+
+/**
+ * The wire schema behind that type. Everything is optional because
+ * `parsePollen` already treats every field as deniable; a malformed day or
+ * plant entry falls back to an empty object, which the parser skips the same
+ * way it skips a day with no date.
+ */
+const IndexedSchema = v.object({
+  code: v.fallback(v.optional(v.string()), undefined),
+  indexInfo: v.fallback(
+    v.optional(v.object({ value: v.fallback(v.optional(v.number()), undefined) })),
+    undefined,
+  ),
+})
+
+const DaySchema = v.object({
+  date: v.fallback(
+    v.optional(
+      v.object({
+        year: v.fallback(v.optional(v.number()), undefined),
+        month: v.fallback(v.optional(v.number()), undefined),
+        day: v.fallback(v.optional(v.number()), undefined),
+      }),
+    ),
+    undefined,
+  ),
+  pollenTypeInfo: v.fallback(v.optional(v.array(v.fallback(IndexedSchema, {}))), undefined),
+  plantInfo: v.fallback(v.optional(v.array(v.fallback(IndexedSchema, {}))), undefined),
+})
+
+const PayloadSchema = v.object({
+  dailyInfo: v.fallback(v.optional(v.array(v.fallback(DaySchema, {}))), undefined),
+})
 
 /** "2026-08-11" — the prefix of the exposure series' local hour keys. */
 function dateKey(date: RawDay['date']): string | null {
@@ -112,7 +146,9 @@ export async function fetchPollen(lat: number, lon: number): Promise<Map<string,
   try {
     const res = await fetch(`${RELAY_BASE}/v1/pollen?lat=${coarse(lat)}&lon=${coarse(lon)}`)
     if (!res.ok) return null
-    const days = parsePollen((await res.json()) as PollenPayload)
+    const parsed = v.safeParse(PayloadSchema, await res.json())
+    if (!parsed.success) return null
+    const days = parsePollen(parsed.output)
     return days.size > 0 ? days : null
   } catch {
     return null
