@@ -10,6 +10,8 @@
  * and AirNow — a diary should not carry a house-level fix around.
  */
 
+import * as v from 'valibot'
+
 export interface PlaceResult {
   /** stored and shown in the header: "Denver, Colorado" */
   label: string
@@ -19,13 +21,25 @@ export interface PlaceResult {
   lon: number
 }
 
-interface RawResult {
-  name?: string
-  admin1?: string
-  country?: string
-  latitude?: number
-  longitude?: number
-}
+const optionalString = v.fallback(v.optional(v.string()), undefined)
+const optionalNumber = v.fallback(v.optional(v.number()), undefined)
+
+/** Every field deniable, a junk element falling back to an empty object —
+ * `toPlace` already answers null for anything without a name and finite
+ * coordinates, so the schema's job is only to make its input type true. */
+const RawResultSchema = v.object({
+  name: optionalString,
+  admin1: optionalString,
+  country: optionalString,
+  latitude: optionalNumber,
+  longitude: optionalNumber,
+})
+
+const ResultsSchema = v.object({
+  results: v.fallback(v.optional(v.array(v.fallback(RawResultSchema, {})), []), []),
+})
+
+type RawResult = v.InferOutput<typeof RawResultSchema>
 
 const round = (n: number): number => Math.round(n * 1000) / 1000
 
@@ -50,10 +64,10 @@ function toPlace(raw: RawResult): PlaceResult | null {
 
 /** A no-match response has no `results` key at all, which is not an error. */
 export function parseGeocodeResults(body: unknown): PlaceResult[] {
-  const results = (body as { results?: unknown })?.results
-  if (!Array.isArray(results)) return []
-  return results
-    .map((raw) => toPlace(raw as RawResult))
+  const parsed = v.safeParse(ResultsSchema, body)
+  if (!parsed.success) return []
+  return parsed.output.results
+    .map((raw) => toPlace(raw))
     .filter((place): place is PlaceResult => place !== null)
 }
 

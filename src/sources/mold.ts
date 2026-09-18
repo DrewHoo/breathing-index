@@ -34,6 +34,7 @@
  *    is a different claim from "the scraper failed" and a different claim
  *    again from zero spores.
  */
+import * as v from 'valibot'
 import { RELAY_BASE } from './relay'
 
 /** What the relay's directory says about one station — `publicStation` in
@@ -137,13 +138,32 @@ interface StationCache {
   stations: MoldStation[]
 }
 
-const isStation = (x: unknown): x is MoldStation =>
-  typeof x === 'object' &&
-  x !== null &&
-  typeof (x as MoldStation).id === 'string' &&
-  typeof (x as MoldStation).name === 'string' &&
-  Number.isFinite((x as MoldStation).lat) &&
-  Number.isFinite((x as MoldStation).lon)
+/**
+ * One directory row. Identity and coordinates are load-bearing; the rest
+ * falls back to the same defaults `fetchMold` normalizes to, so a directory
+ * from a worker one field ahead of this client still lists its stations
+ * rather than hiding them.
+ */
+const StationSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  lat: v.pipe(v.number(), v.finite()),
+  lon: v.pipe(v.number(), v.finite()),
+  city: v.fallback(v.string(), ''),
+  state: v.fallback(v.string(), ''),
+  cadence: v.fallback(v.picklist(['weekdays', 'weekdays-seasonal']), 'weekdays'),
+  precision: v.fallback(v.picklist(['count', 'category']), 'count'),
+  units: v.fallback(v.picklist(['spores/m3', 'count']), 'spores/m3'),
+  genusLevel: v.fallback(v.boolean(), false),
+  genera: v.fallback(v.array(v.string()), []),
+})
+
+const StationsSchema = v.array(v.fallback(v.nullable(StationSchema), null))
+
+const parseStations = (body: unknown): MoldStation[] => {
+  const parsed = v.safeParse(StationsSchema, body)
+  return parsed.success ? parsed.output.filter((s) => s !== null) : []
+}
 
 function readStationCache(): StationCache | null {
   try {
@@ -151,7 +171,7 @@ function readStationCache(): StationCache | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StationCache>
     if (!Array.isArray(parsed.stations) || typeof parsed.at !== 'number') return null
-    return { at: parsed.at, stations: parsed.stations.filter(isStation) }
+    return { at: parsed.at, stations: parseStations(parsed.stations) }
   } catch {
     // No storage, private mode, or a shape written by a version that thought
     // differently. The directory is one fetch away.
@@ -174,9 +194,7 @@ export async function fetchMoldStations(): Promise<MoldStation[]> {
   try {
     const res = await fetch(`${RELAY_BASE}/v1/mold/stations`)
     if (!res.ok) return cached?.stations ?? []
-    const body: unknown = await res.json()
-    if (!Array.isArray(body)) return cached?.stations ?? []
-    const stations = body.filter(isStation)
+    const stations = parseStations(await res.json())
     if (stations.length === 0) return cached?.stations ?? []
     try {
       localStorage.setItem(STATIONS_KEY, JSON.stringify({ at: Date.now(), stations }))
@@ -261,19 +279,26 @@ export const milesOf = (km: number): number => Math.round(km / KM_PER_MILE)
 
 /* --- one station's reading --- */
 
-const isReading = (x: unknown): x is MoldReading => {
-  const r = x as MoldReading
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    typeof r.stationId === 'string' &&
-    typeof r.name === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/.test(r.date) &&
-    (r.total === null || Number.isFinite(r.total)) &&
-    typeof r.genera === 'object' &&
-    r.genera !== null
-  )
-}
+/**
+ * One station's reading. Identity, the dated day, and a total that is a
+ * number or an honest null are load-bearing; a genus row that isn't a finite
+ * number falls out of the record rather than failing the reading.
+ */
+const ReadingSchema = v.object({
+  stationId: v.string(),
+  name: v.string(),
+  date: v.pipe(v.string(), v.regex(/^\d{4}-\d{2}-\d{2}$/)),
+  total: v.nullable(v.pipe(v.number(), v.finite())),
+  category: v.fallback(v.nullish(v.string(), null), null),
+  genera: v.record(v.string(), v.fallback(v.nullable(v.pipe(v.number(), v.finite())), null)),
+  precision: v.fallback(v.picklist(['count', 'category']), 'count'),
+  units: v.fallback(v.picklist(['spores/m3', 'count']), 'spores/m3'),
+  fetchedAt: v.fallback(v.optional(v.string()), undefined),
+})
+
+/** The history store's read gate reuses the wire schema: a stored day that
+ * would not parse off the network does not get to parse off disk either. */
+const isReading = (x: unknown): x is MoldReading => v.safeParse(ReadingSchema, x).success
 
 /**
  * This station's newest reading, or null.
@@ -290,22 +315,23 @@ export async function fetchMold(stationId: string): Promise<MoldReading | null> 
   try {
     const res = await fetch(`${RELAY_BASE}/v1/mold?station=${encodeURIComponent(stationId)}`)
     if (!res.ok) return null
-    const body: unknown = await res.json()
-    if (!isReading(body)) return null
+    const parsed = v.safeParse(ReadingSchema, await res.json())
+    if (!parsed.success) return null
+    const body = parsed.output
     const genera: Record<string, number> = {}
     for (const [key, value] of Object.entries(body.genera)) {
-      if (typeof value === 'number' && Number.isFinite(value)) genera[key] = value
+      if (value !== null) genera[key] = value
     }
     return {
       stationId: body.stationId,
       name: body.name,
       date: body.date,
-      total: body.total === null ? null : Number(body.total),
-      category: typeof body.category === 'string' ? body.category : null,
+      total: body.total,
+      category: body.category,
       genera,
-      precision: body.precision === 'category' ? 'category' : 'count',
-      units: body.units === 'count' ? 'count' : 'spores/m3',
-      ...(typeof body.fetchedAt === 'string' ? { fetchedAt: body.fetchedAt } : {}),
+      precision: body.precision,
+      units: body.units,
+      ...(body.fetchedAt !== undefined ? { fetchedAt: body.fetchedAt } : {}),
     }
   } catch {
     return null
