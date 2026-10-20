@@ -1658,6 +1658,12 @@ a.air-note {
   margin: 0;
 }
 
+.help-lead {
+  font: 400 14px/1.4 var(--sans);
+  color: var(--ink);
+  margin: 4px 0 0;
+}
+
 .help-meta {
   font: 500 11px/1.4 var(--mono);
   color: var(--secondary);

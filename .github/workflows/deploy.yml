@@ -41,3 +41,15 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Tell Bing and the other IndexNow engines the pages changed. A failed ping
+  # never fails the deploy (the script exits 0); the key file is public/<key>.txt.
+  indexnow:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/indexnow.mjs

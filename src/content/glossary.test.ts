@@ -35,6 +35,7 @@ describe('the entries', () => {
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
       expect(entry.name.trim(), `${key}.name`).not.toBe('')
+      expect(entry.lead.trim(), `${key}.lead`).not.toBe('')
       expect(entry.breathing.trim(), `${key}.breathing`).not.toBe('')
       for (const field of ['what', 'window', 'source'] as const) {
         const part = entry[field]
@@ -48,7 +49,7 @@ describe('the entries', () => {
     // Checked for the three symbols the copy actually uses.
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
-      const text = [entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
+      const text = [entry.lead, entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
       const symbols: [string, string][] = [['µm', 'micrometers'], ['µg/m³', 'micrograms'], ['ppm', 'parts per million']]
       for (const [symbol, word] of symbols) {
         if (text.includes(symbol)) expect(text, `${key} uses ${symbol} without ${word}`).toContain(word)
@@ -136,7 +137,7 @@ describe('what the text may not say', () => {
   it('never puts a second person and a "now" in one sentence', () => {
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
-      const text = [entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
+      const text = [entry.lead, entry.what, entry.breathing, entry.window, entry.source].filter(Boolean).join(' ')
       expect(text, `${key} speaks about the reader's day`).not.toMatch(SPEAKS_ABOUT_TODAY)
     }
   })
@@ -173,6 +174,9 @@ describe('the page each entry gets', () => {
   it('keeps the title and the description inside what a search result shows', () => {
     for (const key of GLOSSARY_ORDER) {
       const entry = GLOSSARY[key]
+      // The title is the question and the lead is its answer, in one sentence.
+      expect(entry.title, `${key} title asks a question`).toMatch(/\?$/)
+      expect(entry.lead, `${key} lead is one sentence`).toMatch(/^[^.!?]+\.$/)
       // The site name the generator appends is part of what gets cut off.
       expect(`${entry.title} — Breathing Index`.length, `${key} title`).toBeLessThanOrEqual(60)
       expect(entry.description.trim(), `${key} description`).not.toBe('')

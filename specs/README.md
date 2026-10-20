@@ -44,6 +44,7 @@ engine audit). Each spec: problem → design → acceptance. Statuses live in th
 | 36 | [Glossary pages](36-glossary-pages.md) | M | The one `/glossary` page becomes thirteen: an index and a page per thing in the air, so twelve questions can rank apart |
 | 37 | [PurpleAir](37-purpleair.md) | M | Hyperlocal PM2.5 as a measured comparison: the relay serves an EPA-corrected median per cell, never raw rows, on the license reading in research/purpleair-license.md |
 | 38 | [OpenAQ](38-openaq.md) | M | Reference monitors where AirNow ends: nearest stations' latest concentrations for non-US cells, attributed per license, comparison only |
+| 39 | [Place pages](39-place-pages.md) | M+S | A crawlable page per US place: what's high right now and how each number is measured here, built hourly by Actions; the plumbing (sitemap, Bing, llms.txt, question titles) that Streak King proved. Supersedes 17 |
 
 ## Measurement and sources (September 2026 research)
 
