@@ -135,14 +135,19 @@ const list = (items) => [
 ]
 
 /**
- * One entry, as the article a term page is. The name is the page's `h1` now
- * rather than one `h2` among twelve: the page is about this one thing, and a
- * crawler should be told so once, at the top.
+ * One entry, as the article a term page is. The page has one `h1`, the
+ * question its title asks: the page is about this one thing, and a crawler
+ * should be told so once, at the top.
  */
 function article(key) {
   const entry = GLOSSARY[key]
+  // The heading is the question the title asks and the lead is its answer,
+  // in that order, before the meta line and the picture: an answer engine
+  // reads the first sentence, and a reader who typed the question gets it
+  // answered before the scroll. The name stays in the crumbs and the rail.
   const head = [
-    `${PAD}<h1>${esc(entry.name)}</h1>`,
+    `${PAD}<h1>${esc(entry.title)}</h1>`,
+    `${PAD}<p class="gl-lead">${esc(entry.lead)}</p>`,
     ...(entry.meta ? [`${PAD}<p class="gl-meta">${esc(entry.meta)}</p>`] : []),
     ...(entry.image
       ? [

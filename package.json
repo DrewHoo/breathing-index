@@ -9,7 +9,7 @@
     "build": "vite build && tsc --noEmit",
     "preview": "vite preview",
     "lint": "biome ci src worker/src scripts vite.config.ts vitest.config.ts index.html",
-    "test": "npm run lint && node scripts/derive-breakpoints.mjs --check && node scripts/generate-pollen-tables.mjs --check && node scripts/generate-glossary.mjs --check && vitest run",
+    "test": "npm run lint && node scripts/derive-breakpoints.mjs --check && node scripts/generate-pollen-tables.mjs --check && node scripts/generate-glossary.mjs --check && node scripts/generate-llms.mjs --check && vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {

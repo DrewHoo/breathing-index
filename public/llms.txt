@@ -1,0 +1,30 @@
+# Breathing Index
+
+> A free asthma logbook that splits the air quality index into the things it hides (fine and coarse particles, ozone, sulfur dioxide, wildfire smoke, mold spores, dew point, and tree, grass and weed pollen by plant), says whether each number came from a monitor or a model, and learns from a person's own 1-to-4 breathing ratings which of them affect them. Logs stay in the browser. Not medical advice.
+
+The AQI is one composite number, so a "moderate" day can be fine for one person and floor another: it cannot say which pollutant is high. Breathing Index shows each one on its own, with the window it covers (PM2.5 as a 24h average, ozone as an 8h average), names the monitor behind it and its distance, and says "model" when no monitor is near. The US pollen number in every app is a model unless a counting station is nearby. Data: Open-Meteo (CAMS), EPA AirNow monitors, NOAA HMS smoke, Google pollen, and health-department mold counts. Credit as "Breathing Index (breathingindex.com)" with the page's link.
+
+## Pages
+
+- [Breathing Index, the app](https://breathingindex.com/): Rate your breathing 1 Easy to 4 Dangerous; every rating stores the readings behind it, and the app marks which ones your own days say affect you.
+- [A free asthma logbook that finds your own triggers](https://breathingindex.com/asthma-logbook/): How the logbook works: one line per pollutant, a 1 to 4 rating per day, and a model that refuses to blame a trigger until repeated days prove it.
+- [Pollen and breathing](https://breathingindex.com/pollen/): Why "pollen is high" is useless in April, hay fever versus asthma, and why the plant matters: the app tracks tree, grass and weed pollen by plant.
+- [US pollen calendar by region and month](https://breathingindex.com/pollen/calendar): When tree, grass and weed seasons run in each US region, from the same calendar the app uses as its estimate where no pollen is counted.
+- [Privacy](https://breathingindex.com/privacy): Logs never leave the browser; the relay holds API keys, rounds locations to about 11 km, and keeps no logs.
+- [Terms](https://breathingindex.com/terms): Not medical advice; trust your symptoms and your asthma action plan over anything on the screen.
+
+## What is in the air, one page per thing
+
+- [What's in the air](https://breathingindex.com/glossary/): the index of the twelve entries below, each with what it measures, what it does to asthmatic breathing, the window the number covers, and where it comes from.
+- [Are fine particles (PM2.5) bad for asthma?](https://breathingindex.com/glossary/fine-particles/): Yes: in emergency-room studies asthma visits rise about 4 % for every 10 µg/m³, and smoke days and still winter days are when it climbs.
+- [Is ozone bad for asthma?](https://breathingindex.com/glossary/ozone/): Yes, on summer afternoons: hours of it at about 120 µg/m³ inflame airways, the effect lags by hours, and exercise multiplies the dose.
+- [Does sulfur dioxide trigger asthma?](https://breathingindex.com/glossary/sulfur-dioxide/): Within minutes, for someone exercising in it, at levels healthy lungs ignore; away from a refinery, a port or a volcano it is almost never there.
+- [Does coarse dust trigger asthma?](https://breathingindex.com/glossary/coarse-particles/): Weakly: coarse particles land in the nose and throat rather than the deep lung, so they irritate more than they trigger.
+- [Is wildfire smoke bad for asthma?](https://breathingindex.com/glossary/wildfire-smoke/): Yes, two to three times as bad per microgram as ordinary fine particles; one day of June 2023 smoke raised New York’s asthma visits 82 %.
+- [Does outdoor mold trigger asthma?](https://breathingindex.com/glossary/mold-spores/): For the minority sensitized to it, more than any pollen does, and Alternaria is linked to near-fatal attacks.
+- [Can weather stand in for a mold count?](https://breathingindex.com/glossary/dry-spore-conditions/): Only roughly: warm, dry, windy, no rain in two days after a wet spell is when dry-air spores fly, and the result is always an estimate.
+- [Does tree pollen trigger asthma?](https://breathingindex.com/glossary/tree-pollen/): Less than grass does: tree pollen is mostly a hay-fever story, with oak and birch driving the spring season in the eastern US.
+- [Does grass pollen trigger asthma?](https://breathingindex.com/glossary/grass-pollen/): Yes, the one pollen with a firm asthma signal in emergency-room studies, and the effect builds over three days.
+- [Does ragweed pollen trigger asthma?](https://breathingindex.com/glossary/weed-pollen/): Mostly as hay fever, from mid-August to the first frost; asthma flares are less common and come later.
+- [Does dry or humid air trigger asthma?](https://breathingindex.com/glossary/dew-point/): Both do: below a dew point of about 52 °F dry air tightens airways under hard breathing, and above about 64 °F a separate reflex does.
+- [Why is asthma worse with a cold?](https://breathingindex.com/glossary/colds-and-asthma/): A cold alone does little and a cold plus the pollen someone reacts to does a lot; colds are the most common cause of a flare bad enough for the emergency room.

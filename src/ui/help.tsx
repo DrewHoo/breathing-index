@@ -135,7 +135,12 @@ function HelpSheet({
       <div className="help-body">
         <div className="help-head">
           <div className="help-heading">
-            <h2 className="help-title">{entry.name}</h2>
+            {/* The question the page's title asks, then its answer: the same
+                two lines the page opens with, so "Yes, on summer afternoons"
+                has a question above it here too. The button that opened the
+                sheet still says "About {name}". */}
+            <h2 className="help-title">{entry.title}</h2>
+            <p className="help-lead">{entry.lead}</p>
             {entry.meta && <p className="help-meta">{entry.meta}</p>}
           </div>
           <button type="button" className="help-close" onClick={() => ref.current?.close()}>

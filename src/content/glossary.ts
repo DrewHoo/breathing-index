@@ -75,8 +75,19 @@ export interface GlossaryEntry {
    * deciding whether to click it.
    */
   slug: string
-  /** the page's `<title>`, without the site name the generator appends */
+  /**
+   * the page's `<title>`, without the site name the generator appends. Worded
+   * as the question somebody types ("Is ozone bad for asthma?"), because an
+   * answer engine cites the page whose title is the question and whose first
+   * sentence is the answer (specs/39-place-pages.md §1).
+   */
   title: string
+  /**
+   * the answer to `title`, in one sentence, at the population level: the
+   * first thing under the heading on the page and in the sheet. Entry copy,
+   * so the part rules govern it.
+   */
+  lead: string
   /**
    * the page's meta description, under 155 characters so a search result
    * shows all of it. Page metadata rather than entry copy: it is written to
@@ -147,7 +158,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm25: {
     name: 'Fine particles',
     slug: 'fine-particles',
-    title: 'Fine particles (PM2.5) and asthma',
+    title: 'Are fine particles (PM2.5) bad for asthma?',
+    lead:
+      'Yes: in emergency-room studies asthma visits rise about 4 % for every 10 µg/m³, and smoke days and still winter days are when it climbs.',
     description:
       'What PM2.5 is, why asthma visits rise about 4 % for every 10 µg/m³, and why the number that matters is a 24-hour average.',
     meta: 'PM2.5 · µg/m³ · 24h average',
@@ -165,7 +178,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   o3: {
     name: 'Ozone',
     slug: 'ozone',
-    title: 'Ozone and asthma',
+    title: 'Is ozone bad for asthma?',
+    lead:
+      'Yes, on summer afternoons: hours of it at about 120 µg/m³ inflame airways, the effect lags by hours, and exercise multiplies the dose.',
     description:
       'Ground-level ozone peaks on summer afternoons, inflames airways over hours, and exercise multiplies the dose. What it does to asthmatic breathing.',
     meta: 'O₃ · µg/m³ · 8h average',
@@ -184,7 +199,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   so2: {
     name: 'SO₂',
     slug: 'sulfur-dioxide',
-    title: 'Sulfur dioxide (SO₂) and asthma',
+    title: 'Does sulfur dioxide trigger asthma?',
+    lead:
+      'Within minutes, for someone exercising in it, at levels healthy lungs ignore; away from a refinery, a port or a volcano it is almost never there.',
     description:
       'Sulfur dioxide tightens exercising asthmatic airways within minutes at levels healthy lungs ignore: the best-proven sudden trigger, and the rarest.',
     meta: 'SO₂ · µg/m³ · the hour',
@@ -203,7 +220,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pm_coarse: {
     name: 'Coarse particles',
     slug: 'coarse-particles',
-    title: 'Coarse particles, dust and grit in the air',
+    title: 'Does coarse dust trigger asthma?',
+    lead:
+      'Weakly: coarse particles land in the nose and throat rather than the deep lung, so they irritate more than they trigger.',
     description:
       'Dust, road grit and soil between 2.5 and 10 micrometers. They land in the nose and throat rather than the deep lung, so they irritate more than trigger.',
     meta: 'PM10 − PM2.5 · µg/m³ · 24h average',
@@ -221,7 +240,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   smoke: {
     name: 'Smoke',
     slug: 'wildfire-smoke',
-    title: 'Wildfire smoke and asthma',
+    title: 'Is wildfire smoke bad for asthma?',
+    lead:
+      'Yes, two to three times as bad per microgram as ordinary fine particles; one day of June 2023 smoke raised New York’s asthma visits 82 %.',
     description:
       'Per microgram, smoke is two to three times as bad as ordinary fine particles. Asthma visits rose 82 % in New York in one day of June 2023 smoke.',
     meta: 'NOAA HMS · light, medium, heavy · the hour',
@@ -239,7 +260,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   mold: {
     name: 'Mold',
     slug: 'mold-spores',
-    title: 'Outdoor mold spores and asthma',
+    title: 'Does outdoor mold trigger asthma?',
+    lead:
+      'For the minority sensitized to it, more than any pollen does, and Alternaria is linked to near-fatal attacks.',
     description:
       'Fungal spores are linked to more asthma visits than any pollen, and Alternaria to near-fatal attacks. How spores are counted and who they matter for.',
     meta: 'spores/m³ · highest of the last 3 counts',
@@ -259,7 +282,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   dry_spore_index: {
     name: 'Dry-spore conditions',
     slug: 'dry-spore-conditions',
-    title: 'Mold spores read off the weather',
+    title: 'Can weather stand in for a mold count?',
+    lead:
+      'Only roughly: warm, dry, windy, no rain in two days after a wet spell is when dry-air spores fly, and the result is always an estimate.',
     description:
       'Warm, dry, windy, no rain in two days, after a wet spell. Five weather conditions standing in for a spore count where nobody is counting spores.',
     meta: 'weather proxy · 0–5 · each hour, in season',
@@ -278,7 +303,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pollen_tree: {
     name: 'Tree pollen',
     slug: 'tree-pollen',
-    title: 'Tree pollen and asthma',
+    title: 'Does tree pollen trigger asthma?',
+    lead:
+      'Less than grass does: tree pollen is mostly a hay-fever story, with oak and birch driving the spring season in the eastern US.',
     description:
       'Oak and birch drive the spring season in the eastern US. Mostly a hay-fever story; the asthma evidence is thinner than it is for grass. What helps.',
     meta: 'Google pollen · 0–5 · the day',
@@ -296,7 +323,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pollen_grass: {
     name: 'Grass pollen',
     slug: 'grass-pollen',
-    title: 'Grass pollen and asthma',
+    title: 'Does grass pollen trigger asthma?',
+    lead:
+      'Yes, the one pollen with a firm asthma signal in emergency-room studies, and the effect builds over three days.',
     description:
       'The only pollen with a firm asthma signal, and it builds over three days. Why a thunderstorm in grass season reaches people with no diagnosis.',
     meta: 'Google pollen · 0–5 · highest of 3 days',
@@ -314,7 +343,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   pollen_weed: {
     name: 'Weed pollen',
     slug: 'weed-pollen',
-    title: 'Ragweed and weed pollen with asthma',
+    title: 'Does ragweed pollen trigger asthma?',
+    lead:
+      'Mostly as hay fever, from mid-August to the first frost; asthma flares are less common and come later.',
     description:
       'Ragweed runs from mid-August to the first frost and is the most common pollen allergy in the eastern US. What it does to breathing, and what helps.',
     meta: 'Google pollen · 0–5 · the day',
@@ -337,7 +368,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   dewpoint: {
     name: 'Dew point',
     slug: 'dew-point',
-    title: 'Dew point, dry air and asthma',
+    title: 'Does dry or humid air trigger asthma?',
+    lead:
+      'Both do: below a dew point of about 52 °F dry air tightens airways under hard breathing, and above about 64 °F a separate reflex does.',
     description:
       'Cold-air asthma is drying, not cold. Below a dew point of 52 °F dry air tightens airways; above 64 °F a separate reflex does. What helps on each side.',
     meta: '°F or °C · the hour',
@@ -357,7 +390,9 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
   viral: {
     name: 'Sick',
     slug: 'colds-and-asthma',
-    title: 'Colds and asthma',
+    title: 'Why is asthma worse with a cold?',
+    lead:
+      'A cold alone does little and a cold plus the pollen someone reacts to does a lot; colds are the most common cause of a flare bad enough for the emergency room.',
     description:
       'A cold alone does little; a cold plus a pollen allergy does a lot. Colds are the most common cause of an asthma flare bad enough for the emergency room.',
     breathing:

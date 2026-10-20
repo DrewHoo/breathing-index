@@ -105,6 +105,13 @@
   margin: 0;
 }
 
+/* The answer to the heading's question, in one sentence, before anything else. */
+.gl-lead {
+  font: 400 17px/1.45 var(--sans);
+  color: var(--ink);
+  margin: -2px 0 0;
+}
+
 /* The mono line under a name: the symbol, the unit and the span. */
 .gl-meta {
   font: 500 11px/1.4 'Spline Sans Mono', ui-monospace, monospace;
