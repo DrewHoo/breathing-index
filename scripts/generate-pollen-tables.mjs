@@ -3,7 +3,7 @@
 // same table the app's fallback estimates come from — and this script renders
 // it as static HTML between `begin generated` / `end generated` markers, so a
 // crawler and the app can never disagree about a season. `--check` (wired into
-// `npm test`) is what keeps the pages and the source from drifting apart.
+// `pnpm test`) is what keeps the pages and the source from drifting apart.
 //
 //   node scripts/generate-pollen-tables.mjs           print the blocks
 //   node scripts/generate-pollen-tables.mjs --check    exit 1 if a page has drifted

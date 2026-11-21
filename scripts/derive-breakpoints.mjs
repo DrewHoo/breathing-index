@@ -4,7 +4,7 @@
 // EPA gases, µg/m³ for particulates and the WHO guidelines — and this script applies the
 // volume-to-mass conversion and emits the µg/m³ block that config.ts carries verbatim,
 // between its `--- derived by ... ---` markers. The engine imports nothing at runtime:
-// its constants stay plain literals, and `--check` (wired into `npm test`) is what keeps
+// its constants stay plain literals, and `--check` (wired into `pnpm test`) is what keeps
 // the literals and this derivation from drifting apart.
 //
 //   node scripts/derive-breakpoints.mjs           print the block

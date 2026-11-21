@@ -11,17 +11,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: worker/package-lock.json
+          cache: 'pnpm'
+          cache-dependency-path: worker/pnpm-lock.yaml
       # Install the worker's own wrangler (4.x, from its lockfile) before the
       # action runs. Without this the action finds no wrangler and installs its
       # default 3.90, whose peer range refuses the worker's
-      # @cloudflare/workers-types 5.x, and the deploy dies in npm before it
+      # @cloudflare/workers-types 5.x, and the deploy dies in the install before it
       # reaches Cloudflare (run 34873703615).
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
         working-directory: worker
       - name: Deploy
         uses: cloudflare/wrangler-action@v3

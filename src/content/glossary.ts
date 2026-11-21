@@ -4,7 +4,7 @@ import { PLANT_BY_VARIABLE } from '../sources/pollenPlants'
  * What each thing in the air is — the one text behind both surfaces that
  * explain it (specs/30-glossary.md). The `?` on a row opens an entry in a
  * sheet; `scripts/generate-glossary.mjs` renders the same entries into
- * `public/glossary/index.html`, and `--check` in `npm test` is what keeps the
+ * `public/glossary/index.html`, and `--check` in `pnpm test` is what keeps the
  * page from drifting away from this file. Neither surface may carry a word the
  * other lacks, which is why there is no second copy of any of it.
  *

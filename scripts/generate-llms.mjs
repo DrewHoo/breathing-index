@@ -9,7 +9,7 @@
 //
 // The glossary lines come from src/content/glossary.ts, the same module the
 // pages render from, so a retitled entry cannot leave a stale line behind. The
-// other pages are listed by hand below; `--check` is in `npm test`.
+// other pages are listed by hand below; `--check` is in `pnpm test`.
 import { readFile, writeFile } from 'node:fs/promises'
 import { register } from 'node:module'
 

@@ -36,7 +36,7 @@ Both endpoints only ever returned AQI points. That's why the strip needs `src/so
 
 ## Acceptance
 
-- No request to a retired path. `npm test` parses an `aq/data/` payload from a real-shape fixture.
+- No request to a retired path. `pnpm test` parses an `aq/data/` payload from a real-shape fixture.
 - In Hamden with AirNow on, the PM2.5 and ozone rows show the New Haven monitor's concentrations, the sub-label names the site, and new diary entries carry `source: 'airnow'`.
 - With AirNow off, or outside the US, the rows run on CAMS exactly as today.
 - The Action Day banner survives the forecast endpoint change. On an `airnow` series the strip is absent unless there is an Action Day.

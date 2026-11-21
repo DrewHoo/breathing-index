@@ -32,6 +32,6 @@ SPEC.md mandates deriving breakpoint constants from primary sources at build tim
 
 ## Acceptance
 
-- `npm test` includes a check that `config.ts` constants equal the derivation script's output.
+- `pnpm test` includes a check that `config.ts` constants equal the derivation script's output.
 - A 150 µg/m³ ozone hour on a fresh profile forecasts a level-3 ceiling.
 - README/copy no longer claim "EPA" for non-EPA rows.

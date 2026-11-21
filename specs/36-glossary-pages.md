@@ -14,7 +14,7 @@ Twelve pages is twelve titles, twelve descriptions and twelve canonical URLs. It
 
 1. **The slug lives beside the copy.** `GlossaryEntry` gains `slug`, `title` and `description`. The slug spells the thing the way a person searches for it rather than the way the engine names the variable: `dew-point`, not `dewpoint`; `sulfur-dioxide`, not `so2`; `colds-and-asthma`, not `viral`. `glossaryHref(key)` is the only place a glossary path is assembled, so the sheet's link, the rail, the cards and the canonical tag cannot disagree about where a thing lives. `title` and `description` are page metadata and not entry copy: the part rules of spec 30 §5 do not reach them, and a test holds them to 60 and 155 characters so a search result shows all of both.
 
-2. **The generator owns whole files.** `scripts/generate-glossary.mjs` writes thirteen complete HTML files instead of filling one block between `begin generated` markers. Twelve hand-kept shells around twelve generated blocks would be twelve more places for a page to drift from the module, and the shells are identical anyway. The page chrome the old shell held — the intro line, the breadcrumbs, the footer — is a named constant in the script, and the disclaimer is imported from `src/ui/labels.ts` rather than copied. `--check` and `--write` keep their contract and `--check` stays in `npm test`.
+2. **The generator owns whole files.** `scripts/generate-glossary.mjs` writes thirteen complete HTML files instead of filling one block between `begin generated` markers. Twelve hand-kept shells around twelve generated blocks would be twelve more places for a page to drift from the module, and the shells are identical anyway. The page chrome the old shell held — the intro line, the breadcrumbs, the footer — is a named constant in the script, and the disclaimer is imported from `src/ui/labels.ts` rather than copied. `--check` and `--write` keep their contract and `--check` stays in `pnpm test`.
 
 3. **`--check` also catches a rename.** A slug that changes leaves the old directory on disk and Pages goes on serving a page nothing links to and no canonical claims. The script treats a directory under `public/glossary` that no slug claims as drift, and `--write` removes it when it holds nothing but an `index.html`.
 
@@ -37,7 +37,7 @@ Twelve pages is twelve titles, twelve descriptions and twelve canonical URLs. It
 - `node scripts/generate-glossary.mjs --check` passes, fails on a hand-edited generated page, and fails on a directory under `public/glossary` that no slug claims.
 - Each of the twelve term pages carries its own title, description and canonical, eleven links to its siblings and a link to the index, and 156 to 395 words of body text with no script on the page.
 - At 390 px the chip row scrolls horizontally, the current term is first, and nothing on the page overflows sideways.
-- `npm run build` and `npm test` pass; `/glossary/ozone/` resolves in `vite dev` and off disk.
+- `pnpm run build` and `pnpm test` pass; `/glossary/ozone/` resolves in `vite dev` and off disk.
 
 ## Non-goals
 

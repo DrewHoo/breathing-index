@@ -12,7 +12,7 @@ Two surfaces, one source of text: a glossary page anyone can link to, and a `?` 
 
 1. **One content module.** `src/content/glossary.ts`: an entry per live variable, keyed by the exposure variable name, with these fields: `name`, `what` (what the number measures, one or two sentences), `breathing` (how it affects breathing in people with asthma, with the evidence tier and the one number worth knowing), `window` (the span the row's number covers and why), `source` (where the number comes from and what "monitor" / "model" / "estimate" mean on that row), `verdicts` (what the row's right-hand words mean here, e.g. "not graded" on PM10, "comfortable" on the dew point). Plain prose, no markdown. Retired variables get no entry; the diary renders them by label alone.
 
-2. **The page.** `/glossary`, prerendered as static HTML under `public/glossary/index.html` by `scripts/generate-glossary.mjs`, exactly the way `generate-pollen-tables.mjs` renders the calendar between `begin generated` / `end generated` markers, with `--check` wired into `npm test` so the page and the module cannot drift. One section per entry in air-table order, a short intro line, the disclaimer, and a link back to the app. Prerendered because the point is that a search for "PM2.5 24-hour mean asthma" or "what is dew point asthma" can land here.
+2. **The page.** `/glossary`, prerendered as static HTML under `public/glossary/index.html` by `scripts/generate-glossary.mjs`, exactly the way `generate-pollen-tables.mjs` renders the calendar between `begin generated` / `end generated` markers, with `--check` wired into `pnpm test` so the page and the module cannot drift. One section per entry in air-table order, a short intro line, the disclaimer, and a link back to the app. Prerendered because the point is that a search for "PM2.5 24-hour mean asthma" or "what is dew point asthma" can land here.
 
 3. **The `?` on the row.** Each `AirRow` gets a `help` key (the variable name; the dew-point row uses `dewpoint`, PM10 uses `pm10`). The row's name renders with a small `?` button after it: 44 px target, `aria-label="About {name}"`, visually a faint circled question mark in the sub-label register so it does not compete with the number. Tapping opens a **bottom sheet** (a native `<dialog>`, no dependency) showing that entry's `what`, `breathing`, `window`, `source`, `verdicts` under small labels, with a close control and a "Full glossary →" link to `/glossary#{key}`. Escape and backdrop close it. On desktop the same dialog is fine; a popover anchored to the `?` is not worth a second layout.
 
@@ -75,7 +75,7 @@ Fourth round, same day (from the design canvas Drew approved):
 
 ## Acceptance
 
-- `/glossary` renders one section per live variable from `glossary.ts`; `npm test` fails if the page drifts.
+- `/glossary` renders one section per live variable from `glossary.ts`; `pnpm test` fails if the page drifts.
 - Every air-table row and diary evidence row has a `?` with a 44 px target and an accessible name; tapping opens a sheet with that entry; Escape and backdrop close it; the sheet links to the page anchor.
 - The text in the sheet and on the page is byte-identical per entry.
 - No entry speaks about the user's own day.

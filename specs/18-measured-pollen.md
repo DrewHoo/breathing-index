@@ -104,7 +104,7 @@ display depth for later (a tappable "which plants" detail).
 - Old diary entries with `grass_pollen`/`birch_pollen`/`ragweed_pollen` still
   render wherever entries are shown and never join a candidate set with the
   new variables.
-- `npm test` covers: payload parse (real-shape fixture), calendar band→UPI
+- `pnpm test` covers: payload parse (real-shape fixture), calendar band→UPI
   mapping, date-keyed hour assignment, fallback tagging.
 
 ## Non-goals (v1)

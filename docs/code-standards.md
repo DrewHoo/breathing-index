@@ -160,7 +160,7 @@ weights a request by variable count, so one fat air-quality call is more than
 ## Generated artifacts
 
 - Generators have three modes: no args prints, `--check` exits 1 on drift,
-  `--write` rewrites. `--check` runs inside `npm test`.
+  `--write` rewrites. `--check` runs inside `pnpm test`.
 - A constant that appears in more than one artifact is generated into all of
   them from one source. `DISCLAIMER` reaches the glossary pages this way and
   is still hand-copied into `index.html`, `privacy.html`, and `terms.html`;
@@ -208,7 +208,7 @@ weights a request by variable count, so one fat air-quality call is more than
   `assist.enabled: false` (assist runs under `biome ci` and would enforce
   import order), `noNonNullAssertion` off (207 hits, 87% of the noise),
   `routeTree.gen.ts` excluded (the only `any` in the tree is generated). Wire
-  `biome ci` into `npm test`. The known gap: Biome has no `no-unsafe-*`
+  `biome ci` into `pnpm test`. The known gap: Biome has no `no-unsafe-*`
   family, the type-aware rules that police untyped JSON. The parsing
   section's `unknown`-plus-guards rule is the behavioral substitute; revisit
   the tooling when Biome's types domain leaves nursery.

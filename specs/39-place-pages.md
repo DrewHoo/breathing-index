@@ -188,7 +188,7 @@ The static build is the first step and most of the work either way.
 ### 4. Question pages
 
 Three pages whose title is the question, built like the glossary pages (prose in
-`src/content/`, a generator, `--check` in `npm test`):
+`src/content/`, a generator, `--check` in `pnpm test`):
 
 - "Why the AQI says moderate but it's hard to breathe". Spec 17's essay, the README
   thesis, with the max()-hides-the-driver mechanics and one real day's rows.

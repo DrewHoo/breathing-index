@@ -102,12 +102,12 @@ conversation goes better with a working thing to point at.
 
 ```bash
 cd worker
-npm install
-npx wrangler login                     # one-time browser auth
-npx wrangler secret put AIRNOW_API_KEY
-npx wrangler secret put GOOGLE_MAPS_API_KEY
-npx wrangler kv namespace create CACHE # then paste the id into wrangler.toml
-npx wrangler deploy                    # prints the *.workers.dev URL
+pnpm install
+pnpm exec wrangler login                     # one-time browser auth
+pnpm exec wrangler secret put AIRNOW_API_KEY
+pnpm exec wrangler secret put GOOGLE_MAPS_API_KEY
+pnpm exec wrangler kv namespace create CACHE # then paste the id into wrangler.toml
+pnpm exec wrangler deploy                    # prints the *.workers.dev URL
 ```
 
 The KV cache is optional but is the cost control: without it every request
@@ -117,14 +117,14 @@ goes upstream. The Cache API is not used because it is a no-op on
 ## Local dev
 
 Copy `.dev.vars.example` to `.dev.vars` (gitignored), fill it from your
-`.env.local`, then `npm run dev` and curl `localhost:8787`.
+`.env.local`, then `pnpm run dev` and curl `localhost:8787`.
 
 ## CI deploys
 
 `.github/workflows/deploy-worker.yml` deploys on pushes to `main` that touch
 `worker/**`. It is inert until the repo has a `CLOUDFLARE_API_TOKEN` Actions
 secret (Cloudflare dashboard → My Profile → API Tokens → "Edit Cloudflare
-Workers" template). Until then, deploy manually with `npx wrangler deploy`.
+Workers" template). Until then, deploy manually with `pnpm exec wrangler deploy`.
 
 ## Spend protection
 

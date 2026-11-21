@@ -15,5 +15,11 @@
   },
   "dependencies": {
     "valibot": "^1.5.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
   }
 }

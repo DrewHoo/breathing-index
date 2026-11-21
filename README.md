@@ -53,10 +53,10 @@ Analytics is Mixpanel, lazy-loaded, pseudonymous (a device ID, not an account) a
 ## Development
 
 ```sh
-npm install
-npm run dev     # local dev server
-npm test        # breakpoint-derivation check + engine fixture suite (vitest)
-npm run build   # vite build + typecheck
+pnpm install
+pnpm run dev     # local dev server
+pnpm test        # breakpoint-derivation check + engine fixture suite (vitest)
+pnpm run build   # vite build + typecheck
 ```
 
 Deploys to GitHub Pages via Actions on every push to `main`. To redeploy without a new commit — or when an Actions incident swallows the push trigger — dispatch it manually:
